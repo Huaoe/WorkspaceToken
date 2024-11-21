@@ -5,8 +5,7 @@ export default function Home() {
   return (
     <main className="min-h-screen p-8">
       <nav className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold">Blockchain Real Estate</h1>
-        <ConnectButton />
+        <h1 className="text-2xl font-bold">Dashboard</h1>
       </nav>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

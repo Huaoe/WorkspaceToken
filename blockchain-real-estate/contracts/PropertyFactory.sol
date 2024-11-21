@@ -25,8 +25,22 @@ contract PropertyFactory is Ownable {
         string memory _description,
         string memory _location,
         string memory _imageUrl,
-        uint256 _price
-    ) public returns (address) {
+        string memory _tokenName,
+        string memory _tokenSymbol,
+        string memory _propertyOwnerAddress,
+        uint256 _pricecreateProperty({
+          args: [
+            data.title,
+            data.description,
+            data.location,
+            data.imageUrl,
+            data.tokenName,
+            data.tokenSymbol,
+            data.propertyOwnerAddress,
+            parseEther(data.price),
+          ],
+        });
+    ) public onlyOwner returns (address) {
         console.log("Creating property with title:", _title);
         console.log("Description:", _description);
         console.log("Location:", _location);

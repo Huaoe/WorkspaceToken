@@ -72,5 +72,24 @@ module.exports = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    function ({ addUtilities }) {
+      addUtilities({
+        '.animate-fade-in': {
+          animation: 'fade-in 0.3s ease-out',
+        },
+        '.animate-slide-in': {
+          animation: 'slide-in 0.3s ease-out',
+        },
+        '@keyframes fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        '@keyframes slide-in': {
+          '0%': { transform: 'translateY(-10px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+      })
+    }
+  ],
 }

@@ -13,6 +13,9 @@ export function Header() {
         </Link>
         
         <nav className="flex items-center gap-4">
+          <Link href="/property/request">
+            <Button variant="outline">Request Property</Button>
+          </Link>
           <Link href="/property/submit">
             <Button variant="outline">Submit Property</Button>
           </Link>
