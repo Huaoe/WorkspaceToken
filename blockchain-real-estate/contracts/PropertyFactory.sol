@@ -13,34 +13,23 @@ contract PropertyFactory is Ownable {
 
     mapping(address => PropertyInfo[]) public userProperties;
     mapping(address => bool) public approvedProperties;
+    address[] private propertyCreators;
     
     event PropertySubmitted(address indexed owner, address indexed tokenAddress);
     event PropertyApproved(address indexed tokenAddress);
     event PropertyRejected(address indexed tokenAddress);
 
-    constructor(address initialOwner) Ownable(initialOwner) {}
+    constructor(address initialOwner) Ownable(initialOwner) {
+        console.log("Initializing PropertyFactory with owner:", initialOwner);
+    }
 
     function createProperty(
         string memory _title,
         string memory _description,
         string memory _location,
         string memory _imageUrl,
-        string memory _tokenName,
-        string memory _tokenSymbol,
-        string memory _propertyOwnerAddress,
-        uint256 _pricecreateProperty({
-          args: [
-            data.title,
-            data.description,
-            data.location,
-            data.imageUrl,
-            data.tokenName,
-            data.tokenSymbol,
-            data.propertyOwnerAddress,
-            parseEther(data.price),
-          ],
-        });
-    ) public onlyOwner returns (address) {
+        uint256 _price
+    ) public returns (address) {
         console.log("Creating property with title:", _title);
         console.log("Description:", _description);
         console.log("Location:", _location);
@@ -50,59 +39,111 @@ contract PropertyFactory is Ownable {
         
         // Input validation with detailed error messages
         require(bytes(_title).length > 0, "Title cannot be empty");
-        require(bytes(_title).length <= 20, "Title too long (max 20 chars)");
         require(bytes(_description).length > 0, "Description cannot be empty");
-        require(bytes(_description).length <= 50, "Description too long (max 50 chars)");
         require(bytes(_location).length > 0, "Location cannot be empty");
-        require(bytes(_location).length <= 20, "Location too long (max 20 chars)");
         require(bytes(_imageUrl).length > 0, "Image URL cannot be empty");
-        require(bytes(_imageUrl).length <= 100, "Image URL too long (max 100 chars)");
         require(_price > 0, "Price must be greater than 0");
-        require(msg.sender != address(0), "Invalid sender address");
-        
+
+        // Create new property token
         PropertyToken newProperty = new PropertyToken(
             _title,
             _description,
             _location,
             _imageUrl,
             _price,
-            msg.sender
+            msg.sender  // Set the property creator as the token owner
         );
+
+        address tokenAddress = address(newProperty);
+        console.log("Created property token at address:", tokenAddress);
         
-        address propertyAddress = address(newProperty);
-        console.log("Property token created at:", propertyAddress);
-        
+        // Store property info under the actual creator's address
         userProperties[msg.sender].push(PropertyInfo({
-            tokenAddress: propertyAddress,
+            tokenAddress: tokenAddress,
             isApproved: false
         }));
-        
-        emit PropertySubmitted(msg.sender, propertyAddress);
-        return propertyAddress;
+
+        // Add creator to list if not already present
+        bool creatorExists = false;
+        for (uint i = 0; i < propertyCreators.length; i++) {
+            if (propertyCreators[i] == msg.sender) {
+                creatorExists = true;
+                break;
+            }
+        }
+        if (!creatorExists) {
+            propertyCreators.push(msg.sender);
+        }
+
+        emit PropertySubmitted(msg.sender, tokenAddress);
+        return tokenAddress;
     }
 
     function approveProperty(address _propertyAddress) public onlyOwner {
+        console.log("Approving property. Caller:", msg.sender);
+        console.log("Property address:", _propertyAddress);
+        console.log("Contract owner:", owner());
+        console.log("Number of property creators:", propertyCreators.length);
+        
+        require(_propertyAddress != address(0), "Invalid property address");
         require(!approvedProperties[_propertyAddress], "Property already approved");
-        
+
+        // Check if the property exists in any user's properties
+        bool propertyFound = false;
+        for (uint i = 0; i < propertyCreators.length; i++) {
+            address creator = propertyCreators[i];
+            console.log("Checking creator:", creator);
+            PropertyInfo[] storage creatorProperties = userProperties[creator];
+            console.log("Creator has", creatorProperties.length, "properties");
+            
+            for (uint j = 0; j < creatorProperties.length; j++) {
+                console.log("Checking property:", creatorProperties[j].tokenAddress);
+                if (creatorProperties[j].tokenAddress == _propertyAddress) {
+                    propertyFound = true;
+                    // Update the approval status in the user's properties
+                    creatorProperties[j].isApproved = true;
+                    break;
+                }
+            }
+            if (propertyFound) break;
+        }
+        require(propertyFound, "Property not found in any user's properties");
+
         approvedProperties[_propertyAddress] = true;
-        PropertyToken(_propertyAddress).setPropertyStatus(true);
-        
         emit PropertyApproved(_propertyAddress);
     }
 
     function rejectProperty(address _propertyAddress) public onlyOwner {
+        require(_propertyAddress != address(0), "Invalid property address");
         require(!approvedProperties[_propertyAddress], "Property already approved");
-        
-        PropertyToken(_propertyAddress).setPropertyStatus(false);
-        
+
+        // Check if the property exists in any user's properties
+        bool propertyFound = false;
+        for (uint i = 0; i < propertyCreators.length; i++) {
+            address creator = propertyCreators[i];
+            PropertyInfo[] storage creatorProperties = userProperties[creator];
+            for (uint j = 0; j < creatorProperties.length; j++) {
+                if (creatorProperties[j].tokenAddress == _propertyAddress) {
+                    propertyFound = true;
+                    break;
+                }
+            }
+            if (propertyFound) break;
+        }
+        require(propertyFound, "Property not found in any user's properties");
+
         emit PropertyRejected(_propertyAddress);
+    }
+
+    function getPropertyStatus(address _propertyAddress) public view returns (bool) {
+        return approvedProperties[_propertyAddress];
     }
 
     function getUserProperties(address _user) public view returns (PropertyInfo[] memory) {
         return userProperties[_user];
     }
 
-    function isPropertyApproved(address _propertyAddress) public view returns (bool) {
-        return approvedProperties[_propertyAddress];
+    function getPropertyCreators() public view returns (address[] memory) {
+        return propertyCreators;
     }
 }

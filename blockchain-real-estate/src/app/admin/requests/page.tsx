@@ -126,7 +126,7 @@ export default function AdminRequests() {
               </Button>
               <Button
                 variant="default"
-                onClick={() => {/* TODO: Implement approval flow */}}
+                onClick={() => router.push(`/admin/requests/${request.id}`)}
               >
                 Review
               </Button>

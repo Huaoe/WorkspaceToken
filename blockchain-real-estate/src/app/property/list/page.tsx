@@ -41,13 +41,20 @@ export default function PropertyList() {
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
 
-  // Get all properties for the current user
+  const { data: factoryOwner } = useContractRead({
+    address: contractAddress as `0x${string}`,
+    abi: propertyFactoryABI,
+    functionName: 'owner',
+  })
+
+  // Get all properties for the factory owner
   const { data: userProperties, isError: isContractError } = useContractRead({
     address: contractAddress as `0x${string}`,
     abi: propertyFactoryABI,
     functionName: 'getUserProperties',
-    args: [address],
+    args: [factoryOwner as `0x${string}`],
     watch: true,
+    enabled: Boolean(factoryOwner),
   })
 
   useEffect(() => {
@@ -235,9 +242,19 @@ export default function PropertyList() {
                   
                   <Button 
                     className="w-full mt-4"
-                    disabled={!property.isActive}
+                    disabled={!property.isActive && factoryOwner?.toLowerCase() !== address?.toLowerCase()}
+                    onClick={() => {
+                      if (!property.isActive && factoryOwner?.toLowerCase() === address?.toLowerCase()) {
+                        window.location.href = `/property/review/${property.tokenAddress}`
+                      }
+                    }}
                   >
-                    {property.isActive ? 'Purchase Tokens' : 'Awaiting Approval'}
+                    {property.isActive 
+                      ? 'Purchase Tokens' 
+                      : factoryOwner?.toLowerCase() === address?.toLowerCase()
+                        ? 'Review Status'
+                        : 'Awaiting Approval'
+                    }
                   </Button>
                 </div>
               </div>

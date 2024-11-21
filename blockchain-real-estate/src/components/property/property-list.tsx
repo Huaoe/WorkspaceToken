@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount, usePublicClient, useNetwork, useSwitchNetwork } from 'wagmi';
+import { useAccount, usePublicClient, useNetwork, useSwitchNetwork, useContractRead } from 'wagmi';
 import { PropertyCard } from './property-card';
 import { Property } from '@/types/property';
 import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI';
@@ -26,6 +26,13 @@ export function PropertyList() {
 
   const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as Address;
 
+  // Read owner from the contract
+  const { data: owner } = useContractRead({
+    address: contractAddress,
+    abi: propertyFactoryABI,
+    functionName: 'owner',
+  });
+
   useEffect(() => {
     async function fetchProperties() {
       try {
@@ -42,33 +49,25 @@ export function PropertyList() {
           return;
         }
 
-        if (!isConnected || !address) {
-          setError('Please connect your wallet');
-          return;
-        }
-
-        console.log('Chain:', chain);
-        console.log('Connected address:', address);
-        console.log('Contract address:', contractAddress);
-
         // Check if contract exists
         const code = await publicClient.getBytecode({ address: contractAddress });
-        console.log('Contract exists:', code !== undefined && code !== '0x');
-        
         if (code === undefined || code === '0x') {
           console.error('❌ No contract code found at the specified address');
           return;
         }
 
-        // Get user's property tokens
+        if (!owner) {
+          console.error('❌ Could not fetch factory owner');
+          return;
+        }
+
+        // Get owner's property tokens
         const data = await publicClient.readContract({
           address: contractAddress,
           abi: propertyFactoryABI,
           functionName: 'getUserProperties',
-          args: [address],
+          args: [owner as Address],
         }) as PropertyToken[];
-
-        console.log('Raw properties data:', data);
 
         if (!data || data.length === 0) {
           console.log('No properties found');
@@ -79,9 +78,7 @@ export function PropertyList() {
         // Fetch details for each property token
         const propertyPromises = data.map(async (token) => {
           try {
-            console.log('Fetching details for token:', token.tokenAddress);
-            
-            const [details, owner] = await Promise.all([
+            const [details, tokenOwner] = await Promise.all([
               publicClient.readContract({
                 address: token.tokenAddress as Address,
                 abi: propertyTokenABI,
@@ -101,65 +98,35 @@ export function PropertyList() {
               name: title,
               description,
               location,
-              price: formatEther(price),
               imageUrl,
-              owner: owner as string,
-              isApproved: token.isApproved,
-              isSold: false, // We'll add this to the contract later
+              price: formatEther(price),
+              owner: tokenOwner as string,
+              status: token.isApproved ? 'approved' as const : 'pending' as const,
             };
           } catch (err) {
-            console.error('Error fetching property details:', err, token.tokenAddress);
+            console.error('Error fetching property details:', err);
             return null;
           }
         });
 
-        const propertyDetails = await Promise.all(propertyPromises);
-        const validProperties = propertyDetails.filter((p): p is Property => p !== null);
-        
-        console.log('Formatted properties:', validProperties);
-        setProperties(validProperties);
+        const fetchedProperties = (await Promise.all(propertyPromises))
+          .filter((property): property is Property => property !== null);
+
+        console.log('Fetched properties:', fetchedProperties);
+        setProperties(fetchedProperties);
       } catch (err) {
         console.error('Error fetching properties:', err);
-        setError('Error fetching properties. Check console for details.');
+        setError(err instanceof Error ? err.message : 'Failed to fetch properties');
       } finally {
         setLoading(false);
       }
     }
 
     fetchProperties();
-  }, [address, isConnected, publicClient, contractAddress, chain, switchNetwork]);
-
-  if (!isConnected) {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-semibold mb-4">Connect Your Wallet</h2>
-        <p className="text-gray-600">Please connect your wallet to view your properties</p>
-      </div>
-    );
-  }
-
-  if (chain?.unsupported) {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-semibold mb-4 text-red-600">Wrong Network</h2>
-        <p className="text-gray-600">Please switch to {hardhatChain.name} (Chain ID: {hardhatChain.id})</p>
-        <p className="text-sm text-gray-500 mt-4">
-          Network Details:
-          <br />
-          Network Name: {hardhatChain.name}
-          <br />
-          RPC URL: {hardhatChain.rpcUrls.default.http[0]}
-          <br />
-          Chain ID: {hardhatChain.id}
-          <br />
-          Currency Symbol: {hardhatChain.nativeCurrency.symbol}
-        </p>
-      </div>
-    );
-  }
+  }, [chain, contractAddress, owner, publicClient, switchNetwork]);
 
   if (error) {
-    return <div className="text-red-500 text-center p-4">{error}</div>;
+    return <div className="text-center text-red-500 p-4">{error}</div>;
   }
 
   if (loading) {
@@ -167,13 +134,17 @@ export function PropertyList() {
   }
 
   if (properties.length === 0) {
-    return <div className="text-center p-4">No properties found</div>;
+    return <div className="text-center p-4">No properties available</div>;
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {properties.map((property) => (
-        <PropertyCard key={property.id} property={property} />
+        <PropertyCard 
+          key={property.id} 
+          property={property}
+          showAdminControls={false}
+        />
       ))}
     </div>
   );

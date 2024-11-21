@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\PropertyFactory.sol": {
-      "lastModificationDate": 1732191755360,
-      "contentHash": "1913fca010ed69bf3cb5582a36135b2b",
+      "lastModificationDate": 1732225741777,
+      "contentHash": "fdb1fe2502805e4094f2b2ac9cb63856",
       "sourceName": "contracts/PropertyFactory.sol",
       "solcConfig": {
         "version": "0.8.20",

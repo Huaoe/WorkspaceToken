@@ -41,8 +41,9 @@ export interface PropertyFactoryInterface extends Interface {
       | "approveProperty"
       | "approvedProperties"
       | "createProperty"
+      | "getPropertyCreators"
+      | "getPropertyStatus"
       | "getUserProperties"
-      | "isPropertyApproved"
       | "owner"
       | "rejectProperty"
       | "renounceOwnership"
@@ -71,11 +72,15 @@ export interface PropertyFactoryInterface extends Interface {
     values: [string, string, string, string, BigNumberish]
   ): string;
   encodeFunctionData(
-    functionFragment: "getUserProperties",
+    functionFragment: "getPropertyCreators",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getPropertyStatus",
     values: [AddressLike]
   ): string;
   encodeFunctionData(
-    functionFragment: "isPropertyApproved",
+    functionFragment: "getUserProperties",
     values: [AddressLike]
   ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
@@ -109,11 +114,15 @@ export interface PropertyFactoryInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "getUserProperties",
+    functionFragment: "getPropertyCreators",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "isPropertyApproved",
+    functionFragment: "getPropertyStatus",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getUserProperties",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
@@ -252,15 +261,17 @@ export interface PropertyFactory extends BaseContract {
     "nonpayable"
   >;
 
-  getUserProperties: TypedContractMethod<
-    [_user: AddressLike],
-    [PropertyFactory.PropertyInfoStructOutput[]],
+  getPropertyCreators: TypedContractMethod<[], [string[]], "view">;
+
+  getPropertyStatus: TypedContractMethod<
+    [_propertyAddress: AddressLike],
+    [boolean],
     "view"
   >;
 
-  isPropertyApproved: TypedContractMethod<
-    [_propertyAddress: AddressLike],
-    [boolean],
+  getUserProperties: TypedContractMethod<
+    [_user: AddressLike],
+    [PropertyFactory.PropertyInfoStructOutput[]],
     "view"
   >;
 
@@ -310,15 +321,18 @@ export interface PropertyFactory extends BaseContract {
     "nonpayable"
   >;
   getFunction(
+    nameOrSignature: "getPropertyCreators"
+  ): TypedContractMethod<[], [string[]], "view">;
+  getFunction(
+    nameOrSignature: "getPropertyStatus"
+  ): TypedContractMethod<[_propertyAddress: AddressLike], [boolean], "view">;
+  getFunction(
     nameOrSignature: "getUserProperties"
   ): TypedContractMethod<
     [_user: AddressLike],
     [PropertyFactory.PropertyInfoStructOutput[]],
     "view"
   >;
-  getFunction(
-    nameOrSignature: "isPropertyApproved"
-  ): TypedContractMethod<[_propertyAddress: AddressLike], [boolean], "view">;
   getFunction(
     nameOrSignature: "owner"
   ): TypedContractMethod<[], [string], "view">;
