@@ -44,7 +44,7 @@ const formSchema = z.object({
   documents_url: z.string()
     .url('Please enter a valid URL for documents')
     .optional(),
-  status: z.enum(['pending', 'approved', 'rejected']),
+  status: z.enum(['pending', 'approved', 'rejected', 'onchain']),
   owner_address: z.string(),
 })
 
@@ -78,9 +78,26 @@ export default function ReviewRequest() {
 
   const { isLoading: isPropertyCreating } = useWaitForTransaction({
     hash: createPropertyData?.hash,
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Update status to onchain in Supabase
+      const { error: updateError } = await supabase
+        .from('property_requests')
+        .update({
+          status: 'onchain'
+        })
+        .eq('id', params.id);
+
+      if (updateError) {
+        toast({
+          title: "Warning",
+          description: "Property created on chain but failed to update status",
+          variant: "destructive",
+          duration: 5000,
+        });
+      }
+
       toast({
-        title: "Success! ",
+        title: "Success!",
         description: "Property created successfully on the blockchain!",
         duration: 5000,
       });
@@ -252,9 +269,13 @@ export default function ReviewRequest() {
               variant={
                 form.getValues("status") === 'approved' ? 'success' :
                 form.getValues("status") === 'rejected' ? 'destructive' :
+                form.getValues("status") === 'pending' ? 'secondary' :
+                form.getValues("status") === 'onchain' ? 'purple' :
                 'outline'
               }
+              className={form.getValues("status") === 'onchain' ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}
             >
+              {form.getValues("status") === 'onchain' ? '🦄 ' : ''}
               {form.getValues("status")?.charAt(0).toUpperCase() + form.getValues("status")?.slice(1)}
             </Badge>
           </div>
@@ -387,20 +408,26 @@ export default function ReviewRequest() {
                           className={`flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
                             field.value === 'approved' ? 'text-green-600' : 
                             field.value === 'rejected' ? 'text-red-600' : 
+                            field.value === 'onchain' ? 'text-blue-600' : 
                             'text-yellow-600'
                           }`}
                         >
                           <option value="pending">Pending</option>
                           <option value="approved">Approved</option>
                           <option value="rejected">Rejected</option>
+                          <option value="onchain">On-chain</option>
                         </select>
                         <Badge 
                           variant={
                             field.value === 'approved' ? 'success' :
                             field.value === 'rejected' ? 'destructive' :
+                            field.value === 'pending' ? 'secondary' :
+                            field.value === 'onchain' ? 'purple' :
                             'outline'
                           }
+                          className={field.value === 'onchain' ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}
                         >
+                          {field.value === 'onchain' ? '🦄 ' : ''}
                           {field.value.charAt(0).toUpperCase() + field.value.slice(1)}
                         </Badge>
                       </div>
@@ -435,7 +462,7 @@ export default function ReviewRequest() {
                   type="button"
                   variant="destructive"
                   onClick={() => onCreateProperty(form.getValues())}
-                  disabled={loading || isPropertyCreating}
+                  disabled={loading || isPropertyCreating || form.getValues('status') !== 'approved' || form.getValues('status') === 'onchain'}
                 >
                   Create Property
                 </Button>

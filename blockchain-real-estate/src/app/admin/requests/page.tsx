@@ -8,7 +8,7 @@ import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI';
 import { supabase } from '@/lib/supabase';
 import { Address } from 'viem';
 import { useRouter } from 'next/navigation';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge'; 
 
 interface PropertyRequest {
   id: string;
@@ -18,6 +18,7 @@ interface PropertyRequest {
   image_url: string;
   expected_price: string;
   documents?: string;
+  dDocuments?: string;
   wallet_address: string;
   created_at: string;
   status: string;
@@ -27,6 +28,7 @@ export default function AdminRequests() {
   const [requests, setRequests] = useState<PropertyRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   
   const { address, isConnected } = useAccount();
@@ -40,6 +42,12 @@ export default function AdminRequests() {
   });
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
     if (!isConnected || !address) {
       router.push('/');
       return;
@@ -52,7 +60,7 @@ export default function AdminRequests() {
     }
 
     fetchRequests();
-  }, [address, isConnected, owner]);
+  }, [address, isConnected, owner, mounted]);
 
   async function fetchRequests() {
     try {
@@ -63,6 +71,7 @@ export default function AdminRequests() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      console.log('Fetched requests:', data);
       setRequests(data || []);
     } catch (err) {
       console.error('Error fetching requests:', err);
@@ -70,6 +79,11 @@ export default function AdminRequests() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Early return for non-mounted state
+  if (!mounted) {
+    return null;
   }
 
   if (!isConnected || !address) {
@@ -93,7 +107,12 @@ export default function AdminRequests() {
       <h1 className="text-3xl font-bold mb-8">Property Requests</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {requests.map((request) => (
-          <Card key={request.id} className="flex flex-col">
+          <Card 
+            key={request.id} 
+            className="flex flex-col cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => request.documents && window.open(request.documents, '_blank')}
+            style={{ cursor: request.documents ? 'pointer' : 'default' }}
+          >
             <CardHeader>
               <CardTitle>{request.title}</CardTitle>
               <CardDescription>{request.location}</CardDescription>
@@ -115,9 +134,13 @@ export default function AdminRequests() {
                   variant={
                     request.status === 'approved' ? 'success' :
                     request.status === 'rejected' ? 'destructive' :
+                    request.status === 'pending' ? 'secondary' :
+                    request.status === 'onchain' ? 'purple' :
                     'outline'
                   }
+                  className={request.status === 'onchain' ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}
                 >
+                  {request.status === 'onchain' ? ' ' : ''}
                   {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                 </Badge>
               </div>
@@ -125,7 +148,10 @@ export default function AdminRequests() {
             <CardFooter className="flex justify-between">
               <Button
                 variant="outline"
-                onClick={() => window.open(request.documents, '_blank')}
+                onClick={() => {
+                  console.log('Documents URL:', request.documents);
+                  window.open(request.documents, '_blank');
+                }}
                 disabled={!request.documents}
               >
                 View Documents
