@@ -41,6 +41,7 @@ export interface PropertyFactoryInterface extends Interface {
       | "approveProperty"
       | "approvedProperties"
       | "createProperty"
+      | "eurcTokenAddress"
       | "getPropertyCreators"
       | "getPropertyStatus"
       | "getUserProperties"
@@ -48,11 +49,13 @@ export interface PropertyFactoryInterface extends Interface {
       | "rejectProperty"
       | "renounceOwnership"
       | "transferOwnership"
+      | "updateEURCToken"
       | "userProperties"
   ): FunctionFragment;
 
   getEvent(
     nameOrSignatureOrTopic:
+      | "EURCTokenUpdated"
       | "OwnershipTransferred"
       | "PropertyApproved"
       | "PropertyRejected"
@@ -70,6 +73,10 @@ export interface PropertyFactoryInterface extends Interface {
   encodeFunctionData(
     functionFragment: "createProperty",
     values: [string, string, string, string, BigNumberish]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "eurcTokenAddress",
+    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "getPropertyCreators",
@@ -97,6 +104,10 @@ export interface PropertyFactoryInterface extends Interface {
     values: [AddressLike]
   ): string;
   encodeFunctionData(
+    functionFragment: "updateEURCToken",
+    values: [AddressLike]
+  ): string;
+  encodeFunctionData(
     functionFragment: "userProperties",
     values: [AddressLike, BigNumberish]
   ): string;
@@ -111,6 +122,10 @@ export interface PropertyFactoryInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "createProperty",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "eurcTokenAddress",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -139,9 +154,25 @@ export interface PropertyFactoryInterface extends Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "updateEURCToken",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "userProperties",
     data: BytesLike
   ): Result;
+}
+
+export namespace EURCTokenUpdatedEvent {
+  export type InputTuple = [newAddress: AddressLike];
+  export type OutputTuple = [newAddress: string];
+  export interface OutputObject {
+    newAddress: string;
+  }
+  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+  export type Filter = TypedDeferredTopicFilter<Event>;
+  export type Log = TypedEventLog<Event>;
+  export type LogDescription = TypedLogDescription<Event>;
 }
 
 export namespace OwnershipTransferredEvent {
@@ -261,6 +292,8 @@ export interface PropertyFactory extends BaseContract {
     "nonpayable"
   >;
 
+  eurcTokenAddress: TypedContractMethod<[], [string], "view">;
+
   getPropertyCreators: TypedContractMethod<[], [string[]], "view">;
 
   getPropertyStatus: TypedContractMethod<
@@ -287,6 +320,12 @@ export interface PropertyFactory extends BaseContract {
 
   transferOwnership: TypedContractMethod<
     [newOwner: AddressLike],
+    [void],
+    "nonpayable"
+  >;
+
+  updateEURCToken: TypedContractMethod<
+    [_newEURCToken: AddressLike],
     [void],
     "nonpayable"
   >;
@@ -321,6 +360,9 @@ export interface PropertyFactory extends BaseContract {
     "nonpayable"
   >;
   getFunction(
+    nameOrSignature: "eurcTokenAddress"
+  ): TypedContractMethod<[], [string], "view">;
+  getFunction(
     nameOrSignature: "getPropertyCreators"
   ): TypedContractMethod<[], [string[]], "view">;
   getFunction(
@@ -346,6 +388,9 @@ export interface PropertyFactory extends BaseContract {
     nameOrSignature: "transferOwnership"
   ): TypedContractMethod<[newOwner: AddressLike], [void], "nonpayable">;
   getFunction(
+    nameOrSignature: "updateEURCToken"
+  ): TypedContractMethod<[_newEURCToken: AddressLike], [void], "nonpayable">;
+  getFunction(
     nameOrSignature: "userProperties"
   ): TypedContractMethod<
     [arg0: AddressLike, arg1: BigNumberish],
@@ -353,6 +398,13 @@ export interface PropertyFactory extends BaseContract {
     "view"
   >;
 
+  getEvent(
+    key: "EURCTokenUpdated"
+  ): TypedContractEvent<
+    EURCTokenUpdatedEvent.InputTuple,
+    EURCTokenUpdatedEvent.OutputTuple,
+    EURCTokenUpdatedEvent.OutputObject
+  >;
   getEvent(
     key: "OwnershipTransferred"
   ): TypedContractEvent<
@@ -383,6 +435,17 @@ export interface PropertyFactory extends BaseContract {
   >;
 
   filters: {
+    "EURCTokenUpdated(address)": TypedContractEvent<
+      EURCTokenUpdatedEvent.InputTuple,
+      EURCTokenUpdatedEvent.OutputTuple,
+      EURCTokenUpdatedEvent.OutputObject
+    >;
+    EURCTokenUpdated: TypedContractEvent<
+      EURCTokenUpdatedEvent.InputTuple,
+      EURCTokenUpdatedEvent.OutputTuple,
+      EURCTokenUpdatedEvent.OutputObject
+    >;
+
     "OwnershipTransferred(address,address)": TypedContractEvent<
       OwnershipTransferredEvent.InputTuple,
       OwnershipTransferredEvent.OutputTuple,

@@ -2,22 +2,25 @@ import { ethers } from "hardhat";
 import * as fs from 'fs';
 import * as path from 'path';
 
+// EURC token address on Sepolia testnet
+const EURC_ADDRESS = "0x86dB2d5b6e6A6E8C3cF1e7FE03F1F2b0Cf7B510";
+
 async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying contracts with the account:", deployer.address);
   console.log("Account balance:", (await deployer.provider.getBalance(deployer.address)).toString());
 
   try {
-    // Deploy PropertyFactory
+    // Deploy PropertyFactory with the EURC address
     console.log("\nDeploying PropertyFactory...");
     const PropertyFactory = await ethers.getContractFactory("PropertyFactory");
-    const propertyFactory = await PropertyFactory.deploy(deployer.address);
+    const propertyFactory = await PropertyFactory.deploy(deployer.address, EURC_ADDRESS);
     await propertyFactory.waitForDeployment();
 
     const propertyFactoryAddress = await propertyFactory.getAddress();
     console.log("PropertyFactory deployed to:", propertyFactoryAddress);
 
-    // Update .env.local with the new contract address
+    // Update .env.local with the new contract addresses
     const envPath = path.join(__dirname, '../.env.local');
     let envContent = '';
     
@@ -27,34 +30,47 @@ async function main() {
       console.log('No existing .env.local file found. Creating new one.');
     }
 
-    // Update or add the contract address
-    const addressRegex = /NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS=.*/;
-    const newAddressLine = `NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS=${propertyFactoryAddress}`;
+    // Update or add the contract addresses
+    const factoryRegex = /NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS=.*/;
+    const eurcRegex = /NEXT_PUBLIC_EURC_TOKEN_ADDRESS=.*/;
     
-    if (envContent.match(addressRegex)) {
-      envContent = envContent.replace(addressRegex, newAddressLine);
+    const newFactoryLine = `NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS=${propertyFactoryAddress}`;
+    const newEurcLine = `NEXT_PUBLIC_EURC_TOKEN_ADDRESS=${EURC_ADDRESS}`;
+    
+    if (envContent.match(factoryRegex)) {
+      envContent = envContent.replace(factoryRegex, newFactoryLine);
     } else {
-      envContent = envContent ? `${envContent}\n${newAddressLine}` : newAddressLine;
+      envContent = envContent ? `${envContent}\n${newFactoryLine}` : newFactoryLine;
+    }
+
+    if (envContent.match(eurcRegex)) {
+      envContent = envContent.replace(eurcRegex, newEurcLine);
+    } else {
+      envContent = `${envContent}\n${newEurcLine}`;
     }
 
     fs.writeFileSync(envPath, envContent);
-    console.log('Updated .env.local with new contract address');
+    console.log('Updated .env.local with new contract addresses');
 
-    // Copy the ABI to the frontend
-    const artifactPath = path.join(__dirname, '../artifacts/contracts/PropertyFactory.sol/PropertyFactory.json');
-    const abiPath = path.join(__dirname, '../src/contracts/abis/propertyFactoryABI.ts');
+    // Copy the ABIs to the frontend
+    const contractNames = ['PropertyFactory', 'PropertyToken'];
     
-    const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
-    const abiContent = `export const propertyFactoryABI = ${JSON.stringify(artifact.abi, null, 2)} as const;`;
-    
-    // Ensure the directory exists
-    const abiDir = path.dirname(abiPath);
-    if (!fs.existsSync(abiDir)) {
-      fs.mkdirSync(abiDir, { recursive: true });
+    for (const contractName of contractNames) {
+      const artifactPath = path.join(__dirname, `../artifacts/contracts/${contractName}.sol/${contractName}.json`);
+      const abiPath = path.join(__dirname, `../src/contracts/abis/${contractName.toLowerCase()}ABI.ts`);
+      
+      const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+      const abiContent = `export const ${contractName.toLowerCase()}ABI = ${JSON.stringify(artifact.abi, null, 2)} as const;`;
+      
+      // Ensure the directory exists
+      const abiDir = path.dirname(abiPath);
+      if (!fs.existsSync(abiDir)) {
+        fs.mkdirSync(abiDir, { recursive: true });
+      }
+      
+      fs.writeFileSync(abiPath, abiContent);
+      console.log(`Copied ${contractName} ABI to frontend`);
     }
-    
-    fs.writeFileSync(abiPath, abiContent);
-    console.log('Updated ABI file');
 
     // Create sample properties with shorter text to match validation
     const properties = [

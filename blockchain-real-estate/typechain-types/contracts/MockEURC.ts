@@ -23,51 +23,28 @@ import type {
   TypedContractMethod,
 } from "../common";
 
-export interface PropertyTokenInterface extends Interface {
+export interface MockEURCInterface extends Interface {
   getFunction(
     nameOrSignature:
-      | "EURC_DECIMALS"
-      | "TOTAL_SUPPLY"
       | "allowance"
       | "approve"
       | "balanceOf"
       | "decimals"
-      | "eurcToken"
-      | "getEURCToken"
-      | "getPropertyDetails"
+      | "mint"
       | "name"
       | "owner"
-      | "propertyDetails"
-      | "purchaseTokens"
       | "renounceOwnership"
-      | "sellTokens"
-      | "setPropertyStatus"
       | "symbol"
       | "totalSupply"
       | "transfer"
       | "transferFrom"
       | "transferOwnership"
-      | "updatePrice"
   ): FunctionFragment;
 
   getEvent(
-    nameOrSignatureOrTopic:
-      | "Approval"
-      | "OwnershipTransferred"
-      | "PropertyTokenized"
-      | "TokensPurchased"
-      | "TokensSold"
-      | "Transfer"
+    nameOrSignatureOrTopic: "Approval" | "OwnershipTransferred" | "Transfer"
   ): EventFragment;
 
-  encodeFunctionData(
-    functionFragment: "EURC_DECIMALS",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "TOTAL_SUPPLY",
-    values?: undefined
-  ): string;
   encodeFunctionData(
     functionFragment: "allowance",
     values: [AddressLike, AddressLike]
@@ -81,36 +58,15 @@ export interface PropertyTokenInterface extends Interface {
     values: [AddressLike]
   ): string;
   encodeFunctionData(functionFragment: "decimals", values?: undefined): string;
-  encodeFunctionData(functionFragment: "eurcToken", values?: undefined): string;
   encodeFunctionData(
-    functionFragment: "getEURCToken",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "getPropertyDetails",
-    values?: undefined
+    functionFragment: "mint",
+    values: [AddressLike, BigNumberish]
   ): string;
   encodeFunctionData(functionFragment: "name", values?: undefined): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(
-    functionFragment: "propertyDetails",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "purchaseTokens",
-    values: [BigNumberish]
-  ): string;
-  encodeFunctionData(
     functionFragment: "renounceOwnership",
     values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "sellTokens",
-    values: [BigNumberish]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "setPropertyStatus",
-    values: [boolean]
   ): string;
   encodeFunctionData(functionFragment: "symbol", values?: undefined): string;
   encodeFunctionData(
@@ -129,49 +85,16 @@ export interface PropertyTokenInterface extends Interface {
     functionFragment: "transferOwnership",
     values: [AddressLike]
   ): string;
-  encodeFunctionData(
-    functionFragment: "updatePrice",
-    values: [BigNumberish]
-  ): string;
 
-  decodeFunctionResult(
-    functionFragment: "EURC_DECIMALS",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "TOTAL_SUPPLY",
-    data: BytesLike
-  ): Result;
   decodeFunctionResult(functionFragment: "allowance", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "approve", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "balanceOf", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "decimals", data: BytesLike): Result;
-  decodeFunctionResult(functionFragment: "eurcToken", data: BytesLike): Result;
-  decodeFunctionResult(
-    functionFragment: "getEURCToken",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "getPropertyDetails",
-    data: BytesLike
-  ): Result;
+  decodeFunctionResult(functionFragment: "mint", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "name", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
   decodeFunctionResult(
-    functionFragment: "propertyDetails",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "purchaseTokens",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
     functionFragment: "renounceOwnership",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(functionFragment: "sellTokens", data: BytesLike): Result;
-  decodeFunctionResult(
-    functionFragment: "setPropertyStatus",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "symbol", data: BytesLike): Result;
@@ -186,10 +109,6 @@ export interface PropertyTokenInterface extends Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "transferOwnership",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "updatePrice",
     data: BytesLike
   ): Result;
 }
@@ -225,71 +144,6 @@ export namespace OwnershipTransferredEvent {
   export type LogDescription = TypedLogDescription<Event>;
 }
 
-export namespace PropertyTokenizedEvent {
-  export type InputTuple = [
-    title: string,
-    location: string,
-    price: BigNumberish,
-    owner: AddressLike
-  ];
-  export type OutputTuple = [
-    title: string,
-    location: string,
-    price: bigint,
-    owner: string
-  ];
-  export interface OutputObject {
-    title: string;
-    location: string;
-    price: bigint;
-    owner: string;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
-
-export namespace TokensPurchasedEvent {
-  export type InputTuple = [
-    buyer: AddressLike,
-    amount: BigNumberish,
-    eurcPaid: BigNumberish
-  ];
-  export type OutputTuple = [buyer: string, amount: bigint, eurcPaid: bigint];
-  export interface OutputObject {
-    buyer: string;
-    amount: bigint;
-    eurcPaid: bigint;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
-
-export namespace TokensSoldEvent {
-  export type InputTuple = [
-    seller: AddressLike,
-    amount: BigNumberish,
-    eurcReceived: BigNumberish
-  ];
-  export type OutputTuple = [
-    seller: string,
-    amount: bigint,
-    eurcReceived: bigint
-  ];
-  export interface OutputObject {
-    seller: string;
-    amount: bigint;
-    eurcReceived: bigint;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
-
 export namespace TransferEvent {
   export type InputTuple = [
     from: AddressLike,
@@ -308,11 +162,11 @@ export namespace TransferEvent {
   export type LogDescription = TypedLogDescription<Event>;
 }
 
-export interface PropertyToken extends BaseContract {
-  connect(runner?: ContractRunner | null): PropertyToken;
+export interface MockEURC extends BaseContract {
+  connect(runner?: ContractRunner | null): MockEURC;
   waitForDeployment(): Promise<this>;
 
-  interface: PropertyTokenInterface;
+  interface: MockEURCInterface;
 
   queryFilter<TCEvent extends TypedContractEvent>(
     event: TCEvent,
@@ -351,10 +205,6 @@ export interface PropertyToken extends BaseContract {
     event?: TCEvent
   ): Promise<this>;
 
-  EURC_DECIMALS: TypedContractMethod<[], [bigint], "view">;
-
-  TOTAL_SUPPLY: TypedContractMethod<[], [bigint], "view">;
-
   allowance: TypedContractMethod<
     [owner: AddressLike, spender: AddressLike],
     [bigint],
@@ -371,59 +221,17 @@ export interface PropertyToken extends BaseContract {
 
   decimals: TypedContractMethod<[], [bigint], "view">;
 
-  eurcToken: TypedContractMethod<[], [string], "view">;
-
-  getEURCToken: TypedContractMethod<[], [string], "view">;
-
-  getPropertyDetails: TypedContractMethod<
-    [],
-    [
-      [string, string, string, string, bigint, boolean] & {
-        title: string;
-        description: string;
-        location: string;
-        imageUrl: string;
-        price: bigint;
-        isActive: boolean;
-      }
-    ],
-    "view"
+  mint: TypedContractMethod<
+    [to: AddressLike, amount: BigNumberish],
+    [void],
+    "nonpayable"
   >;
 
   name: TypedContractMethod<[], [string], "view">;
 
   owner: TypedContractMethod<[], [string], "view">;
 
-  propertyDetails: TypedContractMethod<
-    [],
-    [
-      [string, string, string, string, bigint, boolean] & {
-        title: string;
-        description: string;
-        location: string;
-        imageUrl: string;
-        price: bigint;
-        isActive: boolean;
-      }
-    ],
-    "view"
-  >;
-
-  purchaseTokens: TypedContractMethod<
-    [_amount: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
-
   renounceOwnership: TypedContractMethod<[], [void], "nonpayable">;
-
-  sellTokens: TypedContractMethod<[amount: BigNumberish], [void], "nonpayable">;
-
-  setPropertyStatus: TypedContractMethod<
-    [_isActive: boolean],
-    [void],
-    "nonpayable"
-  >;
 
   symbol: TypedContractMethod<[], [string], "view">;
 
@@ -447,22 +255,10 @@ export interface PropertyToken extends BaseContract {
     "nonpayable"
   >;
 
-  updatePrice: TypedContractMethod<
-    [_newPrice: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
-
   getFunction<T extends ContractMethod = ContractMethod>(
     key: string | FunctionFragment
   ): T;
 
-  getFunction(
-    nameOrSignature: "EURC_DECIMALS"
-  ): TypedContractMethod<[], [bigint], "view">;
-  getFunction(
-    nameOrSignature: "TOTAL_SUPPLY"
-  ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "allowance"
   ): TypedContractMethod<
@@ -484,26 +280,11 @@ export interface PropertyToken extends BaseContract {
     nameOrSignature: "decimals"
   ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
-    nameOrSignature: "eurcToken"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "getEURCToken"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "getPropertyDetails"
+    nameOrSignature: "mint"
   ): TypedContractMethod<
-    [],
-    [
-      [string, string, string, string, bigint, boolean] & {
-        title: string;
-        description: string;
-        location: string;
-        imageUrl: string;
-        price: bigint;
-        isActive: boolean;
-      }
-    ],
-    "view"
+    [to: AddressLike, amount: BigNumberish],
+    [void],
+    "nonpayable"
   >;
   getFunction(
     nameOrSignature: "name"
@@ -512,33 +293,8 @@ export interface PropertyToken extends BaseContract {
     nameOrSignature: "owner"
   ): TypedContractMethod<[], [string], "view">;
   getFunction(
-    nameOrSignature: "propertyDetails"
-  ): TypedContractMethod<
-    [],
-    [
-      [string, string, string, string, bigint, boolean] & {
-        title: string;
-        description: string;
-        location: string;
-        imageUrl: string;
-        price: bigint;
-        isActive: boolean;
-      }
-    ],
-    "view"
-  >;
-  getFunction(
-    nameOrSignature: "purchaseTokens"
-  ): TypedContractMethod<[_amount: BigNumberish], [void], "nonpayable">;
-  getFunction(
     nameOrSignature: "renounceOwnership"
   ): TypedContractMethod<[], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "sellTokens"
-  ): TypedContractMethod<[amount: BigNumberish], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "setPropertyStatus"
-  ): TypedContractMethod<[_isActive: boolean], [void], "nonpayable">;
   getFunction(
     nameOrSignature: "symbol"
   ): TypedContractMethod<[], [string], "view">;
@@ -562,9 +318,6 @@ export interface PropertyToken extends BaseContract {
   getFunction(
     nameOrSignature: "transferOwnership"
   ): TypedContractMethod<[newOwner: AddressLike], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "updatePrice"
-  ): TypedContractMethod<[_newPrice: BigNumberish], [void], "nonpayable">;
 
   getEvent(
     key: "Approval"
@@ -579,27 +332,6 @@ export interface PropertyToken extends BaseContract {
     OwnershipTransferredEvent.InputTuple,
     OwnershipTransferredEvent.OutputTuple,
     OwnershipTransferredEvent.OutputObject
-  >;
-  getEvent(
-    key: "PropertyTokenized"
-  ): TypedContractEvent<
-    PropertyTokenizedEvent.InputTuple,
-    PropertyTokenizedEvent.OutputTuple,
-    PropertyTokenizedEvent.OutputObject
-  >;
-  getEvent(
-    key: "TokensPurchased"
-  ): TypedContractEvent<
-    TokensPurchasedEvent.InputTuple,
-    TokensPurchasedEvent.OutputTuple,
-    TokensPurchasedEvent.OutputObject
-  >;
-  getEvent(
-    key: "TokensSold"
-  ): TypedContractEvent<
-    TokensSoldEvent.InputTuple,
-    TokensSoldEvent.OutputTuple,
-    TokensSoldEvent.OutputObject
   >;
   getEvent(
     key: "Transfer"
@@ -630,39 +362,6 @@ export interface PropertyToken extends BaseContract {
       OwnershipTransferredEvent.InputTuple,
       OwnershipTransferredEvent.OutputTuple,
       OwnershipTransferredEvent.OutputObject
-    >;
-
-    "PropertyTokenized(string,string,uint256,address)": TypedContractEvent<
-      PropertyTokenizedEvent.InputTuple,
-      PropertyTokenizedEvent.OutputTuple,
-      PropertyTokenizedEvent.OutputObject
-    >;
-    PropertyTokenized: TypedContractEvent<
-      PropertyTokenizedEvent.InputTuple,
-      PropertyTokenizedEvent.OutputTuple,
-      PropertyTokenizedEvent.OutputObject
-    >;
-
-    "TokensPurchased(address,uint256,uint256)": TypedContractEvent<
-      TokensPurchasedEvent.InputTuple,
-      TokensPurchasedEvent.OutputTuple,
-      TokensPurchasedEvent.OutputObject
-    >;
-    TokensPurchased: TypedContractEvent<
-      TokensPurchasedEvent.InputTuple,
-      TokensPurchasedEvent.OutputTuple,
-      TokensPurchasedEvent.OutputObject
-    >;
-
-    "TokensSold(address,uint256,uint256)": TypedContractEvent<
-      TokensSoldEvent.InputTuple,
-      TokensSoldEvent.OutputTuple,
-      TokensSoldEvent.OutputObject
-    >;
-    TokensSold: TypedContractEvent<
-      TokensSoldEvent.InputTuple,
-      TokensSoldEvent.OutputTuple,
-      TokensSoldEvent.OutputObject
     >;
 
     "Transfer(address,address,uint256)": TypedContractEvent<

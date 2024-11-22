@@ -19,8 +19,14 @@ export default function PropertyReview() {
   const { data: walletClient } = useWalletClient();
   const [isLoading, setIsLoading] = useState(true);
   const [isApproving, setIsApproving] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const tokenAddress = params.tokenAddress as `0x${string}`;
   const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
+
+  // Set mounted state when component mounts
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Check if user is factory owner
   const { data: factoryOwner } = useContractRead({
@@ -39,6 +45,8 @@ export default function PropertyReview() {
   useEffect(() => {
     const checkOwnership = async () => {
       try {
+        if (!mounted) return;
+        
         if (!address) {
           toast({
             title: "Error",
@@ -86,7 +94,7 @@ export default function PropertyReview() {
     };
 
     checkOwnership();
-  }, [factoryOwner, address, router, publicClient, contractAddress, toast]);
+  }, [factoryOwner, address, router, publicClient, contractAddress, toast, mounted]);
 
   const handleApprove = async () => {
     try {
@@ -160,8 +168,14 @@ export default function PropertyReview() {
     }
   };
 
-  if (isLoading) {
-    return <div className="container mx-auto p-8">Loading...</div>;
+  // Early return for non-mounted state
+  if (!mounted) {
+    return <div className="container mx-auto p-4">Loading...</div>;
+  }
+
+  // Check for wallet connection
+  if (!address) {
+    return <div className="container mx-auto p-4">Please connect your wallet to view properties</div>;
   }
 
   const [title, description, location, imageUrl, price] = propertyDetails || [];

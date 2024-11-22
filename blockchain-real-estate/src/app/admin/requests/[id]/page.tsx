@@ -1,29 +1,30 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount, useContractRead, useContractWrite } from 'wagmi';
+import { useAccount, useContractWrite, useWaitForTransaction } from 'wagmi';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI';
 import { supabase } from '@/lib/supabase';
-import { Address } from 'viem';
 import { useRouter, useParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/components/ui/use-toast";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+import { 
+  Form, 
+  FormControl, 
+  FormDescription, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage 
 } from "@/components/ui/form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
+import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI';
+import { parseEther } from 'viem';
+import Image from 'next/image';
 
 const formSchema = z.object({
   title: z.string()
@@ -40,58 +41,66 @@ const formSchema = z.object({
   expected_price: z.coerce.number()
     .min(0.000001, 'Expected price must be greater than 0')
     .max(1000000, 'Expected price must not exceed 1,000,000 ETH'),
-  documents: z.string()
+  documents_url: z.string()
     .url('Please enter a valid URL for documents')
     .optional(),
   status: z.enum(['pending', 'approved', 'rejected']),
-  wallet_address: z.string(),
+  owner_address: z.string(),
 })
 
 type FormValues = z.infer<typeof formSchema>
 
 export default function ReviewRequest() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
   
   const { address, isConnected } = useAccount();
-  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as Address;
+  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
+
+  // Contract write for creating properties
+  const { write: createProperty, data: createPropertyData } = useContractWrite({
+    address: contractAddress,
+    abi: propertyFactoryABI,
+    functionName: 'createProperty',
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create property",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+  });
+
+  const { isLoading: isPropertyCreating } = useWaitForTransaction({
+    hash: createPropertyData?.hash,
+    onSuccess: () => {
+      toast({
+        title: "Success! ",
+        description: "Property created successfully on the blockchain!",
+        duration: 5000,
+      });
+      router.push('/admin/requests');
+    },
+  });
 
   // Form setup
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
   });
 
-  // Read owner from the contract
-  const { data: owner } = useContractRead({
-    address: contractAddress,
-    abi: propertyFactoryABI,
-    functionName: 'owner',
-  });
-
-  // Contract write for approving properties
-  const { writeAsync: approveProperty } = useContractWrite({
-    address: contractAddress,
-    abi: propertyFactoryABI,
-    functionName: 'approveProperty',
-  });
-
   useEffect(() => {
-    if (!isConnected || !address) {
-      router.push('/');
-      return;
-    }
-
-    // Check if the connected address is the owner
-    if (owner && address !== owner) {
-      router.push('/');
+    if (!isConnected) {
+      setIsInitializing(false);
       return;
     }
 
     fetchRequest();
-  }, [address, isConnected, owner]);
+  }, [address, isConnected]);
 
   async function fetchRequest() {
     try {
@@ -112,41 +121,35 @@ export default function ReviewRequest() {
       setError(err instanceof Error ? err.message : 'Failed to fetch request');
     } finally {
       setLoading(false);
+      setIsInitializing(false);
     }
   }
 
-  async function onSubmit(data: FormValues) {
+  async function onSubmit(values: FormValues) {
     try {
       setLoading(true);
 
       // Update in Supabase
       const { error: updateError } = await supabase
         .from('property_requests')
-        .update(data)
+        .update({
+          title: values.title,
+          description: values.description,
+          location: values.location,
+          image_url: values.image_url,
+          expected_price: values.expected_price,
+          documents_url: values.documents_url,
+          status: values.status,
+          owner_address: values.owner_address
+        })
         .eq('id', params.id);
 
       if (updateError) throw updateError;
 
-      // If status is approved, call the smart contract
-      if (data.status === 'approved') {
-        try {
-          await approveProperty({
-            args: [data.wallet_address],
-          });
-        } catch (contractError) {
-          console.error('Contract error:', contractError);
-          toast({
-            title: "Contract Error",
-            description: "Failed to approve property on the blockchain",
-            variant: "destructive",
-          });
-          return;
-        }
-      }
-
       toast({
-        title: "Success",
-        description: "Property request updated successfully",
+        title: "Success! ",
+        description: `Property request ${values.status === 'approved' ? 'approved' : 'updated'} successfully`,
+        duration: 5000,
       });
 
       router.push('/admin/requests');
@@ -156,18 +159,69 @@ export default function ReviewRequest() {
         title: "Error",
         description: err instanceof Error ? err.message : 'Failed to update request',
         variant: "destructive",
+        duration: 5000,
       });
     } finally {
       setLoading(false);
     }
   }
 
-  if (!isConnected || !address) {
-    return <div className="text-center p-8">Please connect your wallet</div>;
+  async function onCreateProperty(data: FormValues) {
+    try {
+      if (!address) {
+        toast({
+          title: "Error",
+          description: "Please connect your wallet first",
+          variant: "destructive",
+          duration: 5000,
+        });
+        return;
+      }
+
+      const args = [
+        data.title,
+        data.description,
+        data.location,
+        data.image_url,
+        parseEther(data.expected_price.toString()),
+      ] as const;
+
+      createProperty?.({
+        args,
+      });
+
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create property",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
   }
 
-  if (owner && address !== owner) {
-    return <div className="text-center p-8">Access restricted to factory owner</div>;
+  if (!isConnected) {
+    return (
+      <div className="container mx-auto p-4">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center">Please connect your wallet to continue</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isInitializing) {
+    return (
+      <div className="container mx-auto p-4">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-center">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   if (loading) {
@@ -188,6 +242,23 @@ export default function ReviewRequest() {
       </div>
 
       <Card>
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle>Review Property Request</CardTitle>
+              <CardDescription>Review and update property request details</CardDescription>
+            </div>
+            <Badge 
+              variant={
+                form.getValues("status") === 'approved' ? 'success' :
+                form.getValues("status") === 'rejected' ? 'destructive' :
+                'outline'
+              }
+            >
+              {form.getValues("status")?.charAt(0).toUpperCase() + form.getValues("status")?.slice(1)}
+            </Badge>
+          </div>
+        </CardHeader>
         <CardContent className="pt-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -250,15 +321,15 @@ export default function ReviewRequest() {
                       }} />
                     </FormControl>
                     <div className="mt-2 aspect-video relative rounded-lg overflow-hidden bg-gray-100">
-                      <img
+                      <Image
                         id="preview-image"
                         src={field.value}
                         alt="Property Preview"
-                        className="object-cover w-full h-full"
-                        onError={(e) => {
-                          const img = e.target as HTMLImageElement;
-                          img.src = 'https://via.placeholder.com/800x600?text=Invalid+Image+URL';
-                        }}
+                        className="object-cover w-full h-full rounded-md"
+                        onError={() => field.onChange('/images/property-placeholder.svg')}
+                        width={500}
+                        height={300}
+                        priority={true}
                       />
                     </div>
                     <FormMessage />
@@ -291,7 +362,7 @@ export default function ReviewRequest() {
 
               <FormField
                 control={form.control}
-                name="documents"
+                name="documents_url"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Documents URL</FormLabel>
@@ -310,14 +381,29 @@ export default function ReviewRequest() {
                   <FormItem>
                     <FormLabel>Status</FormLabel>
                     <FormControl>
-                      <select
-                        {...field}
-                        className="w-full p-2 border rounded-md"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
-                        <option value="rejected">Rejected</option>
-                      </select>
+                      <div className="flex items-center gap-2">
+                        <select
+                          {...field}
+                          className={`flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
+                            field.value === 'approved' ? 'text-green-600' : 
+                            field.value === 'rejected' ? 'text-red-600' : 
+                            'text-yellow-600'
+                          }`}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+                        <Badge 
+                          variant={
+                            field.value === 'approved' ? 'success' :
+                            field.value === 'rejected' ? 'destructive' :
+                            'outline'
+                          }
+                        >
+                          {field.value.charAt(0).toUpperCase() + field.value.slice(1)}
+                        </Badge>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -326,10 +412,10 @@ export default function ReviewRequest() {
 
               <FormField
                 control={form.control}
-                name="wallet_address"
+                name="owner_address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Wallet Address</FormLabel>
+                    <FormLabel>Owner Address</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -338,19 +424,20 @@ export default function ReviewRequest() {
                 )}
               />
 
-              <div className="flex justify-end space-x-4 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push('/admin/requests')}
+              <div className="flex justify-end space-x-4 mt-6">
+                <Button 
+                  type="submit" 
+                  disabled={loading || isPropertyCreating}
                 >
-                  Cancel
+                  Save Changes
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={loading}
+                <Button 
+                  type="button"
+                  variant="destructive"
+                  onClick={() => onCreateProperty(form.getValues())}
+                  disabled={loading || isPropertyCreating}
                 >
-                  {loading ? 'Saving...' : 'Save Changes'}
+                  Create Property
                 </Button>
               </div>
             </form>

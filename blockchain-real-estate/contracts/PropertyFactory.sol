@@ -14,13 +14,18 @@ contract PropertyFactory is Ownable {
     mapping(address => PropertyInfo[]) public userProperties;
     mapping(address => bool) public approvedProperties;
     address[] private propertyCreators;
+    address public eurcTokenAddress;
     
     event PropertySubmitted(address indexed owner, address indexed tokenAddress);
     event PropertyApproved(address indexed tokenAddress);
     event PropertyRejected(address indexed tokenAddress);
+    event EURCTokenUpdated(address indexed newAddress);
 
-    constructor(address initialOwner) Ownable(initialOwner) {
+    constructor(address initialOwner, address _eurcTokenAddress) Ownable(initialOwner) {
         console.log("Initializing PropertyFactory with owner:", initialOwner);
+        console.log("EURC token address:", _eurcTokenAddress);
+        require(_eurcTokenAddress != address(0), "Invalid EURC token address");
+        eurcTokenAddress = _eurcTokenAddress;
     }
 
     function createProperty(
@@ -44,14 +49,15 @@ contract PropertyFactory is Ownable {
         require(bytes(_imageUrl).length > 0, "Image URL cannot be empty");
         require(_price > 0, "Price must be greater than 0");
 
-        // Create new property token
+        // Create new property token with EURC support
         PropertyToken newProperty = new PropertyToken(
             _title,
             _description,
             _location,
             _imageUrl,
             _price,
-            msg.sender  // Set the property creator as the token owner
+            msg.sender,
+            eurcTokenAddress
         );
 
         address tokenAddress = address(newProperty);
@@ -145,5 +151,11 @@ contract PropertyFactory is Ownable {
 
     function getPropertyCreators() public view returns (address[] memory) {
         return propertyCreators;
+    }
+
+    function updateEURCToken(address _newEURCToken) public onlyOwner {
+        require(_newEURCToken != address(0), "Invalid EURC token address");
+        eurcTokenAddress = _newEURCToken;
+        emit EURCTokenUpdated(_newEURCToken);
     }
 }

@@ -1,0 +1,1 @@
+export { propertyFactoryABI } from './propertyFactoryABI';

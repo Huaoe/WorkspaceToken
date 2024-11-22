@@ -38,6 +38,8 @@ export type { ShortStrings } from "./@openzeppelin/contracts/utils/ShortStrings"
 export { ShortStrings__factory } from "./factories/@openzeppelin/contracts/utils/ShortStrings__factory";
 export type { Strings } from "./@openzeppelin/contracts/utils/Strings";
 export { Strings__factory } from "./factories/@openzeppelin/contracts/utils/Strings__factory";
+export type { MockEURC } from "./contracts/MockEURC";
+export { MockEURC__factory } from "./factories/contracts/MockEURC__factory";
 export type { PropertyFactory } from "./contracts/PropertyFactory";
 export { PropertyFactory__factory } from "./factories/contracts/PropertyFactory__factory";
 export type { PropertyToken } from "./contracts/PropertyToken";

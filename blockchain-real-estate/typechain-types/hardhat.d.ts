@@ -78,6 +78,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Strings__factory>;
     getContractFactory(
+      name: "MockEURC",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.MockEURC__factory>;
+    getContractFactory(
       name: "PropertyFactory",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.PropertyFactory__factory>;
@@ -167,6 +171,11 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.Strings>;
     getContractAt(
+      name: "MockEURC",
+      address: string | ethers.Addressable,
+      signer?: ethers.Signer
+    ): Promise<Contracts.MockEURC>;
+    getContractAt(
       name: "PropertyFactory",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
@@ -242,6 +251,10 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.Strings>;
     deployContract(
+      name: "MockEURC",
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.MockEURC>;
+    deployContract(
       name: "PropertyFactory",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.PropertyFactory>;
@@ -330,6 +343,11 @@ declare module "hardhat/types/runtime" {
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.Strings>;
+    deployContract(
+      name: "MockEURC",
+      args: any[],
+      signerOrOptions?: ethers.Signer | DeployContractOptions
+    ): Promise<Contracts.MockEURC>;
     deployContract(
       name: "PropertyFactory",
       args: any[],

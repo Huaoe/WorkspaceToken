@@ -2,12 +2,14 @@
 
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
+import Link from 'next/link'
 import { useContractRead, useAccount } from 'wagmi'
 import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI'
 import { propertyTokenABI } from '@/contracts/abis/propertyTokenABI'
 import { formatEther } from 'viem'
 import { useEffect, useState } from 'react'
 import { useToast } from "@/components/ui/use-toast"
+import { Badge } from "@/components/ui/badge"
 
 const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS
 const PROPERTIES_PER_PAGE = 6
@@ -32,14 +34,20 @@ interface Property {
   imageUrl: string;
   isActive: boolean;
   tokenAddress: string;
+  status: string;
 }
 
 export default function PropertyList() {
-  const { address } = useAccount()
+  const { address, isConnected } = useAccount()
   const { toast } = useToast()
   const [properties, setProperties] = useState<Property[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const { data: factoryOwner } = useContractRead({
     address: contractAddress as `0x${string}`,
@@ -115,6 +123,7 @@ export default function PropertyList() {
               location: details.location || 'Location not specified',
               imageUrl: details.imageUrl || PLACEHOLDER_IMAGE,
               price: formatEther(priceValue),
+              status: details.status || 'pending',
             }
           } catch (error) {
             console.error(`Error fetching details for property ${prop.tokenAddress}:`, error)
@@ -127,6 +136,7 @@ export default function PropertyList() {
               location: 'Unknown',
               imageUrl: PLACEHOLDER_IMAGE,
               price: '0',
+              status: 'error',
             }
           }
         })
@@ -159,32 +169,45 @@ export default function PropertyList() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  if (!address) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <p>Please connect your wallet to view properties</p>
-      </div>
-    )
+  // Early return for non-mounted state to prevent hydration mismatch
+  if (!mounted) {
+    return null;
   }
 
+  // Show connect wallet message if not connected
+  if (!isConnected) {
+    return (
+      <div className="container mx-auto p-8">
+        <div className="text-center">
+          <p className="text-lg">Please connect your wallet to view properties</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <p>Loading properties...</p>
+      <div className="container mx-auto p-8">
+        <div className="text-center">
+          <p className="text-lg">Loading properties...</p>
+        </div>
       </div>
-    )
+    );
   }
 
   if (isContractError) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <p>Error loading properties. Please check your network connection and try again.</p>
-      </div>
-    )
+      <div className="container mx-auto p-8">
+        <div className="text-center">
+          <p className="text-lg">Error loading properties. Please check your network connection and try again.</p>
+        </div>
+    </div>
+    );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto p-8">
       <h1 className="text-2xl font-bold mb-6">Available Properties</h1>
       
       {properties.length === 0 ? (
@@ -193,69 +216,40 @@ export default function PropertyList() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {currentProperties.map((property) => (
-              <div
-                key={property.id}
-                className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
-              >
-                <div className="relative h-48 bg-gray-100">
-                  <div 
-                    className="absolute inset-0 flex items-center justify-center"
-                    style={{ 
-                      backgroundImage: `url(${PLACEHOLDER_IMAGE})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
+              <div key={property.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="aspect-video relative">
+                  <Image
+                    src={property.imageUrl || PLACEHOLDER_IMAGE}
+                    alt={property.title}
+                    fill
+                    className="object-cover"
+                    onError={(e) => {
+                      const img = e.target as HTMLImageElement;
+                      img.src = PLACEHOLDER_IMAGE;
                     }}
-                  >
-                    {property.imageUrl !== PLACEHOLDER_IMAGE && (
-                      <Image
-                        src={property.imageUrl}
-                        alt={property.title}
-                        fill
-                        className="object-cover"
-                        onError={(e: any) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement.style.backgroundImage = `url(${PLACEHOLDER_IMAGE})`;
-                        }}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      />
-                    )}
-                  </div>
+                  />
                 </div>
-                
                 <div className="p-4">
                   <div className="flex justify-between items-start mb-2">
-                    <h2 className="text-xl font-semibold">{property.title}</h2>
-                    <span className={`px-2 py-1 rounded text-sm ${property.isActive ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                      {property.isActive ? 'Approved' : 'Pending'}
-                    </span>
-                  </div>
-                  <p className="text-gray-600 mb-2">{property.description}</p>
-                  <p className="text-gray-500 mb-2">📍 {property.location}</p>
-                  
-                  <div className="border-t pt-2 mt-2">
-                    <p className="font-medium">Token Details</p>
-                    <div className="grid grid-cols-2 gap-2 text-sm mt-1">
-                      <p>Address: {property.tokenAddress.slice(0, 6)}...{property.tokenAddress.slice(-4)}</p>
-                      <p>Price: {property.price} ETH</p>
-                    </div>
-                  </div>
-                  
-                  <Button 
-                    className="w-full mt-4"
-                    disabled={!property.isActive && factoryOwner?.toLowerCase() !== address?.toLowerCase()}
-                    onClick={() => {
-                      if (!property.isActive && factoryOwner?.toLowerCase() === address?.toLowerCase()) {
-                        window.location.href = `/property/review/${property.tokenAddress}`
+                    <h3 className="text-lg font-semibold">{property.title}</h3>
+                    <Badge 
+                      variant={
+                        property.status === 'approved' ? 'success' :
+                        property.status === 'rejected' ? 'destructive' :
+                        'outline'
                       }
-                    }}
-                  >
-                    {property.isActive 
-                      ? 'Purchase Tokens' 
-                      : factoryOwner?.toLowerCase() === address?.toLowerCase()
-                        ? 'Review Status'
-                        : 'Awaiting Approval'
-                    }
-                  </Button>
+                    >
+                      {property.status?.charAt(0).toUpperCase() + property.status?.slice(1)}
+                    </Badge>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-2">{property.location}</p>
+                  <p className="text-gray-700 mb-4 line-clamp-2">{property.description}</p>
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold">{property.price} EURC</span>
+                    <Link href={`/property/${property.tokenAddress}`}>
+                      <Button variant="outline">View Details</Button>
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}

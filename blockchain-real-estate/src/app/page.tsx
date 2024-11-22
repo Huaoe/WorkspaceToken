@@ -3,9 +3,11 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAccount, useContractRead } from 'wagmi';
-import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI';
+import propertyFactoryABI from '@contracts/abis/propertyFactoryABI';
+import { useEffect, useState } from 'react';
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false);
   const { address } = useAccount();
   const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
 
@@ -15,6 +17,15 @@ export default function Home() {
     functionName: 'owner',
   });
 
+  useEffect(() => {
+    setMounted(true);
+    console.log('Current address:', address);
+    console.log('Factory owner:', factoryOwner);
+    console.log('Contract address:', contractAddress);
+  }, [address, factoryOwner, contractAddress]);
+
+  const isAdmin = mounted && factoryOwner?.toLowerCase() === address?.toLowerCase();
+  
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24">
       <div className="text-center space-y-8">
@@ -32,7 +43,7 @@ export default function Home() {
               Request Property Listing
             </Button>
           </Link>
-          {factoryOwner?.toLowerCase() === address?.toLowerCase() && (
+          {isAdmin && (
             <Link href="/admin/requests">
               <Button variant="secondary" size="lg">
                 View Property Requests

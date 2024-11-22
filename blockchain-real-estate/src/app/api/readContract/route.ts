@@ -81,7 +81,9 @@ export async function POST(request: Request) {
       const result = abiFunction.outputs.reduce((acc: any, output: any, index: number) => {
         // Convert BigInt values to strings before adding to the result
         const value = serializeBigInt(data[index]);
-        acc[output.name || `output${index}`] = value;
+        // Use output.name if available, otherwise use the type as a fallback
+        const key = output.name || output.type || `output${index}`;
+        acc[key] = value;
         return acc;
       }, {})
       return NextResponse.json(result)

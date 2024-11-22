@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\PropertyFactory.sol": {
-      "lastModificationDate": 1732225741777,
-      "contentHash": "fdb1fe2502805e4094f2b2ac9cb63856",
+      "lastModificationDate": 1732226986911,
+      "contentHash": "09fff4a7fac2d38361e86442e033ad89",
       "sourceName": "contracts/PropertyFactory.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -43,8 +43,8 @@
       ]
     },
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\PropertyToken.sol": {
-      "lastModificationDate": 1732191728830,
-      "contentHash": "279a2d41fb60777d421280d36d30cfbe",
+      "lastModificationDate": 1732227656820,
+      "contentHash": "4d6ef12f77452c0f128ee96581d1d091",
       "sourceName": "contracts/PropertyToken.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -73,6 +73,7 @@
       },
       "imports": [
         "@openzeppelin/contracts/token/ERC20/ERC20.sol",
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
         "@openzeppelin/contracts/access/Ownable.sol",
         "hardhat/console.sol"
       ],
@@ -877,6 +878,46 @@
       ],
       "artifacts": [
         "console"
+      ]
+    },
+    "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\MockEURC.sol": {
+      "lastModificationDate": 1732227563770,
+      "contentHash": "552b986fe1603fdae0106e8818029418",
+      "sourceName": "contracts/MockEURC.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "@openzeppelin/contracts/token/ERC20/ERC20.sol",
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "MockEURC"
       ]
     }
   }

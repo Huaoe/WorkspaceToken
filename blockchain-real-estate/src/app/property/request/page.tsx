@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
+import { useAccount } from 'wagmi'
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,10 +19,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { supabase } from '@/lib/supabase'
-import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI'
-import { parseEther } from 'viem'
-
-const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS
 
 const formSchema = z.object({
   title: z.string()
@@ -54,8 +50,6 @@ export default function PropertyRequest() {
   const { address } = useAccount()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const publicClient = usePublicClient()
-  const { data: walletClient } = useWalletClient()
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -70,7 +64,7 @@ export default function PropertyRequest() {
   })
 
   const onSubmit = async (data: FormValues) => {
-    if (!address || !walletClient) {
+    if (!address) {
       toast({
         title: "Error",
         description: "Please connect your wallet first",
@@ -81,33 +75,7 @@ export default function PropertyRequest() {
 
     setIsSubmitting(true)
     try {
-      // First create the property on the blockchain
-      console.log('Creating property on blockchain...')
-      
-      // Prepare the transaction
-      const { request } = await publicClient.simulateContract({
-        address: contractAddress as `0x${string}`,
-        abi: propertyFactoryABI,
-        functionName: 'createProperty',
-        args: [
-          data.title,
-          data.description,
-          data.location,
-          data.imageUrl,
-          parseEther(data.expectedPrice)
-        ],
-        account: address,
-      })
-
-      // Send the transaction
-      const hash = await walletClient.writeContract(request)
-      console.log('Transaction hash:', hash)
-
-      // Wait for transaction to be mined
-      const receipt = await publicClient.waitForTransactionReceipt({ hash })
-      console.log('Transaction receipt:', receipt)
-
-      // Now store in Supabase
+      // Store in Supabase
       const { error } = await supabase
         .from('property_requests')
         .insert([
@@ -119,16 +87,17 @@ export default function PropertyRequest() {
             image_url: data.imageUrl,
             expected_price: parseFloat(data.expectedPrice),
             documents_url: data.documents,
-            status: 'pending',
-            transaction_hash: hash,
+            status: 'pending'
           }
         ])
 
       if (error) throw error
 
       toast({
-        title: "Success",
-        description: "Your property has been created on the blockchain and request submitted successfully",
+        title: "Success! 🎉",
+        description: "Your property request has been submitted successfully",
+        variant: "default",
+        duration: 5000,
       })
 
       // Reset form

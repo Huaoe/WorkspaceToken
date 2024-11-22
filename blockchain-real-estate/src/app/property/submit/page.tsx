@@ -37,16 +37,6 @@ const propertySchema = z.object({
   imageUrl: z.string()
     .url("Must be a valid URL")
     .max(100, "URL must be less than 100 characters"),
-  tokenName: z.string()
-    .min(3, "Token name must be at least 3 characters")
-    .max(20, "Token name must be less than 20 characters")
-    .regex(/^[\w\s-]*$/, "Token name can only contain letters, numbers, spaces, and hyphens"),
-  tokenSymbol: z.string()
-    .min(2, "Token symbol must be at least 2 characters")
-    .max(6, "Token symbol must be less than 6 characters")
-    .regex(/^[A-Z0-9]*$/, "Token symbol must be uppercase letters and numbers only"),
-  propertyOwnerAddress: z.string()
-    .regex(/^0x[a-fA-F0-9]{40}$/, "Must be a valid Ethereum address"),
 });
 
 type PropertyFormData = z.infer<typeof propertySchema>;
@@ -67,6 +57,13 @@ export default function SubmitProperty() {
     address: contractAddress as `0x${string}`,
     abi: propertyFactoryABI,
     functionName: 'createProperty',
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create property",
+        variant: "destructive",
+      });
+    }
   });
 
   const { isLoading: isPropertyCreating } = useWaitForTransaction({
@@ -98,17 +95,25 @@ export default function SubmitProperty() {
         return;
       }
 
+      if (!createProperty) {
+        toast({
+          title: "Error",
+          description: "Contract write function not available",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const args = [
+        data.title,
+        data.description,
+        data.location,
+        data.imageUrl,
+        parseEther(data.price),
+      ] as const;
+
       createProperty({
-        args: [
-          data.title,
-          data.description,
-          data.location,
-          data.imageUrl,
-          data.tokenName,
-          data.tokenSymbol,
-          data.propertyOwnerAddress,
-          parseEther(data.price),
-        ],
+        args,
       });
     } catch (error: any) {
       toast({
@@ -191,42 +196,6 @@ export default function SubmitProperty() {
           />
           {errors.imageUrl && (
             <p className="text-red-500 text-sm mt-1">{errors.imageUrl.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">Token Name</label>
-          <input
-            {...register("tokenName")}
-            className="w-full p-2 border rounded-md"
-            placeholder="MyProperty Token"
-          />
-          {errors.tokenName && (
-            <p className="text-red-500 text-sm mt-1">{errors.tokenName.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">Token Symbol</label>
-          <input
-            {...register("tokenSymbol")}
-            className="w-full p-2 border rounded-md"
-            placeholder="PROP"
-          />
-          {errors.tokenSymbol && (
-            <p className="text-red-500 text-sm mt-1">{errors.tokenSymbol.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">Property Owner Address</label>
-          <input
-            {...register("propertyOwnerAddress")}
-            className="w-full p-2 border rounded-md"
-            placeholder="0x..."
-          />
-          {errors.propertyOwnerAddress && (
-            <p className="text-red-500 text-sm mt-1">{errors.propertyOwnerAddress.message}</p>
           )}
         </div>
 

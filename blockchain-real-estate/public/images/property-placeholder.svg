@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="600" fill="#F3F4F6"/>
+  
+  <!-- House Icon -->
+  <path d="M400 200L550 350H250L400 200Z" fill="#9CA3AF"/>
+  <rect x="300" y="350" width="200" height="150" fill="#9CA3AF"/>
+  
+  <!-- Door -->
+  <rect x="370" y="400" width="60" height="100" fill="#6B7280"/>
+  
+  <!-- Text -->
+  <text x="400" y="500" font-family="Arial" font-size="24" fill="#4B5563" text-anchor="middle">
+    Image Not Available
+  </text>
+</svg>

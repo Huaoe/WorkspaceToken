@@ -111,8 +111,14 @@ export default function AdminRequests() {
                 <Badge variant="secondary">
                   {request.expected_price} ETH
                 </Badge>
-                <Badge variant="outline">
-                  {request.status}
+                <Badge 
+                  variant={
+                    request.status === 'approved' ? 'success' :
+                    request.status === 'rejected' ? 'destructive' :
+                    'outline'
+                  }
+                >
+                  {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                 </Badge>
               </div>
             </CardContent>
