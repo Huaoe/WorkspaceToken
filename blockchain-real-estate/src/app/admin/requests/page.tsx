@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { Address } from 'viem';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge'; 
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"; 
 
 interface PropertyRequest {
   id: string;
@@ -17,8 +18,7 @@ interface PropertyRequest {
   location: string;
   image_url: string;
   expected_price: string;
-  documents?: string;
-  dDocuments?: string;
+  documents_url?: string;
   wallet_address: string;
   created_at: string;
   status: string;
@@ -30,7 +30,9 @@ export default function AdminRequests() {
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
-  
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
+
   const { address, isConnected } = useAccount();
   const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as Address;
 
@@ -81,6 +83,21 @@ export default function AdminRequests() {
     }
   }
 
+  // Calculate pagination values
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = requests.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(requests.length / itemsPerPage);
+
+  // Add pagination handlers
+  const handleNextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  };
+
+  const handlePrevPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  };
+
   // Early return for non-mounted state
   if (!mounted) {
     return null;
@@ -106,12 +123,10 @@ export default function AdminRequests() {
     <div className="container mx-auto p-8">
       <h1 className="text-3xl font-bold mb-8">Property Requests</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {requests.map((request) => (
+        {currentItems.map((request) => (
           <Card 
             key={request.id} 
-            className="flex flex-col cursor-pointer hover:shadow-lg transition-shadow"
-            onClick={() => request.documents && window.open(request.documents, '_blank')}
-            style={{ cursor: request.documents ? 'pointer' : 'default' }}
+            className="flex flex-col hover:shadow-lg transition-shadow"
           >
             <CardHeader>
               <CardTitle>{request.title}</CardTitle>
@@ -128,7 +143,7 @@ export default function AdminRequests() {
               <p className="text-sm mb-2 line-clamp-3">{request.description}</p>
               <div className="flex flex-wrap gap-2 mt-2">
                 <Badge variant="secondary">
-                  {request.expected_price} ETH
+                  {request.expected_price} EURC
                 </Badge>
                 <Badge 
                   variant={
@@ -147,18 +162,24 @@ export default function AdminRequests() {
             </CardContent>
             <CardFooter className="flex justify-between">
               <Button
-                variant="outline"
-                onClick={() => {
-                  console.log('Documents URL:', request.documents);
-                  window.open(request.documents, '_blank');
-                }}
-                disabled={!request.documents}
+                disabled={!request.documents_url}
+                variant="link"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (request.documents_url) {
+                    window.open(request.documents_url, '_blank');
+                  }
+                }
+              }
               >
                 View Documents
               </Button>
               <Button
-                variant="default"
-                onClick={() => router.push(`/admin/requests/${request.id}`)}
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  router.push(`/admin/requests/${request.id}`);
+                }}
               >
                 Review
               </Button>
@@ -166,6 +187,35 @@ export default function AdminRequests() {
           </Card>
         ))}
       </div>
+
+      {/* Pagination Controls */}
+      {requests.length > 0 && (
+        <div className="flex justify-center items-center gap-4 mt-8">
+          <Button
+            variant="outline"
+            onClick={handlePrevPage}
+            disabled={currentPage === 1}
+            className="flex items-center gap-2"
+          >
+            <ChevronLeftIcon className="h-4 w-4" />
+            Previous
+          </Button>
+          
+          <span className="text-sm">
+            Page {currentPage} of {totalPages}
+          </span>
+          
+          <Button
+            variant="outline"
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages}
+            className="flex items-center gap-2"
+          >
+            Next
+            <ChevronRightIcon className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

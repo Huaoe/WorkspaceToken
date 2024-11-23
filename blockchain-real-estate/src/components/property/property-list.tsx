@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAccount, usePublicClient, useNetwork, useSwitchNetwork, useContractRead } from 'wagmi';
 import { PropertyCard } from './property-card';
-import { Property } from '@/types/property';
+import { PropertyRequest } from '@/types/property';
 import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI';
 import { propertyTokenABI } from '@/contracts/abis/propertyTokenABI';
 import { Address, formatEther } from 'viem';
@@ -15,7 +15,7 @@ interface PropertyToken {
 }
 
 export function PropertyList() {
-  const [properties, setProperties] = useState<Property[]>([]);
+  const [properties, setProperties] = useState<PropertyRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -95,13 +95,18 @@ export function PropertyList() {
 
             return {
               id: token.tokenAddress,
-              name: title,
+              property_type: title,
               description,
               location,
               imageUrl,
               price: formatEther(price),
-              owner: tokenOwner as string,
+              owner_address: tokenOwner as string,
               status: token.isApproved ? 'approved' as const : 'pending' as const,
+              area: 0, // Default value since it's not in the contract
+              latitude: 0, // Default value since it's not in the contract
+              longitude: 0, // Default value since it's not in the contract
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
             };
           } catch (err) {
             console.error('Error fetching property details:', err);
@@ -110,7 +115,7 @@ export function PropertyList() {
         });
 
         const fetchedProperties = (await Promise.all(propertyPromises))
-          .filter((property): property is Property => property !== null);
+          .filter((property): property is PropertyRequest => property !== null);
 
         console.log('Fetched properties:', fetchedProperties);
         setProperties(fetchedProperties);

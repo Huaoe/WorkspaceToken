@@ -1,10 +1,16 @@
-export interface Property {
+export interface PropertyRequest {
   id: string;
-  name: string;
-  description: string;
+  property_type: string;
+  price: number;
+  area: number;
   location: string;
-  price: string;
-  imageUrl: string;
-  owner: string;
-  status: 'pending' | 'approved' | 'rejected';
+  latitude: number;
+  longitude: number;
+  owner_address: string;
+  status: 'pending' | 'approved' | 'rejected' | 'onchain';
+  property_id?: string;
+  created_at: string;
+  description: string;
+  image_url?: string;
+  documents_url?: string | string[];
 }

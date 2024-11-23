@@ -57,7 +57,7 @@ contract PropertyToken is ERC20, Ownable {
         // Input validation
         require(bytes(_title).length > 0 && bytes(_title).length <= 20, "Invalid title length");
         require(bytes(_description).length > 0 && bytes(_description).length <= 50, "Invalid description length");
-        require(bytes(_location).length > 0 && bytes(_location).length <= 20, "Invalid location length");
+        require(bytes(_location).length > 0 && bytes(_location).length <= 256, "Invalid location length");
         require(bytes(_imageUrl).length > 0 && bytes(_imageUrl).length <= 100, "Invalid image URL length");
         require(_price > 0, "Price must be greater than 0");
         require(initialOwner != address(0), "Invalid owner address");

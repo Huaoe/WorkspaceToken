@@ -1,6 +1,6 @@
 'use client';
 
-import { Property } from '@/types/property';
+import { PropertyRequest } from '@/types/property';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
@@ -22,7 +22,7 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface PropertyCardProps {
-  property: Property;
+  property: PropertyRequest;
   showAdminControls?: boolean;
 }
 
@@ -67,7 +67,7 @@ export function PropertyCard({ property, showAdminControls = false }: PropertyCa
       if (newStatus === 'approved') {
         try {
           await approveProperty({
-            args: [property.owner as Address],
+            args: [property.owner_address as Address],
           });
         } catch (contractError) {
           console.error('Contract error:', contractError);
@@ -102,9 +102,9 @@ export function PropertyCard({ property, showAdminControls = false }: PropertyCa
   return (
     <Card className="overflow-hidden flex flex-col h-full">
       <div className="relative h-48 w-full">
-        {property.imageUrl ? (
+        {property.image_url ? (
           <Image
-            src={property.imageUrl}
+            src={property.image_url}
             alt={property.name}
             fill
             className="object-cover"
@@ -119,7 +119,7 @@ export function PropertyCard({ property, showAdminControls = false }: PropertyCa
       <CardHeader className="flex-none">
         <div className="flex justify-between items-start gap-2">
           <div>
-            <CardTitle className="text-xl line-clamp-1">{property.name}</CardTitle>
+            <CardTitle className="text-xl line-clamp-1">{property.property_type}</CardTitle>
             <CardDescription className="line-clamp-1">{property.location}</CardDescription>
           </div>
           <span className={`px-2 py-1 text-xs rounded-full flex-shrink-0 ${

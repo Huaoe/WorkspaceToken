@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useContractRead } from 'wagmi';
 import { propertyTokenABI } from '@/contracts/abis/propertyTokenABI';
-import { formatEther } from 'viem';
+import { formatUnits } from 'viem';
 import Image from 'next/image';
 
 interface PropertyDetails {
@@ -69,6 +69,14 @@ export default function PropertyDetails() {
     isActive: propertyDetails[5],
   };
 
+  // Format price to show 5 EURC per token
+  const formattedPrice = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    style: 'currency',
+    currency: 'EUR'
+  }).format(5);
+
   return (
     <div className="container mx-auto p-8">
       <Card>
@@ -100,8 +108,8 @@ export default function PropertyDetails() {
               <p className="text-gray-600">{details.description}</p>
             </div>
             <div>
-              <h3 className="text-lg font-semibold">Price</h3>
-              <p className="text-2xl font-bold">{formatEther(details.price)} ETH</p>
+              <h3 className="text-lg font-semibold">Price per Token</h3>
+              <p className="text-2xl font-bold">{formattedPrice}</p>
             </div>
             <div>
               <h3 className="text-lg font-semibold">Contract Address</h3>
