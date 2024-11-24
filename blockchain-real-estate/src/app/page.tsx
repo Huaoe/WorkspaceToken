@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAccount, useReadContract, usePublicClient } from 'wagmi';
-import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI';
+import { propertyFactoryABI } from '@contracts/abis/propertyFactoryABI';
 import { useEffect, useState } from 'react';
 import { Building2, List, ShieldCheck } from "lucide-react";
 

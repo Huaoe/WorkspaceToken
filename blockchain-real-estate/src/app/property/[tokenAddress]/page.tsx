@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useContractRead } from 'wagmi';
-import { propertyTokenABI } from '@/contracts/abis/propertyTokenABI';
+import { propertyTokenABI } from '@contracts/abis/propertyTokenABI';
 import { formatUnits } from 'viem';
 import Image from 'next/image';
 

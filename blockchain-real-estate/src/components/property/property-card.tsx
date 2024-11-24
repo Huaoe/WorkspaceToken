@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { useAccount, useContractRead, useContractWrite } from 'wagmi';
 import { Address } from 'viem';
-import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI';
+import { propertyFactoryABI } from '@contracts/abis/propertyFactoryABI';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,

@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useAccount, usePublicClient, useNetwork, useSwitchNetwork, useContractRead } from 'wagmi';
 import { PropertyCard } from './property-card';
 import { PropertyRequest } from '@/types/property';
-import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI';
-import { propertyTokenABI } from '@/contracts/abis/propertyTokenABI';
+import { propertyFactoryABI } from '@contracts/abis/propertyFactoryABI';
+import { propertyTokenABI } from '@contracts/abis/propertyTokenABI';
 import { Address, formatEther } from 'viem';
 import { hardhatChain } from '@/app/providers';
 

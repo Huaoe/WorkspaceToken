@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createPublicClient, http } from 'viem';
 import { hardhat } from 'viem/chains';
-import { propertyTokenABI } from '@/contracts/abis/propertyTokenABI';
+import { propertyTokenABI } from '@contracts/abis/propertyTokenABI';
 
 const client = createPublicClient({
   chain: hardhat,

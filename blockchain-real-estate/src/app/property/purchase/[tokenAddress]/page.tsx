@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from 'next/image'
-import { propertyTokenABI } from '@/contracts/abis/propertyTokenABI'
-import { erc20ABI } from '@/contracts/abis/erc20ABI'
+import { propertyTokenABI } from '@contracts/abis/propertyTokenABI'
+import { erc20ABI } from '@contracts/abis/erc20ABI'
 
 export default function PurchaseProperty() {
   const { tokenAddress } = useParams()

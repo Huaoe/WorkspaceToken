@@ -36,6 +36,12 @@ const config: HardhatUserConfig = {
     cache: "./cache",
     artifacts: "./src/contracts/artifacts"
   },
+  mocha: {
+    timeout: 40000
+  },
+  gasReporter: {
+    enabled: false
+  }
 };
 
 export default config;

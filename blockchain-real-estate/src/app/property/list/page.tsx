@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import Link from 'next/link'
 import { useContractRead, useAccount } from 'wagmi'
-import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI'
-import { propertyTokenABI } from '@/contracts/abis/propertyTokenABI'
+import { propertyFactoryABI } from '@contracts/abis/propertyFactoryABI'
+import { propertyTokenABI } from '@contracts/abis/propertyTokenABI'
 import { formatEther } from 'viem'
 import { useEffect, useState, useCallback } from 'react'
 import { useToast } from "@/components/ui/use-toast"

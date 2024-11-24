@@ -1,0 +1,67 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Hardhat files
+cache/
+artifacts/
+typechain-types/
+coverage/
+coverage.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Debug logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Build output
+dist/
+build/
+out/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Contract deployment files
+deployments/
+
+# Gas report
+gas-report.txt
+
+# Solidity contract size report
+contract-size-report.txt
+
+# Hardhat temporary files
+.hardhat/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Local blockchain data
+.node/
+
+# OpenZeppelin
+.openzeppelin/
+
+# Tenderly
+.tenderly/
+
+# Misc
+.tmp/
+.temp/

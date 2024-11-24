@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { propertyFactoryABI } from "@/contracts/abis/propertyFactoryABI";
+import { propertyFactoryABI } from "@contracts/abis/propertyFactoryABI";
 import { useAccount, useContractRead, usePublicClient, useWalletClient } from "wagmi";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
