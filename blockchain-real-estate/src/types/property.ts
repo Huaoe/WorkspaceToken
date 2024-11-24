@@ -1,16 +1,18 @@
 export interface PropertyRequest {
   id: string;
-  property_type: string;
-  price: number;
-  area: number;
+  created_at: string;
+  owner_address: string;
+  title: string;
+  description: string;
   location: string;
+  image_url?: string;
+  expected_price: number;
+  documents_url?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'onchain';
   latitude: number;
   longitude: number;
-  owner_address: string;
-  status: 'pending' | 'approved' | 'rejected' | 'onchain';
-  property_id?: string;
-  created_at: string;
-  description: string;
-  image_url?: string;
-  documents_url?: string | string[];
+  number_of_tokens?: number;
+  approved_at?: string;
+  rejected_at?: string;
+  tokenized_at?: string;
 }

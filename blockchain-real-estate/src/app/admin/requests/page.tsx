@@ -10,19 +10,8 @@ import { Address } from 'viem';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge'; 
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"; 
+import { PropertyRequest } from '@/types/property';
 
-interface PropertyRequest {
-  id: string;
-  title: string;
-  description: string;
-  location: string;
-  image_url: string;
-  expected_price: string;
-  documents_url?: string;
-  wallet_address: string;
-  created_at: string;
-  status: string;
-}
 
 export default function AdminRequests() {
   const [requests, setRequests] = useState<PropertyRequest[]>([]);

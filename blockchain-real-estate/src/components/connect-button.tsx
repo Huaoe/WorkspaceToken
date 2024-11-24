@@ -1,8 +1,19 @@
 'use client';
 
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount } from 'wagmi';
+import { useEffect, useState } from 'react';
 
 export function CustomConnectButton() {
+  const { address, isConnected } = useAccount();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
   return (
     <ConnectButton.Custom>
       {({
@@ -12,26 +23,11 @@ export function CustomConnectButton() {
         openChainModal,
         openConnectModal,
         authenticationStatus,
-        mounted,
       }) => {
-        const ready = mounted && authenticationStatus !== 'loading';
-        const connected =
-          ready &&
-          account &&
-          chain &&
-          (!authenticationStatus || authenticationStatus === 'authenticated');
+        const connected = isConnected && address;
 
         return (
-          <div
-            {...(!ready && {
-              'aria-hidden': true,
-              style: {
-                opacity: 0,
-                pointerEvents: 'none',
-                userSelect: 'none',
-              },
-            })}
-          >
+          <div>
             {(() => {
               if (!connected) {
                 return (
@@ -51,84 +47,46 @@ export function CustomConnectButton() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth="2"
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
+                        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                      ></path>
                     </svg>
                     Connect Wallet
                   </button>
                 );
               }
 
-              if (chain.unsupported) {
-                return (
-                  <button
-                    onClick={openChainModal}
-                    type="button"
-                    className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200"
-                  >
-                    <svg
-                      className="w-5 h-5 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                      />
-                    </svg>
-                    Wrong Network
-                  </button>
-                );
-              }
-
               return (
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={openChainModal}
-                    type="button"
-                    className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
-                  >
-                    {chain.hasIcon && (
-                      <div className="w-5 h-5 mr-2">
-                        {chain.iconUrl && (
-                          <img
-                            alt={chain.name ?? 'Chain icon'}
-                            src={chain.iconUrl}
-                            className="w-5 h-5"
-                          />
-                        )}
-                      </div>
-                    )}
-                    {chain.name}
-                  </button>
+                  {chain && (
+                    <button
+                      onClick={openChainModal}
+                      className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                      {chain.hasIcon && (
+                        <div className="w-4 h-4">
+                          {chain.iconUrl && (
+                            <img
+                              alt={chain.name ?? 'Chain icon'}
+                              src={chain.iconUrl}
+                              className="w-4 h-4"
+                            />
+                          )}
+                        </div>
+                      )}
+                      {chain.name ?? chain.id}
+                    </button>
+                  )}
 
                   <button
                     onClick={openAccountModal}
-                    type="button"
-                    className="inline-flex items-center px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg shadow-md hover:from-green-600 hover:to-emerald-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200"
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
-                    <svg
-                      className="w-5 h-5 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                      />
-                    </svg>
-                    {account.displayName}
-                    {account.displayBalance
-                      ? ` (${account.displayBalance})`
-                      : ''}
+                    {address && (
+                      <>
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        {`${address.slice(0, 6)}...${address.slice(-4)}`}
+                      </>
+                    )}
                   </button>
                 </div>
               );

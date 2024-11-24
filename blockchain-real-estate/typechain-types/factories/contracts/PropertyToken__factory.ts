@@ -2,19 +2,15 @@
 /* tslint:disable */
 /* eslint-disable */
 import {
+  Signer,
+  utils,
   Contract,
   ContractFactory,
-  ContractTransactionResponse,
-  Interface,
-} from "ethers";
-import type {
-  Signer,
   BigNumberish,
-  AddressLike,
-  ContractDeployTransaction,
-  ContractRunner,
+  Overrides,
 } from "ethers";
-import type { NonPayableOverrides } from "../../common";
+import type { Provider, TransactionRequest } from "@ethersproject/providers";
+import type { PromiseOrValue } from "../../common";
 import type {
   PropertyToken,
   PropertyTokenInterface,
@@ -727,16 +723,37 @@ export class PropertyToken__factory extends ContractFactory {
     }
   }
 
+  override deploy(
+    _title: PromiseOrValue<string>,
+    _description: PromiseOrValue<string>,
+    _location: PromiseOrValue<string>,
+    _imageUrl: PromiseOrValue<string>,
+    _price: PromiseOrValue<BigNumberish>,
+    initialOwner: PromiseOrValue<string>,
+    _eurcToken: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<PropertyToken> {
+    return super.deploy(
+      _title,
+      _description,
+      _location,
+      _imageUrl,
+      _price,
+      initialOwner,
+      _eurcToken,
+      overrides || {}
+    ) as Promise<PropertyToken>;
+  }
   override getDeployTransaction(
-    _title: string,
-    _description: string,
-    _location: string,
-    _imageUrl: string,
-    _price: BigNumberish,
-    initialOwner: AddressLike,
-    _eurcToken: AddressLike,
-    overrides?: NonPayableOverrides & { from?: string }
-  ): Promise<ContractDeployTransaction> {
+    _title: PromiseOrValue<string>,
+    _description: PromiseOrValue<string>,
+    _location: PromiseOrValue<string>,
+    _imageUrl: PromiseOrValue<string>,
+    _price: PromiseOrValue<BigNumberish>,
+    initialOwner: PromiseOrValue<string>,
+    _eurcToken: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): TransactionRequest {
     return super.getDeployTransaction(
       _title,
       _description,
@@ -748,44 +765,22 @@ export class PropertyToken__factory extends ContractFactory {
       overrides || {}
     );
   }
-  override deploy(
-    _title: string,
-    _description: string,
-    _location: string,
-    _imageUrl: string,
-    _price: BigNumberish,
-    initialOwner: AddressLike,
-    _eurcToken: AddressLike,
-    overrides?: NonPayableOverrides & { from?: string }
-  ) {
-    return super.deploy(
-      _title,
-      _description,
-      _location,
-      _imageUrl,
-      _price,
-      initialOwner,
-      _eurcToken,
-      overrides || {}
-    ) as Promise<
-      PropertyToken & {
-        deploymentTransaction(): ContractTransactionResponse;
-      }
-    >;
+  override attach(address: string): PropertyToken {
+    return super.attach(address) as PropertyToken;
   }
-  override connect(runner: ContractRunner | null): PropertyToken__factory {
-    return super.connect(runner) as PropertyToken__factory;
+  override connect(signer: Signer): PropertyToken__factory {
+    return super.connect(signer) as PropertyToken__factory;
   }
 
   static readonly bytecode = _bytecode;
   static readonly abi = _abi;
   static createInterface(): PropertyTokenInterface {
-    return new Interface(_abi) as PropertyTokenInterface;
+    return new utils.Interface(_abi) as PropertyTokenInterface;
   }
   static connect(
     address: string,
-    runner?: ContractRunner | null
+    signerOrProvider: Signer | Provider
   ): PropertyToken {
-    return new Contract(address, _abi, runner) as unknown as PropertyToken;
+    return new Contract(address, _abi, signerOrProvider) as PropertyToken;
   }
 }

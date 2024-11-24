@@ -3,29 +3,58 @@
 /* eslint-disable */
 import type {
   BaseContract,
+  BigNumber,
   BigNumberish,
   BytesLike,
-  FunctionFragment,
-  Result,
-  Interface,
-  EventFragment,
-  AddressLike,
-  ContractRunner,
-  ContractMethod,
-  Listener,
+  CallOverrides,
+  ContractTransaction,
+  Overrides,
+  PopulatedTransaction,
+  Signer,
+  utils,
 } from "ethers";
 import type {
-  TypedContractEvent,
-  TypedDeferredTopicFilter,
-  TypedEventLog,
-  TypedLogDescription,
+  FunctionFragment,
+  Result,
+  EventFragment,
+} from "@ethersproject/abi";
+import type { Listener, Provider } from "@ethersproject/providers";
+import type {
+  TypedEventFilter,
+  TypedEvent,
   TypedListener,
-  TypedContractMethod,
+  OnEvent,
+  PromiseOrValue,
 } from "../common";
 
-export interface PropertyTokenInterface extends Interface {
+export interface PropertyTokenInterface extends utils.Interface {
+  functions: {
+    "EURC_DECIMALS()": FunctionFragment;
+    "TOTAL_SUPPLY()": FunctionFragment;
+    "allowance(address,address)": FunctionFragment;
+    "approve(address,uint256)": FunctionFragment;
+    "balanceOf(address)": FunctionFragment;
+    "decimals()": FunctionFragment;
+    "eurcToken()": FunctionFragment;
+    "getEURCToken()": FunctionFragment;
+    "getPropertyDetails()": FunctionFragment;
+    "name()": FunctionFragment;
+    "owner()": FunctionFragment;
+    "propertyDetails()": FunctionFragment;
+    "purchaseTokens(uint256)": FunctionFragment;
+    "renounceOwnership()": FunctionFragment;
+    "sellTokens(uint256)": FunctionFragment;
+    "setPropertyStatus(bool)": FunctionFragment;
+    "symbol()": FunctionFragment;
+    "totalSupply()": FunctionFragment;
+    "transfer(address,uint256)": FunctionFragment;
+    "transferFrom(address,address,uint256)": FunctionFragment;
+    "transferOwnership(address)": FunctionFragment;
+    "updatePrice(uint256)": FunctionFragment;
+  };
+
   getFunction(
-    nameOrSignature:
+    nameOrSignatureOrTopic:
       | "EURC_DECIMALS"
       | "TOTAL_SUPPLY"
       | "allowance"
@@ -50,16 +79,6 @@ export interface PropertyTokenInterface extends Interface {
       | "updatePrice"
   ): FunctionFragment;
 
-  getEvent(
-    nameOrSignatureOrTopic:
-      | "Approval"
-      | "OwnershipTransferred"
-      | "PropertyTokenized"
-      | "TokensPurchased"
-      | "TokensSold"
-      | "Transfer"
-  ): EventFragment;
-
   encodeFunctionData(
     functionFragment: "EURC_DECIMALS",
     values?: undefined
@@ -70,15 +89,15 @@ export interface PropertyTokenInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "allowance",
-    values: [AddressLike, AddressLike]
+    values: [PromiseOrValue<string>, PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "approve",
-    values: [AddressLike, BigNumberish]
+    values: [PromiseOrValue<string>, PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
     functionFragment: "balanceOf",
-    values: [AddressLike]
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(functionFragment: "decimals", values?: undefined): string;
   encodeFunctionData(functionFragment: "eurcToken", values?: undefined): string;
@@ -98,7 +117,7 @@ export interface PropertyTokenInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "purchaseTokens",
-    values: [BigNumberish]
+    values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
     functionFragment: "renounceOwnership",
@@ -106,11 +125,11 @@ export interface PropertyTokenInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "sellTokens",
-    values: [BigNumberish]
+    values: [PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
     functionFragment: "setPropertyStatus",
-    values: [boolean]
+    values: [PromiseOrValue<boolean>]
   ): string;
   encodeFunctionData(functionFragment: "symbol", values?: undefined): string;
   encodeFunctionData(
@@ -119,19 +138,23 @@ export interface PropertyTokenInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "transfer",
-    values: [AddressLike, BigNumberish]
+    values: [PromiseOrValue<string>, PromiseOrValue<BigNumberish>]
   ): string;
   encodeFunctionData(
     functionFragment: "transferFrom",
-    values: [AddressLike, AddressLike, BigNumberish]
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>
+    ]
   ): string;
   encodeFunctionData(
     functionFragment: "transferOwnership",
-    values: [AddressLike]
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "updatePrice",
-    values: [BigNumberish]
+    values: [PromiseOrValue<BigNumberish>]
   ): string;
 
   decodeFunctionResult(
@@ -192,488 +215,668 @@ export interface PropertyTokenInterface extends Interface {
     functionFragment: "updatePrice",
     data: BytesLike
   ): Result;
+
+  events: {
+    "Approval(address,address,uint256)": EventFragment;
+    "OwnershipTransferred(address,address)": EventFragment;
+    "PropertyTokenized(string,string,uint256,address)": EventFragment;
+    "TokensPurchased(address,uint256,uint256)": EventFragment;
+    "TokensSold(address,uint256,uint256)": EventFragment;
+    "Transfer(address,address,uint256)": EventFragment;
+  };
+
+  getEvent(nameOrSignatureOrTopic: "Approval"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "OwnershipTransferred"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "PropertyTokenized"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "TokensPurchased"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "TokensSold"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "Transfer"): EventFragment;
 }
 
-export namespace ApprovalEvent {
-  export type InputTuple = [
-    owner: AddressLike,
-    spender: AddressLike,
-    value: BigNumberish
-  ];
-  export type OutputTuple = [owner: string, spender: string, value: bigint];
-  export interface OutputObject {
-    owner: string;
-    spender: string;
-    value: bigint;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
+export interface ApprovalEventObject {
+  owner: string;
+  spender: string;
+  value: BigNumber;
 }
+export type ApprovalEvent = TypedEvent<
+  [string, string, BigNumber],
+  ApprovalEventObject
+>;
 
-export namespace OwnershipTransferredEvent {
-  export type InputTuple = [previousOwner: AddressLike, newOwner: AddressLike];
-  export type OutputTuple = [previousOwner: string, newOwner: string];
-  export interface OutputObject {
-    previousOwner: string;
-    newOwner: string;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
+export type ApprovalEventFilter = TypedEventFilter<ApprovalEvent>;
 
-export namespace PropertyTokenizedEvent {
-  export type InputTuple = [
-    title: string,
-    location: string,
-    price: BigNumberish,
-    owner: AddressLike
-  ];
-  export type OutputTuple = [
-    title: string,
-    location: string,
-    price: bigint,
-    owner: string
-  ];
-  export interface OutputObject {
-    title: string;
-    location: string;
-    price: bigint;
-    owner: string;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
+export interface OwnershipTransferredEventObject {
+  previousOwner: string;
+  newOwner: string;
 }
+export type OwnershipTransferredEvent = TypedEvent<
+  [string, string],
+  OwnershipTransferredEventObject
+>;
 
-export namespace TokensPurchasedEvent {
-  export type InputTuple = [
-    buyer: AddressLike,
-    amount: BigNumberish,
-    eurcPaid: BigNumberish
-  ];
-  export type OutputTuple = [buyer: string, amount: bigint, eurcPaid: bigint];
-  export interface OutputObject {
-    buyer: string;
-    amount: bigint;
-    eurcPaid: bigint;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
+export type OwnershipTransferredEventFilter =
+  TypedEventFilter<OwnershipTransferredEvent>;
 
-export namespace TokensSoldEvent {
-  export type InputTuple = [
-    seller: AddressLike,
-    amount: BigNumberish,
-    eurcReceived: BigNumberish
-  ];
-  export type OutputTuple = [
-    seller: string,
-    amount: bigint,
-    eurcReceived: bigint
-  ];
-  export interface OutputObject {
-    seller: string;
-    amount: bigint;
-    eurcReceived: bigint;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
+export interface PropertyTokenizedEventObject {
+  title: string;
+  location: string;
+  price: BigNumber;
+  owner: string;
 }
+export type PropertyTokenizedEvent = TypedEvent<
+  [string, string, BigNumber, string],
+  PropertyTokenizedEventObject
+>;
 
-export namespace TransferEvent {
-  export type InputTuple = [
-    from: AddressLike,
-    to: AddressLike,
-    value: BigNumberish
-  ];
-  export type OutputTuple = [from: string, to: string, value: bigint];
-  export interface OutputObject {
-    from: string;
-    to: string;
-    value: bigint;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
+export type PropertyTokenizedEventFilter =
+  TypedEventFilter<PropertyTokenizedEvent>;
+
+export interface TokensPurchasedEventObject {
+  buyer: string;
+  amount: BigNumber;
+  eurcPaid: BigNumber;
 }
+export type TokensPurchasedEvent = TypedEvent<
+  [string, BigNumber, BigNumber],
+  TokensPurchasedEventObject
+>;
+
+export type TokensPurchasedEventFilter = TypedEventFilter<TokensPurchasedEvent>;
+
+export interface TokensSoldEventObject {
+  seller: string;
+  amount: BigNumber;
+  eurcReceived: BigNumber;
+}
+export type TokensSoldEvent = TypedEvent<
+  [string, BigNumber, BigNumber],
+  TokensSoldEventObject
+>;
+
+export type TokensSoldEventFilter = TypedEventFilter<TokensSoldEvent>;
+
+export interface TransferEventObject {
+  from: string;
+  to: string;
+  value: BigNumber;
+}
+export type TransferEvent = TypedEvent<
+  [string, string, BigNumber],
+  TransferEventObject
+>;
+
+export type TransferEventFilter = TypedEventFilter<TransferEvent>;
 
 export interface PropertyToken extends BaseContract {
-  connect(runner?: ContractRunner | null): PropertyToken;
-  waitForDeployment(): Promise<this>;
+  connect(signerOrProvider: Signer | Provider | string): this;
+  attach(addressOrName: string): this;
+  deployed(): Promise<this>;
 
   interface: PropertyTokenInterface;
 
-  queryFilter<TCEvent extends TypedContractEvent>(
-    event: TCEvent,
+  queryFilter<TEvent extends TypedEvent>(
+    event: TypedEventFilter<TEvent>,
     fromBlockOrBlockhash?: string | number | undefined,
     toBlock?: string | number | undefined
-  ): Promise<Array<TypedEventLog<TCEvent>>>;
-  queryFilter<TCEvent extends TypedContractEvent>(
-    filter: TypedDeferredTopicFilter<TCEvent>,
-    fromBlockOrBlockhash?: string | number | undefined,
-    toBlock?: string | number | undefined
-  ): Promise<Array<TypedEventLog<TCEvent>>>;
+  ): Promise<Array<TEvent>>;
 
-  on<TCEvent extends TypedContractEvent>(
-    event: TCEvent,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
-  on<TCEvent extends TypedContractEvent>(
-    filter: TypedDeferredTopicFilter<TCEvent>,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
+  listeners<TEvent extends TypedEvent>(
+    eventFilter?: TypedEventFilter<TEvent>
+  ): Array<TypedListener<TEvent>>;
+  listeners(eventName?: string): Array<Listener>;
+  removeAllListeners<TEvent extends TypedEvent>(
+    eventFilter: TypedEventFilter<TEvent>
+  ): this;
+  removeAllListeners(eventName?: string): this;
+  off: OnEvent<this>;
+  on: OnEvent<this>;
+  once: OnEvent<this>;
+  removeListener: OnEvent<this>;
 
-  once<TCEvent extends TypedContractEvent>(
-    event: TCEvent,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
-  once<TCEvent extends TypedContractEvent>(
-    filter: TypedDeferredTopicFilter<TCEvent>,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
+  functions: {
+    EURC_DECIMALS(overrides?: CallOverrides): Promise<[BigNumber]>;
 
-  listeners<TCEvent extends TypedContractEvent>(
-    event: TCEvent
-  ): Promise<Array<TypedListener<TCEvent>>>;
-  listeners(eventName?: string): Promise<Array<Listener>>;
-  removeAllListeners<TCEvent extends TypedContractEvent>(
-    event?: TCEvent
-  ): Promise<this>;
+    TOTAL_SUPPLY(overrides?: CallOverrides): Promise<[BigNumber]>;
 
-  EURC_DECIMALS: TypedContractMethod<[], [bigint], "view">;
+    allowance(
+      owner: PromiseOrValue<string>,
+      spender: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
 
-  TOTAL_SUPPLY: TypedContractMethod<[], [bigint], "view">;
+    approve(
+      spender: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
-  allowance: TypedContractMethod<
-    [owner: AddressLike, spender: AddressLike],
-    [bigint],
-    "view"
-  >;
+    balanceOf(
+      account: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[BigNumber]>;
 
-  approve: TypedContractMethod<
-    [spender: AddressLike, value: BigNumberish],
-    [boolean],
-    "nonpayable"
-  >;
+    decimals(overrides?: CallOverrides): Promise<[number]>;
 
-  balanceOf: TypedContractMethod<[account: AddressLike], [bigint], "view">;
+    eurcToken(overrides?: CallOverrides): Promise<[string]>;
 
-  decimals: TypedContractMethod<[], [bigint], "view">;
+    getEURCToken(overrides?: CallOverrides): Promise<[string]>;
 
-  eurcToken: TypedContractMethod<[], [string], "view">;
-
-  getEURCToken: TypedContractMethod<[], [string], "view">;
-
-  getPropertyDetails: TypedContractMethod<
-    [],
-    [
-      [string, string, string, string, bigint, boolean] & {
+    getPropertyDetails(
+      overrides?: CallOverrides
+    ): Promise<
+      [string, string, string, string, BigNumber, boolean] & {
         title: string;
         description: string;
         location: string;
         imageUrl: string;
-        price: bigint;
+        price: BigNumber;
         isActive: boolean;
       }
-    ],
-    "view"
-  >;
+    >;
 
-  name: TypedContractMethod<[], [string], "view">;
+    name(overrides?: CallOverrides): Promise<[string]>;
 
-  owner: TypedContractMethod<[], [string], "view">;
+    owner(overrides?: CallOverrides): Promise<[string]>;
 
-  propertyDetails: TypedContractMethod<
-    [],
-    [
-      [string, string, string, string, bigint, boolean] & {
+    propertyDetails(
+      overrides?: CallOverrides
+    ): Promise<
+      [string, string, string, string, BigNumber, boolean] & {
         title: string;
         description: string;
         location: string;
         imageUrl: string;
-        price: bigint;
+        price: BigNumber;
         isActive: boolean;
       }
-    ],
-    "view"
+    >;
+
+    purchaseTokens(
+      _amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    renounceOwnership(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    sellTokens(
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    setPropertyStatus(
+      _isActive: PromiseOrValue<boolean>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    symbol(overrides?: CallOverrides): Promise<[string]>;
+
+    totalSupply(overrides?: CallOverrides): Promise<[BigNumber]>;
+
+    transfer(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    transferFrom(
+      from: PromiseOrValue<string>,
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    transferOwnership(
+      newOwner: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    updatePrice(
+      _newPrice: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+  };
+
+  EURC_DECIMALS(overrides?: CallOverrides): Promise<BigNumber>;
+
+  TOTAL_SUPPLY(overrides?: CallOverrides): Promise<BigNumber>;
+
+  allowance(
+    owner: PromiseOrValue<string>,
+    spender: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
+
+  approve(
+    spender: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  balanceOf(
+    account: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
+
+  decimals(overrides?: CallOverrides): Promise<number>;
+
+  eurcToken(overrides?: CallOverrides): Promise<string>;
+
+  getEURCToken(overrides?: CallOverrides): Promise<string>;
+
+  getPropertyDetails(
+    overrides?: CallOverrides
+  ): Promise<
+    [string, string, string, string, BigNumber, boolean] & {
+      title: string;
+      description: string;
+      location: string;
+      imageUrl: string;
+      price: BigNumber;
+      isActive: boolean;
+    }
   >;
 
-  purchaseTokens: TypedContractMethod<
-    [_amount: BigNumberish],
-    [void],
-    "nonpayable"
+  name(overrides?: CallOverrides): Promise<string>;
+
+  owner(overrides?: CallOverrides): Promise<string>;
+
+  propertyDetails(
+    overrides?: CallOverrides
+  ): Promise<
+    [string, string, string, string, BigNumber, boolean] & {
+      title: string;
+      description: string;
+      location: string;
+      imageUrl: string;
+      price: BigNumber;
+      isActive: boolean;
+    }
   >;
 
-  renounceOwnership: TypedContractMethod<[], [void], "nonpayable">;
+  purchaseTokens(
+    _amount: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
-  sellTokens: TypedContractMethod<[amount: BigNumberish], [void], "nonpayable">;
+  renounceOwnership(
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
-  setPropertyStatus: TypedContractMethod<
-    [_isActive: boolean],
-    [void],
-    "nonpayable"
-  >;
+  sellTokens(
+    amount: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
-  symbol: TypedContractMethod<[], [string], "view">;
+  setPropertyStatus(
+    _isActive: PromiseOrValue<boolean>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
-  totalSupply: TypedContractMethod<[], [bigint], "view">;
+  symbol(overrides?: CallOverrides): Promise<string>;
 
-  transfer: TypedContractMethod<
-    [to: AddressLike, value: BigNumberish],
-    [boolean],
-    "nonpayable"
-  >;
+  totalSupply(overrides?: CallOverrides): Promise<BigNumber>;
 
-  transferFrom: TypedContractMethod<
-    [from: AddressLike, to: AddressLike, value: BigNumberish],
-    [boolean],
-    "nonpayable"
-  >;
+  transfer(
+    to: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
-  transferOwnership: TypedContractMethod<
-    [newOwner: AddressLike],
-    [void],
-    "nonpayable"
-  >;
+  transferFrom(
+    from: PromiseOrValue<string>,
+    to: PromiseOrValue<string>,
+    value: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
-  updatePrice: TypedContractMethod<
-    [_newPrice: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
+  transferOwnership(
+    newOwner: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
-  getFunction<T extends ContractMethod = ContractMethod>(
-    key: string | FunctionFragment
-  ): T;
+  updatePrice(
+    _newPrice: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
-  getFunction(
-    nameOrSignature: "EURC_DECIMALS"
-  ): TypedContractMethod<[], [bigint], "view">;
-  getFunction(
-    nameOrSignature: "TOTAL_SUPPLY"
-  ): TypedContractMethod<[], [bigint], "view">;
-  getFunction(
-    nameOrSignature: "allowance"
-  ): TypedContractMethod<
-    [owner: AddressLike, spender: AddressLike],
-    [bigint],
-    "view"
-  >;
-  getFunction(
-    nameOrSignature: "approve"
-  ): TypedContractMethod<
-    [spender: AddressLike, value: BigNumberish],
-    [boolean],
-    "nonpayable"
-  >;
-  getFunction(
-    nameOrSignature: "balanceOf"
-  ): TypedContractMethod<[account: AddressLike], [bigint], "view">;
-  getFunction(
-    nameOrSignature: "decimals"
-  ): TypedContractMethod<[], [bigint], "view">;
-  getFunction(
-    nameOrSignature: "eurcToken"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "getEURCToken"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "getPropertyDetails"
-  ): TypedContractMethod<
-    [],
-    [
-      [string, string, string, string, bigint, boolean] & {
+  callStatic: {
+    EURC_DECIMALS(overrides?: CallOverrides): Promise<BigNumber>;
+
+    TOTAL_SUPPLY(overrides?: CallOverrides): Promise<BigNumber>;
+
+    allowance(
+      owner: PromiseOrValue<string>,
+      spender: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    approve(
+      spender: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    balanceOf(
+      account: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    decimals(overrides?: CallOverrides): Promise<number>;
+
+    eurcToken(overrides?: CallOverrides): Promise<string>;
+
+    getEURCToken(overrides?: CallOverrides): Promise<string>;
+
+    getPropertyDetails(
+      overrides?: CallOverrides
+    ): Promise<
+      [string, string, string, string, BigNumber, boolean] & {
         title: string;
         description: string;
         location: string;
         imageUrl: string;
-        price: bigint;
+        price: BigNumber;
         isActive: boolean;
       }
-    ],
-    "view"
-  >;
-  getFunction(
-    nameOrSignature: "name"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "owner"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "propertyDetails"
-  ): TypedContractMethod<
-    [],
-    [
-      [string, string, string, string, bigint, boolean] & {
+    >;
+
+    name(overrides?: CallOverrides): Promise<string>;
+
+    owner(overrides?: CallOverrides): Promise<string>;
+
+    propertyDetails(
+      overrides?: CallOverrides
+    ): Promise<
+      [string, string, string, string, BigNumber, boolean] & {
         title: string;
         description: string;
         location: string;
         imageUrl: string;
-        price: bigint;
+        price: BigNumber;
         isActive: boolean;
       }
-    ],
-    "view"
-  >;
-  getFunction(
-    nameOrSignature: "purchaseTokens"
-  ): TypedContractMethod<[_amount: BigNumberish], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "renounceOwnership"
-  ): TypedContractMethod<[], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "sellTokens"
-  ): TypedContractMethod<[amount: BigNumberish], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "setPropertyStatus"
-  ): TypedContractMethod<[_isActive: boolean], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "symbol"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "totalSupply"
-  ): TypedContractMethod<[], [bigint], "view">;
-  getFunction(
-    nameOrSignature: "transfer"
-  ): TypedContractMethod<
-    [to: AddressLike, value: BigNumberish],
-    [boolean],
-    "nonpayable"
-  >;
-  getFunction(
-    nameOrSignature: "transferFrom"
-  ): TypedContractMethod<
-    [from: AddressLike, to: AddressLike, value: BigNumberish],
-    [boolean],
-    "nonpayable"
-  >;
-  getFunction(
-    nameOrSignature: "transferOwnership"
-  ): TypedContractMethod<[newOwner: AddressLike], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "updatePrice"
-  ): TypedContractMethod<[_newPrice: BigNumberish], [void], "nonpayable">;
+    >;
 
-  getEvent(
-    key: "Approval"
-  ): TypedContractEvent<
-    ApprovalEvent.InputTuple,
-    ApprovalEvent.OutputTuple,
-    ApprovalEvent.OutputObject
-  >;
-  getEvent(
-    key: "OwnershipTransferred"
-  ): TypedContractEvent<
-    OwnershipTransferredEvent.InputTuple,
-    OwnershipTransferredEvent.OutputTuple,
-    OwnershipTransferredEvent.OutputObject
-  >;
-  getEvent(
-    key: "PropertyTokenized"
-  ): TypedContractEvent<
-    PropertyTokenizedEvent.InputTuple,
-    PropertyTokenizedEvent.OutputTuple,
-    PropertyTokenizedEvent.OutputObject
-  >;
-  getEvent(
-    key: "TokensPurchased"
-  ): TypedContractEvent<
-    TokensPurchasedEvent.InputTuple,
-    TokensPurchasedEvent.OutputTuple,
-    TokensPurchasedEvent.OutputObject
-  >;
-  getEvent(
-    key: "TokensSold"
-  ): TypedContractEvent<
-    TokensSoldEvent.InputTuple,
-    TokensSoldEvent.OutputTuple,
-    TokensSoldEvent.OutputObject
-  >;
-  getEvent(
-    key: "Transfer"
-  ): TypedContractEvent<
-    TransferEvent.InputTuple,
-    TransferEvent.OutputTuple,
-    TransferEvent.OutputObject
-  >;
+    purchaseTokens(
+      _amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    renounceOwnership(overrides?: CallOverrides): Promise<void>;
+
+    sellTokens(
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    setPropertyStatus(
+      _isActive: PromiseOrValue<boolean>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    symbol(overrides?: CallOverrides): Promise<string>;
+
+    totalSupply(overrides?: CallOverrides): Promise<BigNumber>;
+
+    transfer(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    transferFrom(
+      from: PromiseOrValue<string>,
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    transferOwnership(
+      newOwner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    updatePrice(
+      _newPrice: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+  };
 
   filters: {
-    "Approval(address,address,uint256)": TypedContractEvent<
-      ApprovalEvent.InputTuple,
-      ApprovalEvent.OutputTuple,
-      ApprovalEvent.OutputObject
-    >;
-    Approval: TypedContractEvent<
-      ApprovalEvent.InputTuple,
-      ApprovalEvent.OutputTuple,
-      ApprovalEvent.OutputObject
-    >;
+    "Approval(address,address,uint256)"(
+      owner?: PromiseOrValue<string> | null,
+      spender?: PromiseOrValue<string> | null,
+      value?: null
+    ): ApprovalEventFilter;
+    Approval(
+      owner?: PromiseOrValue<string> | null,
+      spender?: PromiseOrValue<string> | null,
+      value?: null
+    ): ApprovalEventFilter;
 
-    "OwnershipTransferred(address,address)": TypedContractEvent<
-      OwnershipTransferredEvent.InputTuple,
-      OwnershipTransferredEvent.OutputTuple,
-      OwnershipTransferredEvent.OutputObject
-    >;
-    OwnershipTransferred: TypedContractEvent<
-      OwnershipTransferredEvent.InputTuple,
-      OwnershipTransferredEvent.OutputTuple,
-      OwnershipTransferredEvent.OutputObject
-    >;
+    "OwnershipTransferred(address,address)"(
+      previousOwner?: PromiseOrValue<string> | null,
+      newOwner?: PromiseOrValue<string> | null
+    ): OwnershipTransferredEventFilter;
+    OwnershipTransferred(
+      previousOwner?: PromiseOrValue<string> | null,
+      newOwner?: PromiseOrValue<string> | null
+    ): OwnershipTransferredEventFilter;
 
-    "PropertyTokenized(string,string,uint256,address)": TypedContractEvent<
-      PropertyTokenizedEvent.InputTuple,
-      PropertyTokenizedEvent.OutputTuple,
-      PropertyTokenizedEvent.OutputObject
-    >;
-    PropertyTokenized: TypedContractEvent<
-      PropertyTokenizedEvent.InputTuple,
-      PropertyTokenizedEvent.OutputTuple,
-      PropertyTokenizedEvent.OutputObject
-    >;
+    "PropertyTokenized(string,string,uint256,address)"(
+      title?: null,
+      location?: null,
+      price?: null,
+      owner?: PromiseOrValue<string> | null
+    ): PropertyTokenizedEventFilter;
+    PropertyTokenized(
+      title?: null,
+      location?: null,
+      price?: null,
+      owner?: PromiseOrValue<string> | null
+    ): PropertyTokenizedEventFilter;
 
-    "TokensPurchased(address,uint256,uint256)": TypedContractEvent<
-      TokensPurchasedEvent.InputTuple,
-      TokensPurchasedEvent.OutputTuple,
-      TokensPurchasedEvent.OutputObject
-    >;
-    TokensPurchased: TypedContractEvent<
-      TokensPurchasedEvent.InputTuple,
-      TokensPurchasedEvent.OutputTuple,
-      TokensPurchasedEvent.OutputObject
-    >;
+    "TokensPurchased(address,uint256,uint256)"(
+      buyer?: PromiseOrValue<string> | null,
+      amount?: null,
+      eurcPaid?: null
+    ): TokensPurchasedEventFilter;
+    TokensPurchased(
+      buyer?: PromiseOrValue<string> | null,
+      amount?: null,
+      eurcPaid?: null
+    ): TokensPurchasedEventFilter;
 
-    "TokensSold(address,uint256,uint256)": TypedContractEvent<
-      TokensSoldEvent.InputTuple,
-      TokensSoldEvent.OutputTuple,
-      TokensSoldEvent.OutputObject
-    >;
-    TokensSold: TypedContractEvent<
-      TokensSoldEvent.InputTuple,
-      TokensSoldEvent.OutputTuple,
-      TokensSoldEvent.OutputObject
-    >;
+    "TokensSold(address,uint256,uint256)"(
+      seller?: PromiseOrValue<string> | null,
+      amount?: null,
+      eurcReceived?: null
+    ): TokensSoldEventFilter;
+    TokensSold(
+      seller?: PromiseOrValue<string> | null,
+      amount?: null,
+      eurcReceived?: null
+    ): TokensSoldEventFilter;
 
-    "Transfer(address,address,uint256)": TypedContractEvent<
-      TransferEvent.InputTuple,
-      TransferEvent.OutputTuple,
-      TransferEvent.OutputObject
-    >;
-    Transfer: TypedContractEvent<
-      TransferEvent.InputTuple,
-      TransferEvent.OutputTuple,
-      TransferEvent.OutputObject
-    >;
+    "Transfer(address,address,uint256)"(
+      from?: PromiseOrValue<string> | null,
+      to?: PromiseOrValue<string> | null,
+      value?: null
+    ): TransferEventFilter;
+    Transfer(
+      from?: PromiseOrValue<string> | null,
+      to?: PromiseOrValue<string> | null,
+      value?: null
+    ): TransferEventFilter;
+  };
+
+  estimateGas: {
+    EURC_DECIMALS(overrides?: CallOverrides): Promise<BigNumber>;
+
+    TOTAL_SUPPLY(overrides?: CallOverrides): Promise<BigNumber>;
+
+    allowance(
+      owner: PromiseOrValue<string>,
+      spender: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    approve(
+      spender: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    balanceOf(
+      account: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    decimals(overrides?: CallOverrides): Promise<BigNumber>;
+
+    eurcToken(overrides?: CallOverrides): Promise<BigNumber>;
+
+    getEURCToken(overrides?: CallOverrides): Promise<BigNumber>;
+
+    getPropertyDetails(overrides?: CallOverrides): Promise<BigNumber>;
+
+    name(overrides?: CallOverrides): Promise<BigNumber>;
+
+    owner(overrides?: CallOverrides): Promise<BigNumber>;
+
+    propertyDetails(overrides?: CallOverrides): Promise<BigNumber>;
+
+    purchaseTokens(
+      _amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    renounceOwnership(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    sellTokens(
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    setPropertyStatus(
+      _isActive: PromiseOrValue<boolean>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    symbol(overrides?: CallOverrides): Promise<BigNumber>;
+
+    totalSupply(overrides?: CallOverrides): Promise<BigNumber>;
+
+    transfer(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    transferFrom(
+      from: PromiseOrValue<string>,
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    transferOwnership(
+      newOwner: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    updatePrice(
+      _newPrice: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+  };
+
+  populateTransaction: {
+    EURC_DECIMALS(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    TOTAL_SUPPLY(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    allowance(
+      owner: PromiseOrValue<string>,
+      spender: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    approve(
+      spender: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    balanceOf(
+      account: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    decimals(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    eurcToken(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    getEURCToken(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    getPropertyDetails(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    name(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    owner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    propertyDetails(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    purchaseTokens(
+      _amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    renounceOwnership(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    sellTokens(
+      amount: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    setPropertyStatus(
+      _isActive: PromiseOrValue<boolean>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    symbol(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    totalSupply(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    transfer(
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    transferFrom(
+      from: PromiseOrValue<string>,
+      to: PromiseOrValue<string>,
+      value: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    transferOwnership(
+      newOwner: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    updatePrice(
+      _newPrice: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
   };
 }

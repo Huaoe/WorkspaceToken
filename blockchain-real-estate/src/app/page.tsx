@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { useAccount, useContractRead } from 'wagmi';
+import { useAccount, useReadContract, usePublicClient } from 'wagmi';
 import { propertyFactoryABI } from '@/contracts/abis/propertyFactoryABI';
 import { useEffect, useState } from 'react';
 import { Building2, List, ShieldCheck } from "lucide-react";
@@ -12,8 +12,9 @@ const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x$
 export default function Home() {
   const { address, isConnected } = useAccount();
   const [mounted, setMounted] = useState(false);
+  const publicClient = usePublicClient();
 
-  const { data: owner } = useContractRead({
+  const { data: owner, isError: ownerError } = useReadContract({
     address: contractAddress,
     abi: propertyFactoryABI,
     functionName: 'owner',
@@ -23,9 +24,33 @@ export default function Home() {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (mounted) {
+      console.log('Contract Debug:', {
+        contractAddress,
+        owner,
+        ownerError,
+        address,
+        isConnected,
+      });
+
+      if (contractAddress && publicClient) {
+        publicClient.readContract({
+          address: contractAddress,
+          abi: propertyFactoryABI,
+          functionName: 'owner',
+        }).then(result => {
+          console.log('Direct contract read result:', result);
+        }).catch(error => {
+          console.error('Contract read error:', error);
+        });
+      }
+    }
+  }, [mounted, address, owner, isConnected, contractAddress, publicClient, ownerError]);
+
   if (!mounted) return null;
 
-  const isAdmin = isConnected && address === owner;
+  const isAdmin = isConnected && address?.toLowerCase() === owner?.toLowerCase();
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
@@ -37,6 +62,12 @@ export default function Home() {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Discover and invest in tokenized real estate properties with blockchain technology
           </p>
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>Contract Address: {contractAddress || 'Not configured'}</p>
+            <p>Owner Address: {owner || 'Not available'}</p>
+            {ownerError && <p className="text-red-500">Error reading owner: Contract might not be deployed or accessible</p>}
+            <p>Your Address: {address || 'Not connected'}</p>
+          </div>
         </div>
 
         <div className="flex flex-col items-center gap-6 max-w-6xl mx-auto">

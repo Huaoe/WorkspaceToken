@@ -3,41 +3,61 @@
 /* eslint-disable */
 import type {
   BaseContract,
+  BigNumber,
   BigNumberish,
   BytesLike,
-  FunctionFragment,
-  Result,
-  Interface,
-  EventFragment,
-  AddressLike,
-  ContractRunner,
-  ContractMethod,
-  Listener,
+  CallOverrides,
+  ContractTransaction,
+  Overrides,
+  PopulatedTransaction,
+  Signer,
+  utils,
 } from "ethers";
 import type {
-  TypedContractEvent,
-  TypedDeferredTopicFilter,
-  TypedEventLog,
-  TypedLogDescription,
+  FunctionFragment,
+  Result,
+  EventFragment,
+} from "@ethersproject/abi";
+import type { Listener, Provider } from "@ethersproject/providers";
+import type {
+  TypedEventFilter,
+  TypedEvent,
   TypedListener,
-  TypedContractMethod,
+  OnEvent,
+  PromiseOrValue,
 } from "../common";
 
 export declare namespace PropertyFactory {
   export type PropertyInfoStruct = {
-    tokenAddress: AddressLike;
-    isApproved: boolean;
+    tokenAddress: PromiseOrValue<string>;
+    isApproved: PromiseOrValue<boolean>;
   };
 
-  export type PropertyInfoStructOutput = [
-    tokenAddress: string,
-    isApproved: boolean
-  ] & { tokenAddress: string; isApproved: boolean };
+  export type PropertyInfoStructOutput = [string, boolean] & {
+    tokenAddress: string;
+    isApproved: boolean;
+  };
 }
 
-export interface PropertyFactoryInterface extends Interface {
+export interface PropertyFactoryInterface extends utils.Interface {
+  functions: {
+    "approveProperty(address)": FunctionFragment;
+    "approvedProperties(address)": FunctionFragment;
+    "createProperty(string,string,string,string,uint256)": FunctionFragment;
+    "eurcTokenAddress()": FunctionFragment;
+    "getPropertyCreators()": FunctionFragment;
+    "getPropertyStatus(address)": FunctionFragment;
+    "getUserProperties(address)": FunctionFragment;
+    "owner()": FunctionFragment;
+    "rejectProperty(address)": FunctionFragment;
+    "renounceOwnership()": FunctionFragment;
+    "transferOwnership(address)": FunctionFragment;
+    "updateEURCToken(address)": FunctionFragment;
+    "userProperties(address,uint256)": FunctionFragment;
+  };
+
   getFunction(
-    nameOrSignature:
+    nameOrSignatureOrTopic:
       | "approveProperty"
       | "approvedProperties"
       | "createProperty"
@@ -53,26 +73,23 @@ export interface PropertyFactoryInterface extends Interface {
       | "userProperties"
   ): FunctionFragment;
 
-  getEvent(
-    nameOrSignatureOrTopic:
-      | "EURCTokenUpdated"
-      | "OwnershipTransferred"
-      | "PropertyApproved"
-      | "PropertyRejected"
-      | "PropertySubmitted"
-  ): EventFragment;
-
   encodeFunctionData(
     functionFragment: "approveProperty",
-    values: [AddressLike]
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "approvedProperties",
-    values: [AddressLike]
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "createProperty",
-    values: [string, string, string, string, BigNumberish]
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<string>,
+      PromiseOrValue<string>,
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>
+    ]
   ): string;
   encodeFunctionData(
     functionFragment: "eurcTokenAddress",
@@ -84,16 +101,16 @@ export interface PropertyFactoryInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "getPropertyStatus",
-    values: [AddressLike]
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "getUserProperties",
-    values: [AddressLike]
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
   encodeFunctionData(
     functionFragment: "rejectProperty",
-    values: [AddressLike]
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "renounceOwnership",
@@ -101,15 +118,15 @@ export interface PropertyFactoryInterface extends Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "transferOwnership",
-    values: [AddressLike]
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "updateEURCToken",
-    values: [AddressLike]
+    values: [PromiseOrValue<string>]
   ): string;
   encodeFunctionData(
     functionFragment: "userProperties",
-    values: [AddressLike, BigNumberish]
+    values: [PromiseOrValue<string>, PromiseOrValue<BigNumberish>]
   ): string;
 
   decodeFunctionResult(
@@ -161,333 +178,455 @@ export interface PropertyFactoryInterface extends Interface {
     functionFragment: "userProperties",
     data: BytesLike
   ): Result;
+
+  events: {
+    "EURCTokenUpdated(address)": EventFragment;
+    "OwnershipTransferred(address,address)": EventFragment;
+    "PropertyApproved(address)": EventFragment;
+    "PropertyRejected(address)": EventFragment;
+    "PropertySubmitted(address,address)": EventFragment;
+  };
+
+  getEvent(nameOrSignatureOrTopic: "EURCTokenUpdated"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "OwnershipTransferred"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "PropertyApproved"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "PropertyRejected"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "PropertySubmitted"): EventFragment;
 }
 
-export namespace EURCTokenUpdatedEvent {
-  export type InputTuple = [newAddress: AddressLike];
-  export type OutputTuple = [newAddress: string];
-  export interface OutputObject {
-    newAddress: string;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
+export interface EURCTokenUpdatedEventObject {
+  newAddress: string;
 }
+export type EURCTokenUpdatedEvent = TypedEvent<
+  [string],
+  EURCTokenUpdatedEventObject
+>;
 
-export namespace OwnershipTransferredEvent {
-  export type InputTuple = [previousOwner: AddressLike, newOwner: AddressLike];
-  export type OutputTuple = [previousOwner: string, newOwner: string];
-  export interface OutputObject {
-    previousOwner: string;
-    newOwner: string;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
+export type EURCTokenUpdatedEventFilter =
+  TypedEventFilter<EURCTokenUpdatedEvent>;
 
-export namespace PropertyApprovedEvent {
-  export type InputTuple = [tokenAddress: AddressLike];
-  export type OutputTuple = [tokenAddress: string];
-  export interface OutputObject {
-    tokenAddress: string;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
+export interface OwnershipTransferredEventObject {
+  previousOwner: string;
+  newOwner: string;
 }
+export type OwnershipTransferredEvent = TypedEvent<
+  [string, string],
+  OwnershipTransferredEventObject
+>;
 
-export namespace PropertyRejectedEvent {
-  export type InputTuple = [tokenAddress: AddressLike];
-  export type OutputTuple = [tokenAddress: string];
-  export interface OutputObject {
-    tokenAddress: string;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
+export type OwnershipTransferredEventFilter =
+  TypedEventFilter<OwnershipTransferredEvent>;
 
-export namespace PropertySubmittedEvent {
-  export type InputTuple = [owner: AddressLike, tokenAddress: AddressLike];
-  export type OutputTuple = [owner: string, tokenAddress: string];
-  export interface OutputObject {
-    owner: string;
-    tokenAddress: string;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
+export interface PropertyApprovedEventObject {
+  tokenAddress: string;
 }
+export type PropertyApprovedEvent = TypedEvent<
+  [string],
+  PropertyApprovedEventObject
+>;
+
+export type PropertyApprovedEventFilter =
+  TypedEventFilter<PropertyApprovedEvent>;
+
+export interface PropertyRejectedEventObject {
+  tokenAddress: string;
+}
+export type PropertyRejectedEvent = TypedEvent<
+  [string],
+  PropertyRejectedEventObject
+>;
+
+export type PropertyRejectedEventFilter =
+  TypedEventFilter<PropertyRejectedEvent>;
+
+export interface PropertySubmittedEventObject {
+  owner: string;
+  tokenAddress: string;
+}
+export type PropertySubmittedEvent = TypedEvent<
+  [string, string],
+  PropertySubmittedEventObject
+>;
+
+export type PropertySubmittedEventFilter =
+  TypedEventFilter<PropertySubmittedEvent>;
 
 export interface PropertyFactory extends BaseContract {
-  connect(runner?: ContractRunner | null): PropertyFactory;
-  waitForDeployment(): Promise<this>;
+  connect(signerOrProvider: Signer | Provider | string): this;
+  attach(addressOrName: string): this;
+  deployed(): Promise<this>;
 
   interface: PropertyFactoryInterface;
 
-  queryFilter<TCEvent extends TypedContractEvent>(
-    event: TCEvent,
+  queryFilter<TEvent extends TypedEvent>(
+    event: TypedEventFilter<TEvent>,
     fromBlockOrBlockhash?: string | number | undefined,
     toBlock?: string | number | undefined
-  ): Promise<Array<TypedEventLog<TCEvent>>>;
-  queryFilter<TCEvent extends TypedContractEvent>(
-    filter: TypedDeferredTopicFilter<TCEvent>,
-    fromBlockOrBlockhash?: string | number | undefined,
-    toBlock?: string | number | undefined
-  ): Promise<Array<TypedEventLog<TCEvent>>>;
+  ): Promise<Array<TEvent>>;
 
-  on<TCEvent extends TypedContractEvent>(
-    event: TCEvent,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
-  on<TCEvent extends TypedContractEvent>(
-    filter: TypedDeferredTopicFilter<TCEvent>,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
+  listeners<TEvent extends TypedEvent>(
+    eventFilter?: TypedEventFilter<TEvent>
+  ): Array<TypedListener<TEvent>>;
+  listeners(eventName?: string): Array<Listener>;
+  removeAllListeners<TEvent extends TypedEvent>(
+    eventFilter: TypedEventFilter<TEvent>
+  ): this;
+  removeAllListeners(eventName?: string): this;
+  off: OnEvent<this>;
+  on: OnEvent<this>;
+  once: OnEvent<this>;
+  removeListener: OnEvent<this>;
 
-  once<TCEvent extends TypedContractEvent>(
-    event: TCEvent,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
-  once<TCEvent extends TypedContractEvent>(
-    filter: TypedDeferredTopicFilter<TCEvent>,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
+  functions: {
+    approveProperty(
+      _propertyAddress: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
-  listeners<TCEvent extends TypedContractEvent>(
-    event: TCEvent
-  ): Promise<Array<TypedListener<TCEvent>>>;
-  listeners(eventName?: string): Promise<Array<Listener>>;
-  removeAllListeners<TCEvent extends TypedContractEvent>(
-    event?: TCEvent
-  ): Promise<this>;
+    approvedProperties(
+      arg0: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[boolean]>;
 
-  approveProperty: TypedContractMethod<
-    [_propertyAddress: AddressLike],
-    [void],
-    "nonpayable"
-  >;
+    createProperty(
+      _title: PromiseOrValue<string>,
+      _description: PromiseOrValue<string>,
+      _location: PromiseOrValue<string>,
+      _imageUrl: PromiseOrValue<string>,
+      _price: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
-  approvedProperties: TypedContractMethod<
-    [arg0: AddressLike],
-    [boolean],
-    "view"
-  >;
+    eurcTokenAddress(overrides?: CallOverrides): Promise<[string]>;
 
-  createProperty: TypedContractMethod<
-    [
-      _title: string,
-      _description: string,
-      _location: string,
-      _imageUrl: string,
-      _price: BigNumberish
-    ],
-    [string],
-    "nonpayable"
-  >;
+    getPropertyCreators(overrides?: CallOverrides): Promise<[string[]]>;
 
-  eurcTokenAddress: TypedContractMethod<[], [string], "view">;
+    getPropertyStatus(
+      _propertyAddress: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[boolean]>;
 
-  getPropertyCreators: TypedContractMethod<[], [string[]], "view">;
+    getUserProperties(
+      _user: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<[PropertyFactory.PropertyInfoStructOutput[]]>;
 
-  getPropertyStatus: TypedContractMethod<
-    [_propertyAddress: AddressLike],
-    [boolean],
-    "view"
-  >;
+    owner(overrides?: CallOverrides): Promise<[string]>;
 
-  getUserProperties: TypedContractMethod<
-    [_user: AddressLike],
-    [PropertyFactory.PropertyInfoStructOutput[]],
-    "view"
-  >;
+    rejectProperty(
+      _propertyAddress: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
-  owner: TypedContractMethod<[], [string], "view">;
+    renounceOwnership(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
-  rejectProperty: TypedContractMethod<
-    [_propertyAddress: AddressLike],
-    [void],
-    "nonpayable"
-  >;
+    transferOwnership(
+      newOwner: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
-  renounceOwnership: TypedContractMethod<[], [void], "nonpayable">;
+    updateEURCToken(
+      _newEURCToken: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
 
-  transferOwnership: TypedContractMethod<
-    [newOwner: AddressLike],
-    [void],
-    "nonpayable"
-  >;
+    userProperties(
+      arg0: PromiseOrValue<string>,
+      arg1: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<
+      [string, boolean] & { tokenAddress: string; isApproved: boolean }
+    >;
+  };
 
-  updateEURCToken: TypedContractMethod<
-    [_newEURCToken: AddressLike],
-    [void],
-    "nonpayable"
-  >;
+  approveProperty(
+    _propertyAddress: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
-  userProperties: TypedContractMethod<
-    [arg0: AddressLike, arg1: BigNumberish],
-    [[string, boolean] & { tokenAddress: string; isApproved: boolean }],
-    "view"
-  >;
+  approvedProperties(
+    arg0: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
 
-  getFunction<T extends ContractMethod = ContractMethod>(
-    key: string | FunctionFragment
-  ): T;
+  createProperty(
+    _title: PromiseOrValue<string>,
+    _description: PromiseOrValue<string>,
+    _location: PromiseOrValue<string>,
+    _imageUrl: PromiseOrValue<string>,
+    _price: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
 
-  getFunction(
-    nameOrSignature: "approveProperty"
-  ): TypedContractMethod<[_propertyAddress: AddressLike], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "approvedProperties"
-  ): TypedContractMethod<[arg0: AddressLike], [boolean], "view">;
-  getFunction(
-    nameOrSignature: "createProperty"
-  ): TypedContractMethod<
-    [
-      _title: string,
-      _description: string,
-      _location: string,
-      _imageUrl: string,
-      _price: BigNumberish
-    ],
-    [string],
-    "nonpayable"
-  >;
-  getFunction(
-    nameOrSignature: "eurcTokenAddress"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "getPropertyCreators"
-  ): TypedContractMethod<[], [string[]], "view">;
-  getFunction(
-    nameOrSignature: "getPropertyStatus"
-  ): TypedContractMethod<[_propertyAddress: AddressLike], [boolean], "view">;
-  getFunction(
-    nameOrSignature: "getUserProperties"
-  ): TypedContractMethod<
-    [_user: AddressLike],
-    [PropertyFactory.PropertyInfoStructOutput[]],
-    "view"
-  >;
-  getFunction(
-    nameOrSignature: "owner"
-  ): TypedContractMethod<[], [string], "view">;
-  getFunction(
-    nameOrSignature: "rejectProperty"
-  ): TypedContractMethod<[_propertyAddress: AddressLike], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "renounceOwnership"
-  ): TypedContractMethod<[], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "transferOwnership"
-  ): TypedContractMethod<[newOwner: AddressLike], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "updateEURCToken"
-  ): TypedContractMethod<[_newEURCToken: AddressLike], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "userProperties"
-  ): TypedContractMethod<
-    [arg0: AddressLike, arg1: BigNumberish],
-    [[string, boolean] & { tokenAddress: string; isApproved: boolean }],
-    "view"
-  >;
+  eurcTokenAddress(overrides?: CallOverrides): Promise<string>;
 
-  getEvent(
-    key: "EURCTokenUpdated"
-  ): TypedContractEvent<
-    EURCTokenUpdatedEvent.InputTuple,
-    EURCTokenUpdatedEvent.OutputTuple,
-    EURCTokenUpdatedEvent.OutputObject
-  >;
-  getEvent(
-    key: "OwnershipTransferred"
-  ): TypedContractEvent<
-    OwnershipTransferredEvent.InputTuple,
-    OwnershipTransferredEvent.OutputTuple,
-    OwnershipTransferredEvent.OutputObject
-  >;
-  getEvent(
-    key: "PropertyApproved"
-  ): TypedContractEvent<
-    PropertyApprovedEvent.InputTuple,
-    PropertyApprovedEvent.OutputTuple,
-    PropertyApprovedEvent.OutputObject
-  >;
-  getEvent(
-    key: "PropertyRejected"
-  ): TypedContractEvent<
-    PropertyRejectedEvent.InputTuple,
-    PropertyRejectedEvent.OutputTuple,
-    PropertyRejectedEvent.OutputObject
-  >;
-  getEvent(
-    key: "PropertySubmitted"
-  ): TypedContractEvent<
-    PropertySubmittedEvent.InputTuple,
-    PropertySubmittedEvent.OutputTuple,
-    PropertySubmittedEvent.OutputObject
-  >;
+  getPropertyCreators(overrides?: CallOverrides): Promise<string[]>;
+
+  getPropertyStatus(
+    _propertyAddress: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<boolean>;
+
+  getUserProperties(
+    _user: PromiseOrValue<string>,
+    overrides?: CallOverrides
+  ): Promise<PropertyFactory.PropertyInfoStructOutput[]>;
+
+  owner(overrides?: CallOverrides): Promise<string>;
+
+  rejectProperty(
+    _propertyAddress: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  renounceOwnership(
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  transferOwnership(
+    newOwner: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  updateEURCToken(
+    _newEURCToken: PromiseOrValue<string>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  userProperties(
+    arg0: PromiseOrValue<string>,
+    arg1: PromiseOrValue<BigNumberish>,
+    overrides?: CallOverrides
+  ): Promise<[string, boolean] & { tokenAddress: string; isApproved: boolean }>;
+
+  callStatic: {
+    approveProperty(
+      _propertyAddress: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    approvedProperties(
+      arg0: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    createProperty(
+      _title: PromiseOrValue<string>,
+      _description: PromiseOrValue<string>,
+      _location: PromiseOrValue<string>,
+      _imageUrl: PromiseOrValue<string>,
+      _price: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<string>;
+
+    eurcTokenAddress(overrides?: CallOverrides): Promise<string>;
+
+    getPropertyCreators(overrides?: CallOverrides): Promise<string[]>;
+
+    getPropertyStatus(
+      _propertyAddress: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<boolean>;
+
+    getUserProperties(
+      _user: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PropertyFactory.PropertyInfoStructOutput[]>;
+
+    owner(overrides?: CallOverrides): Promise<string>;
+
+    rejectProperty(
+      _propertyAddress: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    renounceOwnership(overrides?: CallOverrides): Promise<void>;
+
+    transferOwnership(
+      newOwner: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    updateEURCToken(
+      _newEURCToken: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    userProperties(
+      arg0: PromiseOrValue<string>,
+      arg1: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<
+      [string, boolean] & { tokenAddress: string; isApproved: boolean }
+    >;
+  };
 
   filters: {
-    "EURCTokenUpdated(address)": TypedContractEvent<
-      EURCTokenUpdatedEvent.InputTuple,
-      EURCTokenUpdatedEvent.OutputTuple,
-      EURCTokenUpdatedEvent.OutputObject
-    >;
-    EURCTokenUpdated: TypedContractEvent<
-      EURCTokenUpdatedEvent.InputTuple,
-      EURCTokenUpdatedEvent.OutputTuple,
-      EURCTokenUpdatedEvent.OutputObject
-    >;
+    "EURCTokenUpdated(address)"(
+      newAddress?: PromiseOrValue<string> | null
+    ): EURCTokenUpdatedEventFilter;
+    EURCTokenUpdated(
+      newAddress?: PromiseOrValue<string> | null
+    ): EURCTokenUpdatedEventFilter;
 
-    "OwnershipTransferred(address,address)": TypedContractEvent<
-      OwnershipTransferredEvent.InputTuple,
-      OwnershipTransferredEvent.OutputTuple,
-      OwnershipTransferredEvent.OutputObject
-    >;
-    OwnershipTransferred: TypedContractEvent<
-      OwnershipTransferredEvent.InputTuple,
-      OwnershipTransferredEvent.OutputTuple,
-      OwnershipTransferredEvent.OutputObject
-    >;
+    "OwnershipTransferred(address,address)"(
+      previousOwner?: PromiseOrValue<string> | null,
+      newOwner?: PromiseOrValue<string> | null
+    ): OwnershipTransferredEventFilter;
+    OwnershipTransferred(
+      previousOwner?: PromiseOrValue<string> | null,
+      newOwner?: PromiseOrValue<string> | null
+    ): OwnershipTransferredEventFilter;
 
-    "PropertyApproved(address)": TypedContractEvent<
-      PropertyApprovedEvent.InputTuple,
-      PropertyApprovedEvent.OutputTuple,
-      PropertyApprovedEvent.OutputObject
-    >;
-    PropertyApproved: TypedContractEvent<
-      PropertyApprovedEvent.InputTuple,
-      PropertyApprovedEvent.OutputTuple,
-      PropertyApprovedEvent.OutputObject
-    >;
+    "PropertyApproved(address)"(
+      tokenAddress?: PromiseOrValue<string> | null
+    ): PropertyApprovedEventFilter;
+    PropertyApproved(
+      tokenAddress?: PromiseOrValue<string> | null
+    ): PropertyApprovedEventFilter;
 
-    "PropertyRejected(address)": TypedContractEvent<
-      PropertyRejectedEvent.InputTuple,
-      PropertyRejectedEvent.OutputTuple,
-      PropertyRejectedEvent.OutputObject
-    >;
-    PropertyRejected: TypedContractEvent<
-      PropertyRejectedEvent.InputTuple,
-      PropertyRejectedEvent.OutputTuple,
-      PropertyRejectedEvent.OutputObject
-    >;
+    "PropertyRejected(address)"(
+      tokenAddress?: PromiseOrValue<string> | null
+    ): PropertyRejectedEventFilter;
+    PropertyRejected(
+      tokenAddress?: PromiseOrValue<string> | null
+    ): PropertyRejectedEventFilter;
 
-    "PropertySubmitted(address,address)": TypedContractEvent<
-      PropertySubmittedEvent.InputTuple,
-      PropertySubmittedEvent.OutputTuple,
-      PropertySubmittedEvent.OutputObject
-    >;
-    PropertySubmitted: TypedContractEvent<
-      PropertySubmittedEvent.InputTuple,
-      PropertySubmittedEvent.OutputTuple,
-      PropertySubmittedEvent.OutputObject
-    >;
+    "PropertySubmitted(address,address)"(
+      owner?: PromiseOrValue<string> | null,
+      tokenAddress?: PromiseOrValue<string> | null
+    ): PropertySubmittedEventFilter;
+    PropertySubmitted(
+      owner?: PromiseOrValue<string> | null,
+      tokenAddress?: PromiseOrValue<string> | null
+    ): PropertySubmittedEventFilter;
+  };
+
+  estimateGas: {
+    approveProperty(
+      _propertyAddress: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    approvedProperties(
+      arg0: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    createProperty(
+      _title: PromiseOrValue<string>,
+      _description: PromiseOrValue<string>,
+      _location: PromiseOrValue<string>,
+      _imageUrl: PromiseOrValue<string>,
+      _price: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    eurcTokenAddress(overrides?: CallOverrides): Promise<BigNumber>;
+
+    getPropertyCreators(overrides?: CallOverrides): Promise<BigNumber>;
+
+    getPropertyStatus(
+      _propertyAddress: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    getUserProperties(
+      _user: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+
+    owner(overrides?: CallOverrides): Promise<BigNumber>;
+
+    rejectProperty(
+      _propertyAddress: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    renounceOwnership(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    transferOwnership(
+      newOwner: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    updateEURCToken(
+      _newEURCToken: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    userProperties(
+      arg0: PromiseOrValue<string>,
+      arg1: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<BigNumber>;
+  };
+
+  populateTransaction: {
+    approveProperty(
+      _propertyAddress: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    approvedProperties(
+      arg0: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    createProperty(
+      _title: PromiseOrValue<string>,
+      _description: PromiseOrValue<string>,
+      _location: PromiseOrValue<string>,
+      _imageUrl: PromiseOrValue<string>,
+      _price: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    eurcTokenAddress(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    getPropertyCreators(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    getPropertyStatus(
+      _propertyAddress: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    getUserProperties(
+      _user: PromiseOrValue<string>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    owner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    rejectProperty(
+      _propertyAddress: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    renounceOwnership(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    transferOwnership(
+      newOwner: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    updateEURCToken(
+      _newEURCToken: PromiseOrValue<string>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    userProperties(
+      arg0: PromiseOrValue<string>,
+      arg1: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
   };
 }

@@ -18,23 +18,23 @@ import { Search } from "lucide-react";
 import Image from 'next/image';
 
 const formSchema = z.object({
-  property_type: z.string().min(2, {
-    message: "Property type must be at least 2 characters.",
+  title: z.string().min(3).max(50, {
+    message: "Title must be between 3 and 50 characters.",
   }),
-  description: z.string().min(10, {
-    message: "Description must be at least 10 characters.",
+  description: z.string().min(10).max(500, {
+    message: "Description must be between 10 and 500 characters.",
   }),
   location: z.string().min(2, {
     message: "Location must be at least 2 characters.",
   }),
-  price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
+  expected_price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
     message: "Price must be a valid number greater than 0",
-  }),
-  area: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: "Area must be a valid number greater than 0",
   }),
   image_url: z.string().url("Please enter a valid image URL").optional(),
   documents_url: z.string().url("Please enter a valid document URL").optional(),
+  number_of_tokens: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
+    message: "Number of tokens must be a valid number greater than 0",
+  }),
 });
 
 export default function SubmitProperty() {
@@ -54,11 +54,13 @@ export default function SubmitProperty() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      property_type: "",
+      title: "",
       description: "",
       location: "",
-      price: "",
-      area: "",
+      expected_price: "",
+      image_url: "",
+      documents_url: "",
+      number_of_tokens: "",
     },
   });
 
@@ -75,19 +77,18 @@ export default function SubmitProperty() {
       }
 
       const propertyRequest: Omit<PropertyRequest, 'id'> = {
-        property_type: values.property_type,
+        title: values.title,
         description: values.description,
         location: values.location,
-        price: Number(values.price),
-        area: Number(values.area),
-        latitude: coordinates.lat,
-        longitude: coordinates.lng,
+        expected_price: Number(values.expected_price),
         owner_address: address,
         status: 'pending',
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        latitude: coordinates.lat,
+        longitude: coordinates.lng,
+        number_of_tokens: Number(values.number_of_tokens),
         image_url: values.image_url,
-        documents_url: values.documents_url ? [values.documents_url] : undefined,
+        documents_url: values.documents_url,
       };
 
       // First, create the property request in Supabase
@@ -187,15 +188,15 @@ export default function SubmitProperty() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <FormField
                 control={form.control}
-                name="property_type"
+                name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Property Type</FormLabel>
+                    <FormLabel>Title</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., Apartment, House, Villa" {...field} />
                     </FormControl>
                     <FormDescription>
-                      The type of property you are listing
+                      The title of your property
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -270,7 +271,7 @@ export default function SubmitProperty() {
 
               <FormField
                 control={form.control}
-                name="price"
+                name="expected_price"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Price (EURC)</FormLabel>
@@ -279,6 +280,23 @@ export default function SubmitProperty() {
                     </FormControl>
                     <FormDescription>
                       The price in EURC tokens
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="number_of_tokens"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Tokens</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="1" placeholder="1" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      The number of tokens
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
