@@ -39,9 +39,13 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
         <p className="text-muted-foreground text-sm mb-2">{property.location}</p>
         <p className="font-medium">€{property.expected_price}</p>
         <div className="mt-4">
-          <Link href={`/property/${property.id}`}>
-            <Button className="w-full">View Details</Button>
-          </Link>
+          {property.token_address ? (
+            <Link href={`/property/${property.token_address}`}>
+              <Button className="w-full">View Details</Button>
+            </Link>
+          ) : (
+            <Button className="w-full" disabled>Property Not Available</Button>
+          )}
         </div>
       </div>
     </div>
@@ -68,6 +72,14 @@ export default function PropertyList() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      console.log('Fetched live properties:', data);
+      // Verify each property has a token address
+      data?.forEach(property => {
+        if (!property.token_address) {
+          console.warn('Live property missing token address:', property);
+        }
+      });
 
       setProperties(data || []);
     } catch (error) {
