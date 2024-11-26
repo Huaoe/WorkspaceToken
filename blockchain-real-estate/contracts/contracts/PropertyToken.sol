@@ -41,6 +41,8 @@ contract PropertyToken is ERC20, Ownable {
     );
 
     constructor(
+        string memory _name,
+        string memory _symbol,
         string memory _title,
         string memory _description,
         string memory _location,
@@ -48,7 +50,7 @@ contract PropertyToken is ERC20, Ownable {
         uint256 _price,
         address initialOwner,
         address _eurcToken
-    ) ERC20("Property Token", "PROP") Ownable(initialOwner) {
+    ) ERC20(_name, _symbol) Ownable(initialOwner) {
         console.log("Creating PropertyToken with title:", _title);
         console.log("Price:", _price);
         console.log("Initial owner:", initialOwner);

@@ -6,7 +6,7 @@ async function main() {
   console.log("Debugging with account:", deployer.address);
 
   // Get the PropertyFactory contract
-  const factoryAddress = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
+  const factoryAddress = process.env.FACTORY_ADDRESS;
   const factory = await ethers.getContractAt("PropertyFactory", factoryAddress) as PropertyFactory;
 
   // Get contract info
@@ -15,7 +15,7 @@ async function main() {
   console.log("Caller address:", deployer.address);
 
   // Property address to approve
-  const propertyAddress = "0xecae6cc78251a4f3b8d70c9bd4de1b3742338489";
+  const propertyAddress = "0x0165878A594ca255338adfa4d48449f69242Eb8F";
 
   // Get property information
   const isApproved = await factory.approvedProperties(propertyAddress);

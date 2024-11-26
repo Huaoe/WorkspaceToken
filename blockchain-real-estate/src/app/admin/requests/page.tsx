@@ -142,9 +142,7 @@ export default function AdminRequests() {
                     request.status === 'onchain' ? 'purple' :
                     'outline'
                   }
-                  className={request.status === 'onchain' ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}
                 >
-                  {request.status === 'onchain' ? ' ' : ''}
                   {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                 </Badge>
               </div>

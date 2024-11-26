@@ -59,13 +59,17 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         string memory _description,
         string memory _location,
         string memory _imageUrl,
-        uint256 _price
+        uint256 _price,
+        string memory _name,
+        string memory _symbol
     ) public returns (address) {
         console.log("Creating property with title:", _title);
         console.log("Description:", _description);
         console.log("Location:", _location);
         console.log("Image URL:", _imageUrl);
         console.log("Price:", _price);
+        console.log("Token Name:", _name);
+        console.log("Token Symbol:", _symbol);
         console.log("Sender:", msg.sender);
         
         // Input validation with detailed error messages
@@ -73,10 +77,14 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         require(bytes(_description).length > 0, "Description cannot be empty");
         require(bytes(_location).length > 0, "Location cannot be empty");
         require(bytes(_imageUrl).length > 0, "Image URL cannot be empty");
+        require(bytes(_name).length > 0, "Token name cannot be empty");
+        require(bytes(_symbol).length > 0, "Token symbol cannot be empty");
         require(_price > 0, "Price must be greater than 0");
 
         // Create new property token with EURC support
         PropertyToken newProperty = new PropertyToken(
+            _name,
+            _symbol,
             _title,
             _description,
             _location,

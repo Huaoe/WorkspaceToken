@@ -101,6 +101,36 @@ export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
           </FormItem>
         )}
       />
+
+      <FormField
+        control={form.control}
+        name="token_name"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Token Name</FormLabel>
+            <FormControl>
+              <Input placeholder="e.g., Luxury Villa Token" {...field} maxLength={50} />
+            </FormControl>
+            <FormDescription>The name of the property token (max 50 characters)</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="token_symbol"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Token Symbol</FormLabel>
+            <FormControl>
+              <Input placeholder="e.g., LVT" {...field} maxLength={10} />
+            </FormControl>
+            <FormDescription>The symbol for the property token (max 10 characters)</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
     </>
   );
 }

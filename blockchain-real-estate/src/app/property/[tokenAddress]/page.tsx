@@ -189,6 +189,10 @@ export default function PropertyDetails() {
             <h3 className="font-semibold mb-2">Total Supply</h3>
             <p>{totalSupply ? formatUnits(totalSupply, 18) : 'Loading...'} tokens</p>
           </div>
+          <div>
+            <h3 className="font-semibold mb-2">PropertyToken Address</h3>
+            <p className="font-mono text-sm break-all">{tokenAddress}</p>
+          </div>
         </CardContent>
         <CardFooter className="flex justify-end space-x-4">
           <Button variant="outline" onClick={() => router.back()}>

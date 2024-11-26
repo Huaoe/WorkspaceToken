@@ -41,6 +41,12 @@ const formSchema = z.object({
     message: "Number of tokens must be a valid number greater than 0",
   }),
   status: z.enum(['pending', 'approved', 'rejected', 'onchain']),
+  token_name: z.string().min(1).max(50, {
+    message: "Token name must be between 1 and 50 characters.",
+  }),
+  token_symbol: z.string().min(1).max(10, {
+    message: "Token symbol must be between 1 and 10 characters.",
+  }),
 });
 
 function CreateTokenButton({ id, status, formData }: { id: string, status: string, formData: any }) {
@@ -75,91 +81,6 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
   if (!mounted || !isConnected) {
     return null;
   }
-
-  const testTransaction = async () => {
-    console.log('Starting test transaction...');
-    console.log('Wallet client:', walletClient);
-    console.log('Connected:', isConnected);
-    console.log('Address:', address);
-    console.log('Contract address:', contractAddress);
-    console.log('Chain:', walletClient?.chain);
-
-    if (!walletClient || !address || !contractAddress) {
-      console.error('Missing required values:', { walletClient, address, contractAddress });
-      toast({
-        title: "Error",
-        description: "Missing required values",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-      console.log('Testing transaction with PropertyFactory contract...');
-
-      // Prepare the transaction request
-      const request = {
-        address: contractAddress,
-        abi: propertyFactoryABI,
-        functionName: 'createProperty',
-        args: [
-          'Test Property',
-          'Test Description',
-          'Test Location',
-          'https://example.com/image.jpg',
-          BigInt(1000000), // 1 EURC
-        ],
-        account: address,
-        chain: walletClient.chain,
-      } as const;
-
-      console.log('Preparing transaction with request:', request);
-
-      try {
-        // Execute transaction
-        console.log('Executing transaction...');
-        const hash = await walletClient.writeContract({
-          ...request,
-          address: contractAddress,
-        });
-        console.log('Transaction hash:', hash);
-
-        toast({
-          title: "Transaction Sent",
-          description: "Waiting for confirmation...",
-        });
-
-        const receipt = await publicClient.waitForTransactionReceipt({ 
-          hash,
-          timeout: 60_000,
-        });
-
-        console.log('Transaction receipt:', receipt);
-
-        if (receipt.status === 'success') {
-          toast({
-            title: "Success!",
-            description: "Test transaction confirmed",
-          });
-        } else {
-          throw new Error('Transaction failed');
-        }
-      } catch (txError) {
-        console.error('Transaction execution failed:', txError);
-        throw txError;
-      }
-    } catch (error) {
-      console.error('Transaction test failed:', error);
-      toast({
-        title: "Error",
-        description: "Transaction test failed: " + (error instanceof Error ? error.message : "Unknown error"),
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const convertPriceToTokens = (price: string | number): bigint => {
     let numericPrice: number;
@@ -226,6 +147,7 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
         price: priceValue.toString(),
         walletAddress: address,
         nonce,
+        
       });
 
       // First simulate the transaction
@@ -239,6 +161,8 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
           location,
           imageUrl,
           priceValue,
+          formData.token_name,
+          formData.token_symbol
         ],
         account: address,
       });
@@ -460,23 +384,13 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
   return (
     <div className="space-y-4">
       {status === 'approved' && (
-        <>
-          <Button 
-            onClick={testTransaction}
-            disabled={loading}
-            className="bg-secondary"
-          >
-            {loading ? 'Testing Transaction...' : 'Test Transaction'}
-          </Button>
-          
-          <Button 
-            onClick={handleCreateToken} 
-            disabled={loading}
-            className="bg-primary"
-          >
-            {loading ? 'Creating Token...' : 'Create Token'}
-          </Button>
-        </>
+        <Button 
+          onClick={handleCreateToken} 
+          disabled={loading}
+          className="bg-primary"
+        >
+          {loading ? 'Creating Token...' : 'Create Token'}
+        </Button>
       )}
       
       {status === 'onchain' && (
@@ -485,7 +399,7 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
           disabled={loading}
           className="bg-primary"
         >
-          {loading ? 'Approving Property...' : 'Approve Property'}
+          {loading ? 'Approving Property...' : 'Go Live Property'}
         </Button>
       )}
     </div>
@@ -525,6 +439,8 @@ export default function ReviewRequest() {
           documents_url: data.documents_url || '',
           number_of_tokens: data.number_of_tokens?.toString() || '',
           status: data.status,
+          token_name: data.token_name || '',
+          token_symbol: data.token_symbol || '',
         });
       } catch (error) {
         console.error('Error fetching request:', error);
@@ -555,6 +471,8 @@ export default function ReviewRequest() {
         documents_url: values.documents_url || null,
         number_of_tokens: Number(values.number_of_tokens),
         status: values.status,
+        token_name: values.token_name,
+        token_symbol: values.token_symbol,
       };
 
       if (values.status === 'approved') {
