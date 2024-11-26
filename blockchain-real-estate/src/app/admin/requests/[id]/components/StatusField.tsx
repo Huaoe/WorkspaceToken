@@ -2,7 +2,7 @@
 
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { STATUS_COLORS } from "@/lib/constants";
+import { STATUS_COLORS, STATUS_OPTIONS } from "@/lib/constants";
 import { UseFormReturn } from "react-hook-form";
 
 interface StatusFieldProps {
@@ -26,26 +26,20 @@ export function StatusField({ form }: StatusFieldProps) {
                 <SelectValue>
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full bg-${STATUS_COLORS[field.value]}-500`} />
-                    <span className="capitalize">{field.value}</span>
+                    <span className="capitalize">{field.value === 'onchain' ? 'On Chain' : field.value}</span>
                   </div>
                 </SelectValue>
               </SelectTrigger>
             </FormControl>
             <SelectContent>
-              {Object.entries(STATUS_COLORS).map(([status, color]) => (
+              {STATUS_OPTIONS.map((status) => (
                 <SelectItem key={status} value={status}>
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full bg-${color}-500`} />
-                    <span className="capitalize">{status}</span>
+                    <div className={`w-2 h-2 rounded-full bg-${STATUS_COLORS[status]}-500`} />
+                    <span className="capitalize">{status === 'onchain' ? 'On Chain' : status}</span>
                   </div>
                 </SelectItem>
               ))}
-              <SelectItem value="onchain">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500" />
-                  <span className="capitalize">On Chain</span>
-                </div>
-              </SelectItem>
             </SelectContent>
           </Select>
           <FormDescription>Current status of the property request</FormDescription>

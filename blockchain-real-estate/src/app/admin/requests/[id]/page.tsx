@@ -18,6 +18,7 @@ import { useAccount, usePublicClient, useWalletClient, useSwitchChain, useReadCo
 import propertyFactoryJSON from '@contracts/abis/PropertyFactory.json';
 import { type Abi } from 'viem';
 import { parseUnits } from 'viem';
+import { decodeEventLog } from 'viem';
 
 const formSchema = z.object({
   title: z.string().min(3).max(20, {
@@ -264,13 +265,54 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
       });
 
       console.log('Transaction receipt:', receipt);
+      console.log('Transaction logs:', receipt.logs);
 
       if (receipt.status === 'success') {
+        // Get the property token address from the event logs
+        console.log('Looking for PropertySubmitted event in logs...');
+        
+        const propertySubmittedEvent = receipt.logs.find(log => {
+          try {
+            console.log('Trying to decode log:', log);
+            const event = decodeEventLog({
+              abi: propertyFactoryABI,
+              data: log.data,
+              topics: log.topics,
+            });
+            console.log('Decoded event:', event);
+            return event.eventName === 'PropertySubmitted';
+          } catch (error) {
+            console.log('Failed to decode log:', error);
+            return false;
+          }
+        });
+
+        console.log('Found event:', propertySubmittedEvent);
+
+        if (!propertySubmittedEvent) {
+          throw new Error('Property token address not found in event logs');
+        }
+
+        console.log('Decoding event data...');
+        const decodedEvent = decodeEventLog({
+          abi: propertyFactoryABI,
+          data: propertySubmittedEvent.data,
+          topics: propertySubmittedEvent.topics,
+        });
+        console.log('Decoded event:', decodedEvent);
+
+        const propertyTokenAddress = decodedEvent.args.tokenAddress as `0x${string}`;
+        console.log('Property token address:', propertyTokenAddress);
+
         await supabase
           .from('property_requests')
-          .update({ status: 'onchain' })
+          .update({ 
+            status: 'onchain',
+            token_address: propertyTokenAddress 
+          })
           .eq('id', id);
 
+        console.log('Updated Supabase with token address');
         toast({
           title: "Success!",
           description: "Property token created successfully",
@@ -301,27 +343,151 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
     }
   };
 
-  if (status !== 'approved' || !isOwner) {
+  const handleApproveProperty = async () => {
+    if (!walletClient || !isConnected) {
+      toast({
+        title: "Error",
+        description: "Please connect your wallet",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Get the property token address from Supabase
+      console.log('Fetching property data from Supabase...');
+      const { data: propertyData, error: propertyError } = await supabase
+        .from('property_requests')
+        .select('token_address')
+        .eq('id', id)
+        .single();
+
+      console.log('Property data from Supabase:', propertyData);
+      console.log('Property error from Supabase:', propertyError);
+
+      if (propertyError) {
+        console.error('Supabase error:', propertyError);
+        throw new Error('Failed to fetch property data: ' + propertyError.message);
+      }
+
+      if (!propertyData?.token_address) {
+        console.error('Property data:', propertyData);
+        throw new Error('Property token address not found Wrong data');
+      }
+
+      // Get the current nonce
+      const nonce = await publicClient.getTransactionCount({
+        address: address!,
+      });
+      
+      console.log('Current nonce:', nonce);
+      console.log('Using token address:', propertyData.token_address);
+
+      // First simulate the transaction
+      const { request } = await publicClient.simulateContract({
+        address: contractAddress,
+        abi: propertyFactoryABI,
+        functionName: "approveProperty",
+        args: [propertyData.token_address as `0x${string}`],
+        account: address,
+      });
+
+      console.log('Simulation successful, executing transaction...');
+
+      // Execute the transaction with explicit nonce
+      const hash = await walletClient.writeContract({
+        ...request,
+        address: contractAddress,
+        nonce,
+      });
+      
+      console.log('Transaction submitted:', hash);
+
+      toast({
+        title: "Transaction Sent",
+        description: "Approving property...",
+      });
+
+      const receipt = await publicClient.waitForTransactionReceipt({ 
+        hash, 
+        timeout: 60_000,
+      });
+
+      console.log('Transaction receipt:', receipt);
+
+      if (receipt.status === 'success') {
+        await supabase
+          .from('property_requests')
+          .update({ status: 'live' })
+          .eq('id', id);
+
+        toast({
+          title: "Success!",
+          description: "Property approved successfully",
+        });
+
+        router.push('/admin/requests');
+      } else {
+        throw new Error('Transaction failed');
+      }
+    } catch (error) {
+      console.error('Contract interaction error:', error);
+      let errorMessage = error instanceof Error ? error.message : "Failed to approve property";
+      
+      // Handle specific error cases
+      if (errorMessage.includes("execution reverted")) {
+        errorMessage = "Transaction reverted. Please check the property details and try again.";
+      } else if (errorMessage.includes("nonce too high")) {
+        errorMessage = "Network state error. Please refresh the page and try again.";
+      }
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if ((status !== 'approved' && status !== 'onchain') || !isOwner) {
     return null;
   }
 
   return (
     <div className="space-y-4">
-      <Button 
-        onClick={testTransaction}
-        disabled={loading}
-        className="bg-secondary"
-      >
-        {loading ? 'Testing Transaction...' : 'Test Transaction'}
-      </Button>
+      {status === 'approved' && (
+        <>
+          <Button 
+            onClick={testTransaction}
+            disabled={loading}
+            className="bg-secondary"
+          >
+            {loading ? 'Testing Transaction...' : 'Test Transaction'}
+          </Button>
+          
+          <Button 
+            onClick={handleCreateToken} 
+            disabled={loading}
+            className="bg-primary"
+          >
+            {loading ? 'Creating Token...' : 'Create Token'}
+          </Button>
+        </>
+      )}
       
-      <Button 
-        onClick={handleCreateToken} 
-        disabled={loading}
-        className="bg-primary"
-      >
-        {loading ? 'Creating Token...' : 'Create Token'}
-      </Button>
+      {status === 'onchain' && (
+        <Button 
+          onClick={handleApproveProperty} 
+          disabled={loading}
+          className="bg-primary"
+        >
+          {loading ? 'Approving Property...' : 'Approve Property'}
+        </Button>
+      )}
     </div>
   );
 }
