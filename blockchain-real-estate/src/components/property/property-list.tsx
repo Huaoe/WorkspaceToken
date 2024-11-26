@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAccount, usePublicClient, useNetwork, useSwitchNetwork, useContractRead } from 'wagmi';
 import { PropertyCard } from './property-card';
 import { PropertyRequest } from '@/types/property';
-import { propertyFactoryABI } from '@contracts/abis/propertyFactoryABI';
-import { propertyTokenABI } from '@contracts/abis/propertyTokenABI';
+import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
 import { Address, formatEther } from 'viem';
 import { hardhatChain } from '@/app/providers';
 
@@ -29,7 +28,7 @@ export function PropertyList() {
   // Read owner from the contract
   const { data: owner } = useContractRead({
     address: contractAddress,
-    abi: propertyFactoryABI,
+    abi: propertyFactoryABI.abi,
     functionName: 'owner',
   });
 
@@ -81,12 +80,12 @@ export function PropertyList() {
             const [details, tokenOwner] = await Promise.all([
               publicClient.readContract({
                 address: token.tokenAddress as Address,
-                abi: propertyTokenABI,
+                abi: propertyTokenABI.abi,
                 functionName: 'getPropertyDetails',
               }),
               publicClient.readContract({
                 address: token.tokenAddress as Address,
-                abi: propertyTokenABI,
+                abi: propertyTokenABI.abi,
                 functionName: 'owner',
               }),
             ]);

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAccount, useReadContract, usePublicClient } from 'wagmi';
-import { propertyFactoryABI } from '@contracts/abis/propertyFactoryABI';
+import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
 import { useEffect, useState } from 'react';
 import { Building2, List, ShieldCheck } from "lucide-react";
 
@@ -16,7 +16,7 @@ export default function Home() {
 
   const { data: owner, isError: ownerError } = useReadContract({
     address: contractAddress,
-    abi: propertyFactoryABI,
+    abi: propertyFactoryABI.abi,
     functionName: 'owner',
   });
 
@@ -37,7 +37,7 @@ export default function Home() {
       if (contractAddress && publicClient) {
         publicClient.readContract({
           address: contractAddress,
-          abi: propertyFactoryABI,
+          abi: propertyFactoryABI.abi,
           functionName: 'owner',
         }).then(result => {
           console.log('Direct contract read result:', result);

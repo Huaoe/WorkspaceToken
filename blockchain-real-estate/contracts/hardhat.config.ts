@@ -68,11 +68,11 @@ const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   networks: {
     hardhat: {
-      chainId: 97, // This ensures MetaMask can connect to it
+      chainId: 31337, // This ensures MetaMask can connect to it
     },
     localhost: {
       url: "http://127.0.0.1:8545",
-      chainId: 97,
+      chainId: 31337,
     },
     polygon: {
       url: process.env.POLYGON_RPC_URL || "",

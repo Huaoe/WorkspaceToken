@@ -4,9 +4,9 @@ import { PropertyRequest } from '@/types/property';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
-import { useAccount, useContractRead, useContractWrite } from 'wagmi';
+import { useAccount, useContractRead, useContractWrite, useReadContract } from 'wagmi';
 import { Address } from 'viem';
-import { propertyFactoryABI } from '@contracts/abis/propertyFactoryABI';
+import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -36,16 +36,19 @@ export function PropertyCard({ property, showAdminControls = false }: PropertyCa
   const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as Address;
 
   // Read owner from the contract
-  const { data: owner } = useContractRead({
+  const { data: owner } = useReadContract({
     address: contractAddress,
-    abi: propertyFactoryABI,
+    abi: propertyFactoryABI.abi,
     functionName: 'owner',
+    query: {
+      enabled: isConnected, // Optional: only fetch when connected
+    },
   });
 
   // Contract write for approving properties
   const { writeAsync: approveProperty } = useContractWrite({
     address: contractAddress,
-    abi: propertyFactoryABI,
+    abi: propertyFactoryABI.abi,
     functionName: 'approveProperty',
   });
 

@@ -4,13 +4,12 @@
   "description": "Smart contracts for blockchain real estate project",
   "license": "MIT",
   "scripts": {
-    "test": "npx hardhat test",
-    "compile": "npx hardhat compile",
-    "clean": "npx hardhat clean",
-    "n": "npx hardhat node",
-    "deploy": "npx hardhat run scripts/deploy-local.ts --network localhost"
+    "test": "hardhat test",
+    "compile": "hardhat compile",
+    "clean": "hardhat clean",
+    "deploy:local": "npx hardhat run scripts/deploy-local.ts --network localhost",
+    "n": "npx hardhat node"
   },
- 
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",

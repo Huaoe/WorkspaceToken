@@ -107,7 +107,14 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
             propertyCreators.push(msg.sender);
         }
 
+        // Add logging before event emission
+        console.log("About to emit PropertySubmitted event");
+        console.log("Owner (msg.sender):", msg.sender);
+        console.log("Token Address:", tokenAddress);
+        
         emit PropertySubmitted(msg.sender, tokenAddress);
+        
+        console.log("PropertySubmitted event emitted successfully");
         return tokenAddress;
     }
 

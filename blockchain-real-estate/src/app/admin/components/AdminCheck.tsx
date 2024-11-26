@@ -3,7 +3,7 @@
 import { useAccount, useContractRead } from 'wagmi';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { propertyFactoryABI } from '@contracts/abis/propertyFactoryABI';
+import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
 
 const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
 
@@ -44,4 +44,4 @@ export function AdminCheck({ children }: { children: React.ReactNode }) {
       {children}
     </div>
   );
-} 
+}

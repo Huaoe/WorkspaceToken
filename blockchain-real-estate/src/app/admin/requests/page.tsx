@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAccount, useContractRead } from 'wagmi';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { propertyFactoryABI } from '@contracts/abis/propertyFactoryABI';
+import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
 import { supabase } from '@/lib/supabase';
 import { Address } from 'viem';
 import { useRouter } from 'next/navigation';
@@ -28,7 +28,7 @@ export default function AdminRequests() {
   // Read owner from the contract
   const { data: owner } = useContractRead({
     address: contractAddress,
-    abi: propertyFactoryABI,
+    abi: propertyFactoryABI.abi,
     functionName: 'owner',
   });
 

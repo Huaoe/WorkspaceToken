@@ -15,6 +15,10 @@ import { PropertyDetailsFields } from './components/PropertyDetailsFields';
 import { LocationField } from './components/LocationField';
 import { ActionButtons } from './components/ActionButtons';
 import { ClientOnly } from './components/ClientOnly';
+import { useAccount, usePublicClient, useWalletClient, useSwitchChain, useReadContract } from "wagmi";
+import propertyFactoryJSON from '@contracts/abis/PropertyFactory.json';
+import { type Abi } from 'viem';
+import { parseUnits } from 'viem';
 
 const formSchema = z.object({
   title: z.string().min(3).max(20, {
@@ -39,6 +43,250 @@ const formSchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected', 'onchain']),
 });
 
+function CreateTokenButton({ id, status, formData }: { id: string, status: string, formData: any }) {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const { address, isConnected } = useAccount();
+  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
+  const router = useRouter();
+  const propertyFactoryABI = propertyFactoryJSON.abi as Abi;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (walletClient) {
+      console.log('Wallet client ready:', walletClient);
+    }
+  }, [walletClient]);
+
+  const { data: factoryOwner } = useReadContract({
+    address: contractAddress,
+    abi: propertyFactoryABI,
+    functionName: 'owner',
+  });
+
+  const isOwner = address && factoryOwner && factoryOwner.toLowerCase() === address.toLowerCase();
+
+  if (!mounted || !isConnected) {
+    return null;
+  }
+
+  const testTransaction = async () => {
+    console.log('Starting test transaction...');
+    console.log('Wallet client:', walletClient);
+    console.log('Connected:', isConnected);
+    console.log('Address:', address);
+    console.log('Contract address:', contractAddress);
+    console.log('Chain:', walletClient?.chain);
+
+    if (!walletClient || !address || !contractAddress) {
+      console.error('Missing required values:', { walletClient, address, contractAddress });
+      toast({
+        title: "Error",
+        description: "Missing required values",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log('Testing transaction with PropertyFactory contract...');
+
+      // Prepare the transaction request
+      const request = {
+        address: contractAddress,
+        abi: propertyFactoryABI,
+        functionName: 'createProperty',
+        args: [
+          'Test Property',
+          'Test Description',
+          'Test Location',
+          'https://example.com/image.jpg',
+          BigInt(1000000), // 1 EURC
+        ],
+        account: address,
+        chain: walletClient.chain,
+      } as const;
+
+      console.log('Preparing transaction with request:', request);
+
+      try {
+        // Execute transaction
+        console.log('Executing transaction...');
+        const hash = await walletClient.writeContract(request);
+        console.log('Transaction hash:', hash);
+
+        toast({
+          title: "Transaction Sent",
+          description: "Waiting for confirmation...",
+        });
+
+        const receipt = await publicClient.waitForTransactionReceipt({ 
+          hash,
+          timeout: 60_000,
+        });
+
+        console.log('Transaction receipt:', receipt);
+
+        if (receipt.status === 'success') {
+          toast({
+            title: "Success!",
+            description: "Test transaction confirmed",
+          });
+        } else {
+          throw new Error('Transaction failed');
+        }
+      } catch (txError) {
+        console.error('Transaction execution failed:', txError);
+        throw txError;
+      }
+    } catch (error) {
+      console.error('Transaction test failed:', error);
+      toast({
+        title: "Error",
+        description: "Transaction test failed: " + (error instanceof Error ? error.message : "Unknown error"),
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const convertPriceToTokens = (price: string | number): bigint => {
+    let numericPrice: number;
+    if (typeof price === 'string') {
+      numericPrice = parseFloat(price);
+    } else {
+      numericPrice = price;
+    }
+
+    if (isNaN(numericPrice) || numericPrice <= 0) {
+      throw new Error('Invalid price value');
+    }
+
+    return parseUnits(numericPrice.toString(), 6);
+  };
+
+  const handleCreateToken = async () => {
+    if (!walletClient || !formData || !isConnected) {
+      toast({
+        title: "Error",
+        description: "Please connect your wallet and ensure form data is complete",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      console.log('Starting token creation with:', {
+        contractAddress,
+        formData,
+        walletAddress: address,
+      });
+
+      const priceValue = convertPriceToTokens(formData.expected_price);
+      console.log('Converted price:', priceValue.toString());
+
+      const params = {
+        address: contractAddress,
+        abi: propertyFactoryABI,
+        functionName: 'createProperty',
+        args: [
+          formData.title,
+          formData.description,
+          formData.location,
+          formData.image_url || '',
+          priceValue,
+        ],
+      };
+
+      const { request } = await publicClient.simulateContract({
+        ...params,
+        account: address,
+      });
+      console.log('Simulation successful:', request);
+
+      toast({
+        title: "Confirm Transaction",
+        description: "Please confirm the transaction in your wallet",
+      });
+
+      const hash = await walletClient.sendTransaction(request);
+      
+      console.log('Transaction submitted:', hash);
+
+      toast({
+        title: "Transaction Sent",
+        description: "Creating property token...",
+      });
+
+      const receipt = await publicClient.waitForTransactionReceipt({ 
+        hash, 
+        timeout: 60_000,
+      });
+
+      console.log('Transaction receipt:', receipt);
+
+      if (receipt.status === 'success') {
+        await supabase
+          .from('property_requests')
+          .update({ status: 'onchain' })
+          .eq('id', id);
+
+        toast({
+          title: "Success!",
+          description: "Property token created successfully",
+        });
+
+        router.push('/admin/requests');
+      } else {
+        throw new Error('Transaction failed');
+      }
+    } catch (error) {
+      console.error('Contract interaction error:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create property token",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (status !== 'approved' || !isOwner) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-4">
+      <Button 
+        onClick={testTransaction}
+        disabled={loading}
+        className="bg-secondary"
+      >
+        {loading ? 'Testing Transaction...' : 'Test Transaction'}
+      </Button>
+      
+      <Button 
+        onClick={handleCreateToken} 
+        disabled={loading}
+        className="bg-primary"
+      >
+        {loading ? 'Creating Token...' : 'Create Token'}
+      </Button>
+    </div>
+  );
+}
+
 export default function ReviewRequest() {
   const { id } = useParams();
   const router = useRouter();
@@ -51,7 +299,7 @@ export default function ReviewRequest() {
   });
 
   const status = form.watch('status');
-
+  
   useEffect(() => {
     const fetchRequest = async () => {
       try {
@@ -104,7 +352,6 @@ export default function ReviewRequest() {
         status: values.status,
       };
 
-      // Add timestamps based on status
       if (values.status === 'approved') {
         updates['approved_at'] = now;
       } else if (values.status === 'rejected') {
@@ -173,7 +420,7 @@ export default function ReviewRequest() {
                     {saving ? "Saving..." : "Save Changes"}
                   </Button>
                   <ClientOnly>
-                    <ActionButtons id={id as string} status={status} onSuccess={router.refresh} />
+                    {() => <CreateTokenButton id={id} status={status} formData={form.getValues()} />}
                   </ClientOnly>
                 </div>
               </div>

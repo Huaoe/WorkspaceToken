@@ -3,9 +3,9 @@
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 import Link from 'next/link'
-import { useContractRead, useAccount } from 'wagmi'
-import { propertyFactoryABI } from '@contracts/abis/propertyFactoryABI'
-import { propertyTokenABI } from '@contracts/abis/propertyTokenABI'
+import { useAccount, useReadContract } from 'wagmi'
+import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
+
 import { formatEther } from 'viem'
 import { useEffect, useState, useCallback } from 'react'
 import { useToast } from "@/components/ui/use-toast"
@@ -76,21 +76,66 @@ export default function PropertyList() {
     setMounted(true)
   }, [])
 
-  const { data: factoryOwner } = useContractRead({
+  // Log contract address for debugging
+  useEffect(() => {
+    console.log('Contract Address:', contractAddress);
+    if (!contractAddress) {
+      toast({
+        title: "Configuration Error",
+        description: "Property Factory contract address is not configured",
+        variant: "destructive"
+      });
+    }
+  }, []);
+
+  const { data: factoryOwner, isError: ownerError } = useReadContract({
     address: contractAddress as `0x${string}`,
-    abi: propertyFactoryABI,
+    abi: propertyFactoryABI.abi,
     functionName: 'owner',
+    onError(error) {
+      console.error('Error reading factory owner:', error);
+      toast({
+        title: "Error",
+        description: "Failed to read factory owner",
+        variant: "destructive"
+      });
+    }
   })
 
-  // Get all properties for the factory owner
-  const { data: userProperties, isError: isContractError } = useContractRead({
+  // Get all properties
+  const { data: totalProperties } = useReadContract({
     address: contractAddress as `0x${string}`,
-    abi: propertyFactoryABI,
-    functionName: 'getUserProperties',
-    args: [factoryOwner as `0x${string}`],
-    watch: true,
-    enabled: Boolean(factoryOwner),
+    abi: propertyFactoryABI.abi,
+    functionName: 'getTotalProperties',
+    onError(error) {
+      console.error('Error reading total properties:', error);
+      toast({
+        title: "Error",
+        description: "Failed to read total properties count",
+        variant: "destructive"
+      });
+    }
   })
+
+  const { data: allProperties, isError: isContractError } = useReadContract({
+    address: contractAddress as `0x${string}`,
+    abi: propertyFactoryABI.abi,
+    functionName: 'getAllProperties',
+    watch: true,
+    onError(error) {
+      console.error('Error reading properties:', error);
+      toast({
+        title: "Error",
+        description: "Failed to read properties from blockchain",
+        variant: "destructive"
+      });
+    }
+  })
+
+  useEffect(() => {
+    console.log('Total Properties:', totalProperties);
+    console.log('All Properties:', allProperties);
+  }, [totalProperties, allProperties]);
 
   // Move the toast function outside useEffect and memoize it
   const showToast = useCallback((param) => {
@@ -101,13 +146,13 @@ export default function PropertyList() {
 
   useEffect(() => {
     const fetchPropertyDetails = async () => {
-      if (!userProperties || !Array.isArray(userProperties)) {
+      if (!allProperties || !Array.isArray(allProperties)) {
         setIsLoading(false)
         return;
       }
 
       try {
-        const propertyPromises = userProperties.map(async (prop: any) => {
+        const propertyPromises = allProperties.map(async (prop: any) => {
           if (!prop.tokenAddress) {
             console.error('Invalid property data:', prop)
             return null;
@@ -200,7 +245,7 @@ export default function PropertyList() {
     if (mounted) {
       fetchPropertyDetails()
     }
-  }, [userProperties, showToast, mounted])
+  }, [allProperties, showToast, mounted])
 
   // Calculate pagination values
   const totalPages = Math.ceil(properties.length / PROPERTIES_PER_PAGE)

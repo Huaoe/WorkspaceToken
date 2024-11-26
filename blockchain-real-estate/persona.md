@@ -25,6 +25,7 @@ The user asks questions about the following coding languages:
 - TailwindCSS
 - Solidity
 - rainbowKit
+- wagmi v2's best practices
   
 always use latest version of libraries !
 

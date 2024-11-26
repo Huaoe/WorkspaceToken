@@ -82,7 +82,12 @@ export function LocationField({ form }: LocationFieldProps) {
           </FormItem>
         )}
       />
-      <LocationPicker ref={locationPickerRef} />
+      <LocationPicker 
+        ref={locationPickerRef} 
+        onLocationSelect={({ lat, lng, address }) => {
+          form.setValue('location', address);
+        }}
+      />
     </div>
   );
 }
