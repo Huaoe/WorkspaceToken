@@ -8,7 +8,8 @@
     "compile": "hardhat compile",
     "clean": "hardhat clean",
     "deploy:local": "npx hardhat run scripts/deploy-local.ts --network localhost",
-    "n": "npx hardhat node"
+    "n": "npx hardhat node",
+    "distributeMockEURC":"npx hardhat run scripts/distribute-mock-eurc.ts --network localhost"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",

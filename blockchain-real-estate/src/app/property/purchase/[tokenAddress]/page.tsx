@@ -30,7 +30,7 @@ export default function PurchaseProperty() {
   const [mounted, setMounted] = useState(false)
 
   // Mock EURC token address
-  const MOCK_EURC_ADDRESS = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS
+  const MOCK_EURC_ADDRESS = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`
 
   useEffect(() => {
     setMounted(true)
@@ -91,7 +91,7 @@ export default function PurchaseProperty() {
 
       // Get EURC balance
       const eurcBalanceResult = await publicClient.readContract({
-        address: MOCK_EURC_ADDRESS as `0x${string}`,
+        address: MOCK_EURC_ADDRESS,
         abi: mockEURCABI,
         functionName: 'balanceOf',
         args: [address],
@@ -128,7 +128,7 @@ export default function PurchaseProperty() {
 
       // Get EURC allowance
       const allowance = await publicClient.readContract({
-        address: MOCK_EURC_ADDRESS as `0x${string}`,
+        address: MOCK_EURC_ADDRESS,
         abi: mockEURCABI,
         functionName: 'allowance',
         args: [address, tokenAddress],
@@ -159,16 +159,18 @@ export default function PurchaseProperty() {
 
   const approveEurc = async () => {
     if (!walletClient || !tokenAddress || !tokenAmount) return
+    setLoading(true)
     try {
-      setLoading(true)
-      // Calculate EURC amount needed (5 EURC per token)
-      const eurcNeeded = parseUnits((Number(tokenAmount) * 5).toString(), 6)
-      const hash = await walletClient.writeContract({
-        address: MOCK_EURC_ADDRESS as `0x${string}`,
+      const amount = parseUnits(eurcAmount, 6) // EURC uses 6 decimals
+      const { request } = await publicClient.simulateContract({
+        address: MOCK_EURC_ADDRESS,
         abi: mockEURCABI,
         functionName: 'approve',
-        args: [tokenAddress, eurcNeeded],
+        args: [tokenAddress, amount],
+        account: address,
       })
+      
+      const hash = await walletClient.writeContract(request)
       await publicClient.waitForTransactionReceipt({ hash })
       await fetchDetails()
       toast({
@@ -199,7 +201,7 @@ export default function PurchaseProperty() {
 
       // First approve EURC spending
       const approveHash = await walletClient.writeContract({
-        address: MOCK_EURC_ADDRESS as `0x${string}`,
+        address: MOCK_EURC_ADDRESS,
         abi: mockEURCABI,
         functionName: 'approve',
         args: [tokenAddress, eurcAmount],
@@ -208,7 +210,7 @@ export default function PurchaseProperty() {
 
       // Then transfer EURC to the contract
       const transferHash = await walletClient.writeContract({
-        address: MOCK_EURC_ADDRESS as `0x${string}`,
+        address: MOCK_EURC_ADDRESS,
         abi: mockEURCABI,
         functionName: 'transfer',
         args: [tokenAddress, eurcAmount],
