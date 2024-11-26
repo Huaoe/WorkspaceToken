@@ -4,17 +4,37 @@ import Link from 'next/link';
 import { CustomConnectButton } from '@/components/connect-button';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useAccount } from 'wagmi';
+import { useAccount, useReadContract } from 'wagmi';
 import { useState, useEffect } from 'react';
+import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
+
+const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
 
 export function Navbar() {
   const pathname = usePathname();
   const { address } = useAccount();
   const [mounted, setMounted] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Read admin address from contract
+  const { data: contractAdmin } = useReadContract({
+    address: contractAddress,
+    abi: propertyFactoryABI.abi,
+    functionName: 'admin',
+  });
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Check if connected address is admin
+  useEffect(() => {
+    if (address && contractAdmin) {
+      setIsAdmin(address.toLowerCase() === contractAdmin.toLowerCase());
+    } else {
+      setIsAdmin(false);
+    }
+  }, [address, contractAdmin]);
 
   // Don't render anything until mounted to prevent hydration mismatch
   if (!mounted) {
@@ -57,6 +77,15 @@ export function Navbar() {
             Home
           </Link>
           <Link
+            href="/property/list"
+            className={cn(
+              "text-sm font-medium transition-colors hover:text-primary",
+              pathname === "/property/list" ? "text-foreground" : "text-muted-foreground"
+            )}
+          >
+            Properties
+          </Link>
+          <Link
             href="/property/request"
             className={cn(
               "text-sm font-medium transition-colors hover:text-primary",
@@ -67,7 +96,7 @@ export function Navbar() {
           >
             Submit Property
           </Link>
-          {address && (
+          {isAdmin && (
             <Link
               href="/admin/requests"
               className={cn(

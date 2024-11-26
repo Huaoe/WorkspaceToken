@@ -13,7 +13,6 @@ import * as z from "zod";
 import { StatusField } from './components/StatusField';
 import { PropertyDetailsFields } from './components/PropertyDetailsFields';
 import { LocationField } from './components/LocationField';
-import { ActionButtons } from './components/ActionButtons';
 import { ClientOnly } from './components/ClientOnly';
 import { useAccount, usePublicClient, useWalletClient, useSwitchChain, useReadContract } from "wagmi";
 import propertyFactoryJSON from '@contracts/abis/PropertyFactory.json';
@@ -119,7 +118,10 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
       try {
         // Execute transaction
         console.log('Executing transaction...');
-        const hash = await walletClient.writeContract(request);
+        const hash = await walletClient.writeContract({
+          ...request,
+          address: contractAddress,
+        });
         console.log('Transaction hash:', hash);
 
         toast({
@@ -161,7 +163,7 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
   const convertPriceToTokens = (price: string | number): bigint => {
     let numericPrice: number;
     if (typeof price === 'string') {
-      numericPrice = parseFloat(price);
+      numericPrice = parseFloat(price.replace(/,/g, ''));
     } else {
       numericPrice = price;
     }
@@ -186,40 +188,68 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
     try {
       setLoading(true);
 
+      // Get the current nonce
+      const nonce = await publicClient.getTransactionCount({
+        address: address!,
+      });
+      
+      console.log('Current nonce:', nonce);
+
+      // Validate input lengths
+      if (formData.title.length > 32) {
+        throw new Error("Title must be less than 32 characters");
+      }
+      if (formData.description.length > 256) {
+        throw new Error("Description must be less than 256 characters");
+      }
+      
+      // Truncate location if needed
+      const location = formData.location.length > 64 
+        ? formData.location.substring(0, 64) 
+        : formData.location;
+
+      // Ensure image URL is valid and not too long
+      const imageUrl = formData.image_url && formData.image_url.length > 128 
+        ? formData.image_url.substring(0, 128) 
+        : (formData.image_url || '');
+
+      // Convert and validate price
+      const priceValue = convertPriceToTokens(formData.expected_price);
+      
       console.log('Starting token creation with:', {
         contractAddress,
-        formData,
+        title: formData.title,
+        description: formData.description,
+        location,
+        imageUrl,
+        price: priceValue.toString(),
         walletAddress: address,
+        nonce,
       });
 
-      const priceValue = convertPriceToTokens(formData.expected_price);
-      console.log('Converted price:', priceValue.toString());
-
-      const params = {
+      // First simulate the transaction
+      const { request } = await publicClient.simulateContract({
         address: contractAddress,
         abi: propertyFactoryABI,
-        functionName: 'createProperty',
+        functionName: "createProperty",
         args: [
           formData.title,
           formData.description,
-          formData.location,
-          formData.image_url || '',
+          location,
+          imageUrl,
           priceValue,
         ],
-      };
-
-      const { request } = await publicClient.simulateContract({
-        ...params,
         account: address,
       });
-      console.log('Simulation successful:', request);
 
-      toast({
-        title: "Confirm Transaction",
-        description: "Please confirm the transaction in your wallet",
+      console.log('Simulation successful, executing transaction...');
+
+      // Execute the transaction with explicit nonce
+      const hash = await walletClient.writeContract({
+        ...request,
+        address: contractAddress,
+        nonce,
       });
-
-      const hash = await walletClient.sendTransaction(request);
       
       console.log('Transaction submitted:', hash);
 
@@ -252,9 +282,18 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
       }
     } catch (error) {
       console.error('Contract interaction error:', error);
+      let errorMessage = error instanceof Error ? error.message : "Failed to create property token";
+      
+      // Handle specific error cases
+      if (errorMessage.includes("execution reverted")) {
+        errorMessage = "Transaction reverted. Please check the property details and try again.";
+      } else if (errorMessage.includes("nonce too high")) {
+        errorMessage = "Network state error. Please refresh the page and try again.";
+      }
+      
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create property token",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

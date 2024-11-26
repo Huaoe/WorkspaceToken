@@ -15,4 +15,5 @@ export interface PropertyRequest {
   approved_at?: string;
   rejected_at?: string;
   tokenized_at?: string;
+  token_address?: string
 }

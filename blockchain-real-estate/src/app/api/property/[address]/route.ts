@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createPublicClient, http } from 'viem';
 import { hardhat } from 'viem/chains';
-import { propertyTokenABI } from '@contracts/abis/propertyTokenABI';
+import { propertyTokenABI } from '@/lib/contracts';
 
 const client = createPublicClient({
   chain: hardhat,
@@ -15,24 +15,35 @@ export async function GET(
   try {
     const propertyAddress = params.address as `0x${string}`;
     
-    const data = await client.readContract({
+    const propertyDetails = await client.readContract({
       address: propertyAddress,
       abi: propertyTokenABI,
       functionName: 'getPropertyDetails',
     });
 
-    if (!data || !Array.isArray(data)) {
-      throw new Error('Invalid property data');
-    }
+    const price = await client.readContract({
+      address: propertyAddress,
+      abi: propertyTokenABI,
+      functionName: 'getPrice',
+    });
 
-    const [title, description, location, imageUrl, price] = data;
+    const totalSupply = await client.readContract({
+      address: propertyAddress,
+      abi: propertyTokenABI,
+      functionName: 'totalSupply',
+    });
+
+    const isApproved = await client.readContract({
+      address: propertyAddress,
+      abi: propertyTokenABI,
+      functionName: 'isApproved',
+    });
 
     return NextResponse.json({
-      title,
-      description,
-      location,
-      imageUrl,
+      ...propertyDetails,
       price,
+      totalSupply,
+      isApproved,
     });
   } catch (error) {
     console.error('Error fetching property details:', error);

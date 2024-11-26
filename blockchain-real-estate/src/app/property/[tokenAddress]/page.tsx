@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useContractRead } from 'wagmi';
-import { propertyTokenABI } from '@contracts/abis/propertyTokenABI';
+import { propertyTokenABI } from '@/lib/contracts';
 import { formatUnits } from 'viem';
 import Image from 'next/image';
 
@@ -32,6 +32,27 @@ export default function PropertyDetails() {
     address: tokenAddress,
     abi: propertyTokenABI,
     functionName: 'getPropertyDetails',
+    watch: true,
+  });
+
+  const { data: price } = useContractRead({
+    address: tokenAddress as `0x${string}`,
+    abi: propertyTokenABI,
+    functionName: 'getPrice',
+    watch: true,
+  });
+
+  const { data: totalSupply } = useContractRead({
+    address: tokenAddress as `0x${string}`,
+    abi: propertyTokenABI,
+    functionName: 'totalSupply',
+    watch: true,
+  });
+
+  const { data: isApproved } = useContractRead({
+    address: tokenAddress as `0x${string}`,
+    abi: propertyTokenABI,
+    functionName: 'isApproved',
     watch: true,
   });
 

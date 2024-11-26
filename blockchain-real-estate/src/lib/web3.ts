@@ -1,7 +1,7 @@
 import { getDefaultWallets } from '@rainbow-me/rainbowkit';
-import { configureChains, createConfig } from 'wagmi';
+import { configureChains, createConfig, fallback } from 'wagmi';
 import { hardhat } from 'wagmi/chains';
-import { publicProvider } from 'wagmi/providers/public';
+import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
 import { createPublicClient, http, createWalletClient, custom } from 'viem';
 
 export const hardhatChain = {
@@ -33,9 +33,27 @@ export const hardhatChain = {
   testnet: true,
 };
 
+// Create providers with different polling intervals
+const providers = [
+  jsonRpcProvider({
+    rpc: () => ({
+      http: 'http://127.0.0.1:8545',
+    }),
+    static: true,
+    pollingInterval: 1000,
+  }),
+  jsonRpcProvider({
+    rpc: () => ({
+      http: 'http://127.0.0.1:8545',
+    }),
+    static: true,
+    pollingInterval: 4000,
+  })
+];
+
 const { chains, publicClient } = configureChains(
   [hardhatChain],
-  [publicProvider()]
+  providers
 );
 
 const { connectors } = getDefaultWallets({
@@ -48,23 +66,4 @@ export const config = createConfig({
   autoConnect: true,
   connectors,
   publicClient,
-});
-
-export const wagmiConfig = createConfig({
-  chains: [hardhatChain],
-  transports: {
-    [hardhatChain.id]: http(),
-  },
-  ssr: true,
-});
-
-export const createPropertyConfig = {
-  gas: 12000000n,
-  gasPrice: 'auto',
-} as const;
-
-// Create a public client for direct contract interactions
-export const localClient = createPublicClient({
-  chain: hardhatChain,
-  transport: http('http://127.0.0.1:8545'),
 });
