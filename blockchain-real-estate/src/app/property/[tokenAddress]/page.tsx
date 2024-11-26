@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ interface PropertyDetails {
 
 export default function PropertyDetails() {
   const params = useParams();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
@@ -83,6 +84,10 @@ export default function PropertyDetails() {
     propertyDetails, detailsLoading, detailsError,
     totalSupply, supplyLoading, supplyError,
   ]);
+
+  const handlePurchase = () => {
+    router.push(`/property/purchase/${tokenAddress}`);
+  };
 
   // Early return for non-mounted state
   if (!mounted) {
@@ -185,9 +190,14 @@ export default function PropertyDetails() {
             <p>{totalSupply ? formatUnits(totalSupply, 18) : 'Loading...'} tokens</p>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-end">
+        <CardFooter className="flex justify-end space-x-4">
+          <Button variant="outline" onClick={() => router.back()}>
+            Back
+          </Button>
           {details.isActive && (
-            <Button>Purchase Tokens</Button>
+            <Button onClick={handlePurchase}>
+              Purchase Tokens
+            </Button>
           )}
         </CardFooter>
       </Card>
