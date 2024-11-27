@@ -17,6 +17,17 @@ interface PropertyCardProps {
 }
 
 function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
+  const getStatusColor = (status: PropertyStatus) => {
+    switch (status) {
+      case 'live':
+        return 'bg-purple-500 hover:bg-purple-600';
+      case 'staking':
+        return 'bg-blue-500 hover:bg-blue-600';
+      default:
+        return 'bg-gray-500 hover:bg-gray-600';
+    }
+  };
+
   return (
     <div className="bg-card rounded-lg shadow-md overflow-hidden border">
       <div className="aspect-video relative">
@@ -34,7 +45,9 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
           <h3 className="text-lg font-semibold">{property.title}</h3>
-          <Badge className="bg-purple-500 hover:bg-purple-600">Live</Badge>
+          <Badge className={getStatusColor(property.status as PropertyStatus)}>
+            {property.status === 'staking' ? 'Staking' : 'Live'}
+          </Badge>
         </div>
         <p className="text-muted-foreground text-sm mb-2">{property.location}</p>
         <p className="font-medium">€{property.expected_price}</p>
@@ -68,16 +81,16 @@ export default function PropertyList() {
       const { data, error } = await supabase
         .from('property_requests')
         .select('*')
-        .eq('status', 'live')
+        .in('status', ['live', 'staking'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      console.log('Fetched live properties:', data);
+      console.log('Fetched live and staking properties:', data);
       // Verify each property has a token address
       data?.forEach(property => {
         if (!property.token_address) {
-          console.warn('Live property missing token address:', property);
+          console.warn('Property missing token address:', property);
         }
       });
 
@@ -112,7 +125,7 @@ export default function PropertyList() {
   return (
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Live Properties</h1>
+        <h1 className="text-2xl font-bold">Available Properties</h1>
         <Link href="/property/request">
           <Button>Submit Property</Button>
         </Link>
@@ -143,7 +156,7 @@ export default function PropertyList() {
         </div>
       ) : (
         <div className="text-center py-8 text-muted-foreground">
-          No live properties found.
+          No available properties found.
         </div>
       )}
     </div>

@@ -31,11 +31,6 @@ contract PropertyToken is ERC20, Ownable {
     IERC20 public eurcToken;
     uint256 public constant EURC_DECIMALS = 6;
 
-    /// @notice Emitted when a property is tokenized
-    /// @param title Name of the property
-    /// @param location Physical location of the property
-    /// @param price Price in EURC
-    /// @param owner Address of the property owner
     event PropertyTokenized(
         string title,
         string location,
@@ -193,7 +188,7 @@ contract PropertyToken is ERC20, Ownable {
         emit TokensPurchased(
             msg.sender,
             _amount,
-            eurcAmount 
+            eurcAmount
         );
         console.log("=== purchaseTokens completed successfully ===");
     }
@@ -220,13 +215,6 @@ contract PropertyToken is ERC20, Ownable {
         emit TokensSold(msg.sender, amount, eurcAmount);
     }
 
-    /// @notice Returns the property details
-    /// @return title Name of the property
-    /// @return description Detailed description of the property
-    /// @return location Physical location of the property
-    /// @return imageUrl URL to the property's image
-    /// @return price Price in EURC
-    /// @return isActive Whether the property is currently active for trading
     function getPropertyDetails()
         public
         view

@@ -29,30 +29,19 @@ const defaultCenter = {
 };
 
 const formSchema = z.object({
-  title: z.string()
-    .min(3, 'Title must be at least 3 characters')
-    .max(50, 'Title must not exceed 50 characters'),
-  description: z.string()
-    .min(10, 'Description must be at least 10 characters')
-    .max(500, 'Description must not exceed 500 characters'),
-  location: z.string()
-    .min(3, 'Location must be at least 3 characters')
-    .max(256, 'Location must not exceed 256 characters'),
-  latitude: z.number().default(defaultCenter.lat),
-  longitude: z.number().default(defaultCenter.lng),
-  imageUrl: z.string()
-    .url('Please enter a valid URL')
-    .max(500, 'URL must not exceed 500 characters'),
-  expectedPrice: z.string()
-    .min(1, 'Expected price is required')
-    .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
-      message: 'Please enter a valid positive number',
-    }),
+  title: z.string().min(1, "Title is required").max(255),
+  description: z.string().min(1, "Description is required"),
+  location: z.string().min(1, "Location is required").max(255),
+  imageUrl: z.string().min(1, "Image URL is required").url("Must be a valid URL"),
+  expectedPrice: z.string().min(1, "Price is required"),
   documents: z.string()
     .url('Please enter a valid URL for documents')
     .max(500, 'URL must not exceed 500 characters')
     .optional(),
-  numberOfTokens: z.coerce.number().int().min(1, "Must have at least 1 token").max(10000, "Cannot exceed 10000 tokens")
+  numberOfTokens: z.coerce.number().int().min(1, "Must have at least 1 token").max(10000, "Cannot exceed 10000 tokens"),
+  payoutDuration: z.coerce.number().int().min(1, "Payout duration must be at least 1 month").max(12, "Payout duration cannot exceed 12 months"),
+  finishAt: z.string().min(1, "End date is required"),
+  roi: z.coerce.number().min(0, "ROI must be positive").max(100, "ROI cannot exceed 100%")
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -99,12 +88,13 @@ export default function PropertyRequest() {
       title: '',
       description: '',
       location: '',
-      latitude: defaultCenter.lat,
-      longitude: defaultCenter.lng,
       imageUrl: '',
       expectedPrice: '',
       documents: '',
-      numberOfTokens: 100
+      numberOfTokens: 100,
+      payoutDuration: 3,
+      finishAt: '',
+      roi: 8.5,
     },
   })
 
@@ -121,6 +111,9 @@ export default function PropertyRequest() {
     setIsSubmitting(true)
 
     try {
+      // Convert price from EURC to smallest unit (6 decimals)
+      const priceInSmallestUnit = parseFloat(data.expectedPrice) * Math.pow(10, 6);
+
       const { error } = await supabase
         .from('property_requests')
         .insert([
@@ -133,6 +126,9 @@ export default function PropertyRequest() {
             documents_url: data.documents || null,
             owner_address: address,
             number_of_tokens: data.numberOfTokens,
+            payout_duration: data.payoutDuration,
+            finish_at: data.finishAt,
+            roi: data.roi,
             status: 'pending'
           }
         ])
@@ -140,7 +136,7 @@ export default function PropertyRequest() {
       if (error) throw error
 
       toast({
-        title: "Property Request Submitted! 🎉",
+        title: "Property Request Submitted! ",
         description: (
           <div className="mt-2 space-y-2">
             <p>Your property <span className="font-semibold">{data.title}</span> has been submitted for review.</p>
@@ -325,6 +321,73 @@ export default function PropertyRequest() {
                   </FormControl>
                   <FormDescription>
                     How many tokens do you want to create for this property? Each token represents partial ownership.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="payoutDuration"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Payout Frequency</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="12"
+                      placeholder="3"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    How often should yields be paid out? (in months)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="finishAt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contract End Date</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      min={new Date().toISOString().split('T')[0]}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    When will the investment contract end?
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="roi"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Annual Return on Investment (ROI)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="8.5"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Expected annual return on investment (%)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

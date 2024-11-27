@@ -29,44 +29,52 @@ async function main() {
       deployer.address, // _validator
     ]);
     await propertyFactory.waitForDeployment();
-    console.log(
-      "PropertyFactory deployed to:",
-      await propertyFactory.getAddress()
+    const propertyFactoryAddress = await propertyFactory.getAddress();
+    console.log("PropertyFactory deployed to:", propertyFactoryAddress);
+
+    // Deploy StakingRewards contract
+    console.log("\nDeploying StakingRewards...");
+    const StakingRewards = await ethers.getContractFactory("StakingRewards");
+    const stakingRewards = await StakingRewards.deploy(
+      eurcAddress, // stakingToken (EURC)
+      eurcAddress  // rewardsToken (also EURC for simplicity)
     );
+    await stakingRewards.deploymentTransaction()?.wait();
+    const stakingRewardsAddress = await stakingRewards.getAddress();
+    console.log("StakingRewards deployed to:", stakingRewardsAddress);
 
     // Update .env.local with the new contract addresses
     const envPath = path.join(__dirname, "../../.env.local");
-    let envContent = "";
+    const envLocalContent = fs.existsSync(envPath)
+      ? fs.readFileSync(envPath, "utf8")
+      : "";
 
-    try {
-      envContent = fs.readFileSync(envPath, "utf8");
-    } catch (error) {
-      console.log("No existing .env.local file found. Creating new one.");
-    }
+    const envPath2 = path.join(__dirname, "../.env");
+    const envContent = fs.existsSync(envPath2)
+      ? fs.readFileSync(envPath2, "utf8")
+      : "";
 
-    // Update or add the contract addresses
-    const factoryRegex = /NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS=.*/;
-    const eurcRegex = /NEXT_PUBLIC_EURC_TOKEN_ADDRESS=.*/;
+    const updatedEnvLocalContent = updateEnvFile(
+      envLocalContent,
+      {
+        NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS: propertyFactoryAddress,
+        NEXT_PUBLIC_EURC_TOKEN_ADDRESS: eurcAddress,
+        NEXT_PUBLIC_STAKING_REWARDS_ADDRESS: stakingRewardsAddress,
+      }
+    );
 
-    const newFactoryLine = `NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS=${await propertyFactory.getAddress()}`;
-    const newEurcLine = `NEXT_PUBLIC_EURC_TOKEN_ADDRESS=${eurcAddress}`;
+    const updatedEnvContent = updateEnvFile(
+      envContent,
+      {
+        FACTORY_ADDRESS: propertyFactoryAddress,
+        NEXT_PUBLIC_EURC_TOKEN_ADDRESS: eurcAddress,
+      }
+    );
 
-    if (envContent.match(factoryRegex)) {
-      envContent = envContent.replace(factoryRegex, newFactoryLine);
-    } else {
-      envContent = envContent
-        ? `${envContent}\n${newFactoryLine}`
-        : newFactoryLine;
-    }
+    fs.writeFileSync(envPath, updatedEnvLocalContent);
+    fs.writeFileSync(envPath2, updatedEnvContent);
 
-    if (envContent.match(eurcRegex)) {
-      envContent = envContent.replace(eurcRegex, newEurcLine);
-    } else {
-      envContent = envContent ? `${envContent}\n${newEurcLine}` : newEurcLine;
-    }
-
-    fs.writeFileSync(envPath, envContent);
-    console.log("\nUpdated .env.local with new contract addresses");
+    console.log("\nUpdated .env and .env.local with new contract addresses");
 
     // Create abis directory if it doesn't exist
     const contractsPath = path.join(__dirname, "../artifacts/contracts");
@@ -102,18 +110,30 @@ async function main() {
           2
         )
       );
-      console.log(`Copied ${contractName} ABI to frontend`);
     };
 
-    // Copy ABIs
-    await copyAbi("PropertyFactory", await propertyFactory.getAddress());
+    // Copy ABIs for all contracts
+    await copyAbi("PropertyFactory", propertyFactoryAddress);
     await copyAbi("MockEURC", eurcAddress);
+    await copyAbi("StakingRewards", stakingRewardsAddress);
 
-    console.log("\nSuccessfully copied all ABIs to frontend");
+    console.log("\nContract ABIs copied to abis directory");
   } catch (error) {
     console.error("Error during deployment:", error);
     throw error;
   }
+}
+
+function updateEnvFile(envContent: string, newValues: { [key: string]: string }) {
+  Object.keys(newValues).forEach((key) => {
+    const regex = new RegExp(`${key}=.*`);
+    if (envContent.match(regex)) {
+      envContent = envContent.replace(regex, `${key}=${newValues[key]}`);
+    } else {
+      envContent = envContent ? `${envContent}\n${key}=${newValues[key]}` : `${key}=${newValues[key]}`;
+    }
+  });
+  return envContent;
 }
 
 main()

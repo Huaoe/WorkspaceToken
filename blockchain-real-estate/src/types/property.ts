@@ -26,4 +26,31 @@ export interface OnChainPropertyRequest extends BasePropertyRequest {
   token_address: string; 
 }
 
-export type PropertyRequest = PendingPropertyRequest | OnChainPropertyRequest;
+export interface PropertyRequest {
+  id?: string;
+  title: string;
+  description: string;
+  location: string;
+  imageUrl: string;
+  price: number;
+  ownerAddress: string;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  payoutDuration: Date;
+  finishAt: Date;
+  roi: number;
+}
+
+export interface PropertyRequestFormData {
+  title: string;
+  description: string;
+  location: string;
+  imageUrl: string;
+  price: number;
+  payoutDuration: Date;
+  finishAt: Date;
+  roi: number;
+}
+
+export type PropertyRequestType = PendingPropertyRequest | OnChainPropertyRequest;

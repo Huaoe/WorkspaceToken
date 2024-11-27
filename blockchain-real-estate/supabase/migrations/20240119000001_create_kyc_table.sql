@@ -136,3 +136,20 @@ create trigger update_kyc_submissions_updated_at
     before update on public.kyc_submissions
     for each row
     execute function update_updated_at_column();
+
+-- Create property_requests table
+CREATE TABLE IF NOT EXISTS property_requests (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    image_url TEXT NOT NULL,
+    price DECIMAL(20, 6) NOT NULL,
+    owner_address VARCHAR(42) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    payout_duration TIMESTAMP WITH TIME ZONE NOT NULL,
+    finish_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    roi DECIMAL(5, 2) NOT NULL  -- Stores percentage with 2 decimal places
+);

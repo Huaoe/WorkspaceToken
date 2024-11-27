@@ -130,21 +130,42 @@ export default function AdminRequests() {
                 />
               </div>
               <p className="text-sm mb-2 line-clamp-3">{request.description}</p>
-              <div className="flex flex-wrap gap-2 mt-2">
-                <Badge variant="secondary">
-                  {request.expected_price} EURC
-                </Badge>
-                <Badge 
-                  variant={
-                    request.status === 'approved' ? 'success' :
-                    request.status === 'rejected' ? 'destructive' :
-                    request.status === 'pending' ? 'secondary' :
-                    request.status === 'live' ? 'purple' :
-                    'outline'
-                  }
-                >
-                  {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                </Badge>
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div>
+                  <h4 className="font-semibold text-sm">Price</h4>
+                  <p className="text-sm">{request.expected_price} EURC</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Number of Tokens</h4>
+                  <p className="text-sm">{request.number_of_tokens}</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Payout Frequency</h4>
+                  <p className="text-sm">{request.payout_duration} months</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Expected ROI</h4>
+                  <p className="text-sm">{request.roi}%</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Contract End Date</h4>
+                  <p className="text-sm">{new Date(request.finish_at).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Status</h4>
+                  <Badge 
+                    variant={
+                      request.status === 'approved' ? 'success' :
+                      request.status === 'rejected' ? 'destructive' :
+                      request.status === 'pending' ? 'secondary' :
+                      request.status === 'live' ? 'purple' :
+                      request.status === 'onchain' ? 'warning' :
+                      'outline'
+                    }
+                  >
+                    {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                  </Badge>
+                </div>
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">
@@ -156,8 +177,7 @@ export default function AdminRequests() {
                   if (request.documents_url) {
                     window.open(request.documents_url, '_blank');
                   }
-                }
-              }
+                }}
               >
                 View Documents
               </Button>
@@ -168,7 +188,7 @@ export default function AdminRequests() {
                   router.push(`/admin/requests/${request.id}`);
                 }}
               >
-                Review
+                Review Request
               </Button>
             </CardFooter>
           </Card>

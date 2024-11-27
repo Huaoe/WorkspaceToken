@@ -40,7 +40,7 @@ const formSchema = z.object({
   number_of_tokens: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
     message: "Number of tokens must be a valid number greater than 0",
   }),
-  status: z.enum(['pending', 'approved', 'rejected', 'onchain']),
+  status: z.enum(['pending', 'approved', 'rejected', 'onchain', 'staking', 'closed', 'paused' ]),
   token_name: z.string().min(1).max(50, {
     message: "Token name must be between 1 and 50 characters.",
   }),
