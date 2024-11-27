@@ -6,7 +6,7 @@ async function main() {
   console.log("Distributing MockEURC tokens with account:", deployer.address);
 
   // MockEURC contract address from deployment
-  const mockEURCAddress = "0x0165878A594ca255338adfa4d48449f69242Eb8F";
+  const mockEURCAddress = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS;
 
   // Get the MockEURC contract instance
   const mockEURC = await ethers.getContractAt("MockEURC", mockEURCAddress) as MockEURC;

@@ -10,7 +10,8 @@
     "deploy:local": "npx hardhat run scripts/deploy-local.ts --network localhost",
     "n": "npx hardhat node",
     "distributeMockEURC":"npx hardhat run scripts/distribute-mock-eurc.ts --network localhost",
-    "verifyMockEURC":"npx hardhat run scripts/verify-eurc-approve.ts --network localhost"
+    "verifyMockEURC":"npx hardhat run scripts/verify-eurc-approve.ts --network localhost",
+    "test:pt":"npx hardhat test test/PropertyToken.test.ts --network localhost"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
