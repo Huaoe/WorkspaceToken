@@ -161,10 +161,10 @@ export default function PurchaseProperty() {
         price: price,
       });
 
-      setTokenBalance(userBalance);
+      setTokenBalance(formatUnits(userBalance, 18));
       setEurcBalance(userEurcBalance);
       setEurcAllowance(userEurcAllowance);
-      setRemainingTokens(remaining);
+      setRemainingTokens(formatUnits(remainingTokens, 18));
     } catch (error) {
       console.error("Error fetching details:", error);
       toast({
@@ -306,45 +306,6 @@ export default function PurchaseProperty() {
     }
   };
 
-  const mintTestEURC = async () => {
-    if (!walletClient || !address) return;
-    try {
-      setLoading(true);
-      // Mint 1 million EURC for testing
-      const amount = parseUnits("1000000", 6);
-
-      const { request } = await publicClient.simulateContract({
-        address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
-        abi: mockEURCABI,
-        functionName: "mint",
-        args: [address, amount],
-        account: address,
-      });
-
-      const mintHash = await walletClient.writeContract(request);
-      console.log("Debug - Mint transaction hash:", mintHash);
-
-      const mintReceipt = await publicClient.waitForTransactionReceipt({
-        hash: mintHash,
-      });
-      console.log("Debug - Mint receipt:", mintReceipt);
-
-      await fetchPropertyDetails(); // Refresh balances
-      toast({
-        title: "Success",
-        description: "Test EURC minted successfully",
-      });
-    } catch (error) {
-      console.error("Debug - Error minting EURC:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to mint EURC",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const purchaseTokens = async () => {
     if (!walletClient || !address || !tokenAmount || !onChainDetails?.price) {
@@ -570,26 +531,7 @@ export default function PurchaseProperty() {
                   {tokenAddress as string}
                 </div>
               </div>
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="text-sm text-gray-600 mb-1">
-                      Your EURC Balance
-                    </div>
-                    <div className="font-mono text-sm">
-                      {formatUnits(eurcBalance, 6)} EURC
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={mintTestEURC}
-                    disabled={loading}
-                  >
-                    {loading ? "Minting..." : "Mint Test EURC"}
-                  </Button>
-                </div>
-              </div>
+             
               <div className="flex flex-col md:flex-row gap-6">
                 {/* Property Image */}
                 <div className="w-full md:w-1/2 relative">
@@ -737,20 +679,6 @@ export default function PurchaseProperty() {
                       {/* Action Buttons */}
                       <div className="flex gap-3 pt-4">
                         <Button
-                          onClick={approveEurc}
-                          disabled={loading || !tokenAmount}
-                          className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transition-all duration-200"
-                        >
-                          {loading ? (
-                            <div className="flex items-center gap-2">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                              <span>Approving...</span>
-                            </div>
-                          ) : (
-                            "Approve EURC"
-                          )}
-                        </Button>
-                        <Button
                           onClick={purchaseTokens}
                           disabled={loading || !tokenAmount}
                           className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white transition-all duration-200"
@@ -783,7 +711,7 @@ export default function PurchaseProperty() {
                             {holder.address}
                           </p>
                           <p className="text-lg font-bold mt-1">
-                            {formatUnits(holder.balance, 18)} tokens
+                            {formatUnits(holder.balance,18)} tokens
                           </p>
                         </div>
                         {holder.address.toLowerCase() ===

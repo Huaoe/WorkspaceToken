@@ -12,15 +12,15 @@ contract PropertyToken is ERC20, Ownable {
         string description;
         string location;
         string imageUrl;
-        uint256 price;  // Price in EURC (6 decimals)
+        uint256 price; // Price in EURC (6 decimals)
         bool isActive;
     }
 
     Property public propertyDetails;
-    uint256 public constant TOTAL_SUPPLY = 1000 * 10**18; // 1000 tokens
+    uint256 public constant TOTAL_SUPPLY = 1000 * 10 ** 18; // 1000 tokens
     IERC20 public eurcToken;
     uint256 public constant EURC_DECIMALS = 6;
-    
+
     event PropertyTokenized(
         string title,
         string location,
@@ -55,12 +55,24 @@ contract PropertyToken is ERC20, Ownable {
         console.log("Price:", _price);
         console.log("Initial owner:", initialOwner);
         console.log("EURC token:", _eurcTokenAddress);
-        
+
         // Input validation
-        require(bytes(_title).length > 0 && bytes(_title).length <= 20, "Invalid title length");
-        require(bytes(_description).length > 0 && bytes(_description).length <= 50, "Invalid description length");
-        require(bytes(_location).length > 0 && bytes(_location).length <= 256, "Invalid location length");
-        require(bytes(_imageUrl).length > 0 && bytes(_imageUrl).length <= 100, "Invalid image URL length");
+        require(
+            bytes(_title).length > 0 && bytes(_title).length <= 20,
+            "Invalid title length"
+        );
+        require(
+            bytes(_description).length > 0 && bytes(_description).length <= 50,
+            "Invalid description length"
+        );
+        require(
+            bytes(_location).length > 0 && bytes(_location).length <= 256,
+            "Invalid location length"
+        );
+        require(
+            bytes(_imageUrl).length > 0 && bytes(_imageUrl).length <= 100,
+            "Invalid image URL length"
+        );
         require(_price > 0, "Price must be greater than 0");
         require(initialOwner != address(0), "Invalid owner address");
         require(_eurcTokenAddress != address(0), "Invalid EURC token address");
@@ -76,7 +88,7 @@ contract PropertyToken is ERC20, Ownable {
 
         eurcToken = IERC20(_eurcTokenAddress);
         _mint(initialOwner, TOTAL_SUPPLY);
-        
+
         emit PropertyTokenized(
             propertyDetails.title,
             propertyDetails.location,
@@ -92,37 +104,50 @@ contract PropertyToken is ERC20, Ownable {
         console.log("Requested token amount:", _amount);
         console.log("Current owner:", owner());
         console.log("Contract address:", address(this));
-        
+
         require(propertyDetails.isActive, "Property is not active");
         require(_amount > 0, "Amount must be greater than 0");
-        
+
         uint256 ownerBalance = balanceOf(owner());
         console.log("Owner's token balance:", ownerBalance);
         require(_amount <= ownerBalance, "Not enough tokens available");
 
         // Calculate EURC amount needed (considering 6 decimals for EURC)
-        uint256 eurcAmount = (_amount * propertyDetails.price) / (10 ** (decimals() - EURC_DECIMALS));
+        uint256 eurcAmount = (_amount * propertyDetails.price) /
+            (10 ** (decimals() - EURC_DECIMALS));
         console.log("Property price (EURC):", propertyDetails.price);
         console.log("Token decimals:", decimals());
         console.log("EURC decimals:", EURC_DECIMALS);
         console.log("Total EURC amount needed:", eurcAmount);
-        
+
         // Check allowance and balance
-        uint256 currentAllowance = eurcToken.allowance(msg.sender, address(this));
+        uint256 currentAllowance = eurcToken.allowance(
+            msg.sender,
+            address(this)
+        );
         uint256 buyerBalance = eurcToken.balanceOf(msg.sender);
         console.log("Buyer's EURC allowance:", currentAllowance);
         console.log("Buyer's EURC balance:", buyerBalance);
-        
-        require(currentAllowance * 10**6 >= eurcAmount, "Insufficient EURC allowance");
-        require(buyerBalance * 10**6 >= eurcAmount, "Insufficient EURC balance");
+
+        require(
+            currentAllowance * 10 ** 6 >= eurcAmount,
+            "Insufficient EURC allowance"
+        );
+        require(
+            buyerBalance * 10 ** 6 >= eurcAmount,
+            "Insufficient EURC balance"
+        );
 
         console.log("Transferring EURC from buyer to owner...");
         console.log("From:", msg.sender);
         console.log("To:", owner());
         console.log("Amount (EURC):", eurcAmount);
-        
+
         // Transfer EURC from buyer to token owner
-        require(eurcToken.transferFrom(msg.sender, owner(), eurcAmount), "EURC transfer failed");
+        require(
+            eurcToken.transferFrom(msg.sender, owner(), eurcAmount / 10 ** 6),
+            "EURC transfer failed"
+        );
         console.log("EURC transfer successful");
 
         console.log("Transferring property tokens to buyer...");
@@ -130,7 +155,11 @@ contract PropertyToken is ERC20, Ownable {
         _transfer(owner(), msg.sender, _amount);
         console.log("Property token transfer successful");
 
-        emit TokensPurchased(msg.sender, _amount, eurcAmount);
+        emit TokensPurchased(
+            msg.sender,
+            _amount / 10 ** 6,
+            eurcAmount / 10 ** 6
+        );
         console.log("=== purchaseTokens completed successfully ===");
     }
 
@@ -139,25 +168,33 @@ contract PropertyToken is ERC20, Ownable {
         require(balanceOf(msg.sender) >= amount, "Insufficient token balance");
 
         // Calculate EURC amount to receive
-        uint256 eurcAmount = (amount * propertyDetails.price) / (10 ** (decimals() - EURC_DECIMALS));
+        uint256 eurcAmount = (amount * propertyDetails.price) /
+            (10 ** (decimals() - EURC_DECIMALS));
 
         // Burn the property tokens
         _burn(msg.sender, amount);
 
         // Transfer EURC to seller
-        require(eurcToken.transfer(msg.sender, eurcAmount), "EURC transfer failed");
+        require(
+            eurcToken.transfer(msg.sender, eurcAmount),
+            "EURC transfer failed"
+        );
 
         emit TokensSold(msg.sender, amount, eurcAmount);
     }
 
-    function getPropertyDetails() public view returns (
-        string memory title,
-        string memory description,
-        string memory location,
-        string memory imageUrl,
-        uint256 price,
-        bool isActive
-    ) {
+    function getPropertyDetails()
+        public
+        view
+        returns (
+            string memory title,
+            string memory description,
+            string memory location,
+            string memory imageUrl,
+            uint256 price,
+            bool isActive
+        )
+    {
         return (
             propertyDetails.title,
             propertyDetails.description,
