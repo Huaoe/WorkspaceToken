@@ -157,8 +157,8 @@ contract PropertyToken is ERC20, Ownable {
 
         emit TokensPurchased(
             msg.sender,
-            _amount / 10 ** 6,
-            eurcAmount / 10 ** 6
+            _amount,
+            eurcAmount 
         );
         console.log("=== purchaseTokens completed successfully ===");
     }

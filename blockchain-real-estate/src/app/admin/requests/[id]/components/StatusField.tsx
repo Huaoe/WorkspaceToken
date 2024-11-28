@@ -2,11 +2,14 @@
 
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { STATUS_COLORS, STATUS_OPTIONS } from "@/lib/constants";
+import { STATUS_COLORS, STATUS_OPTIONS, PropertyStatus } from "@/lib/constants";
 import { UseFormReturn } from "react-hook-form";
 
 interface StatusFieldProps {
-  form: UseFormReturn<any>;
+  form: UseFormReturn<{
+    status: PropertyStatus;
+    [key: string]: any;
+  }>;
 }
 
 export function StatusField({ form }: StatusFieldProps) {
@@ -25,7 +28,7 @@ export function StatusField({ form }: StatusFieldProps) {
               <SelectTrigger>
                 <SelectValue>
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full bg-${STATUS_COLORS[field.value]}-500`} />
+                    <div className={`w-2 h-2 rounded-full ${STATUS_COLORS[field.value as PropertyStatus] ? `bg-${STATUS_COLORS[field.value as PropertyStatus]}-500` : ''}`} />
                     <span className="capitalize">{field.value === 'onchain' ? 'On Chain' : field.value}</span>
                   </div>
                 </SelectValue>

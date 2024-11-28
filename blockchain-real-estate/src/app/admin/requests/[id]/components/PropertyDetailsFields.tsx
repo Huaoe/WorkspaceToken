@@ -4,9 +4,24 @@ import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessa
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { UseFormReturn } from "react-hook-form";
+import { z } from "zod";
+
+export const propertyFormSchema = z.object({
+  title: z.string().min(3).max(20),
+  description: z.string().min(10).max(50),
+  expected_price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0),
+  image_url: z.string().url().max(100).optional(),
+  documents_url: z.string().url().optional(),
+  number_of_tokens: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0),
+  token_name: z.string().min(1).max(50),
+  token_symbol: z.string().min(1).max(10),
+  status: z.enum(['pending', 'approved', 'rejected', 'onchain']),
+});
+
+type PropertyFormValues = z.infer<typeof propertyFormSchema>;
 
 interface PropertyDetailsFieldsProps {
-  form: UseFormReturn<any>;
+  form: UseFormReturn<PropertyFormValues>;
 }
 
 export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
