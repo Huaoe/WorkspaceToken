@@ -5,9 +5,8 @@
 ### 1.1 Purpose
 Develop a decentralized marketplace for tokenizing and trading real estate assets using blockchain technology, enabling fractional ownership through ERC20 tokens.
 There is 3 personnas :
-Property Owner : submit a form with realEsate description, picture to fiducie approval
 Investor : Buy tokens emit by Fiducie
-Fiducie : Validate and Emit ERC20 for each submitted property and yield revenue shares to investor using EURC (circle)
+Fiducie : submit a form with realEsate description, picture to fiducie approval, Validate and Emit ERC20 for each submitted property and yield revenue shares to investor using EURC (circle)
 
 ## 2. Key Features
 ### 2.1 Property Tokenization
@@ -20,7 +19,7 @@ Fiducie : Validate and Emit ERC20 for each submitted property and yield revenue 
 
 
 ### 2.2 Marketplace Functionality
-- Property owner can submit a form about the real esate property
+- Fiducie admin can submit a form about the real esate property
 - List tokenized properties
 - Enable buying/selling of property tokens
 - Real-time valuation tracking
@@ -47,20 +46,18 @@ Fiducie : Validate and Emit ERC20 for each submitted property and yield revenue 
   - Dividend distribution
 
 ## 4. User Journeys USE CASES
-### 4.1 Property Owner
-- Register property with photo
-- Set token distribution parameters
-- Define transfer restrictions
-- Ask fiducie ERC20 generation
 
-### 4.2 Investor
+### 4.1 Investor
 - Browse tokenized properties
 - Conduct due diligence (off system)
 - Purchase fractional tokens
 - Track investment performance
 
-### 4.3 Fiducie
-- validate real estate properties post by Investor
+### 4.2 Fiducie
+- Register property with photo
+- Set token distribution parameters
+- Define transfer restrictions
+- validate real estate properties 
 - Generate ERC20 tokens
 - sell token
 - buy property (real world)

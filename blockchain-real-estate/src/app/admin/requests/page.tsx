@@ -139,7 +139,7 @@ export default function AdminRequests() {
                     request.status === 'approved' ? 'success' :
                     request.status === 'rejected' ? 'destructive' :
                     request.status === 'pending' ? 'secondary' :
-                    request.status === 'onchain' ? 'purple' :
+                    request.status === 'live' ? 'purple' :
                     'outline'
                   }
                 >

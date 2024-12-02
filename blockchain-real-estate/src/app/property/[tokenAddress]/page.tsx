@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useContractRead } from 'wagmi';
+import { useContractRead, useContractReads } from 'wagmi';
 import { propertyTokenABI } from '@/lib/contracts';
 import Image from 'next/image';
 import { formatUnits } from '@ethersproject/units';
@@ -42,115 +42,74 @@ export default function PropertyDetails() {
     console.log('Token address from params:', tokenAddress);
   }, [tokenAddress]);
 
-  const { data: propertyDetails, isLoading: detailsLoading, error: detailsError } = useContractRead({
-    address: tokenAddress,
-    abi: propertyTokenABI,
-    functionName: 'propertyDetails',
+  const { data: propertyData, isLoading: detailsLoading } = useContractReads({
+    contracts: [
+      {
+        address: tokenAddress,
+        abi: propertyTokenABI,
+        functionName: 'propertyDetails',
+        args: [],  
+      },
+      {
+        address: tokenAddress,
+        abi: propertyTokenABI,
+        functionName: 'totalSupply',
+      }
+    ],
     watch: true,
   });
 
-  const { data: totalSupply, isLoading: supplyLoading, error: supplyError } = useContractRead({
-    address: tokenAddress,
-    abi: propertyTokenABI,
-    functionName: 'TOTAL_SUPPLY',
-    watch: true,
-  });
+  const propertyDetails = propertyData?.[0].result as PropertyStruct;
+  const totalSupply = propertyData?.[1].result as bigint;
 
   useEffect(() => {
-    // Log all contract read results
-    console.log('Property Details Raw:', propertyDetails);
-    console.log('Property Details:', {
-      details: propertyDetails,
-      detailsLoading,
-      detailsError
-    });
-    console.log('Total Supply:', {
-      totalSupply,
-      supplyLoading,
-      supplyError
-    });
-
-    // Check for any errors
-    const errors = [];
-    if (detailsError) errors.push('Failed to load property details');
-    if (supplyError) errors.push('Failed to load total supply');
-
-    if (errors.length > 0) {
-      setError(errors.join(', '));
+    if (propertyData?.[0].error || propertyData?.[1].error) {
+      setError('Failed to load property details');
+      console.error('Contract read error:', propertyData?.[0].error || propertyData?.[1].error);
     } else {
       setError(null);
     }
-  }, [
-    propertyDetails, detailsLoading, detailsError,
-    totalSupply, supplyLoading, supplyError,
-  ]);
+  }, [propertyData]);
 
-  const handlePurchase = () => {
-    router.push(`/property/purchase/${tokenAddress}`);
-  };
-
-  // Early return for non-mounted state
-  if (!mounted) {
-    return null;
-  }
-
-  if (detailsLoading || supplyLoading) {
-    return (
-      <div className="container mx-auto p-8">
-        <div className="text-center">
-          <p className="text-lg">Loading property details...</p>
-        </div>
-      </div>
-    );
-  }
+  if (!mounted) return null;
 
   if (error) {
     return (
       <div className="container mx-auto p-8">
-        <div className="text-center">
-          <p className="text-lg text-red-500">Error: {error}</p>
-          <p className="mt-2">Token Address: {tokenAddress}</p>
-          {detailsError && (
-            <pre className="mt-4 text-left text-sm bg-gray-100 p-4 rounded">
-              {JSON.stringify(detailsError, null, 2)}
-            </pre>
-          )}
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-destructive">Error</CardTitle>
+            <CardDescription>
+              {error}. Token Address: {tokenAddress}
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
 
-  if (!propertyDetails) {
+  if (detailsLoading || !propertyDetails) {
     return (
       <div className="container mx-auto p-8">
-        <div className="text-center">
-          <p className="text-lg text-red-500">Property not found</p>
-          <p className="mt-2">Token Address: {tokenAddress}</p>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Loading...</CardTitle>
+            <CardDescription>
+              Fetching property details...
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
 
-  // Property details comes back as an array from the contract
-  // [title, description, location, imageUrl, price, isActive]
-  const details: PropertyDetails = {
-    title: propertyDetails[0] || 'Untitled Property',
-    description: propertyDetails[1] || 'No description available',
-    location: propertyDetails[2] || 'Location not specified',
-    imageUrl: propertyDetails[3] || '',
-    price: propertyDetails[4],
-    isActive: propertyDetails[5],
-  };
+  const formattedPrice = propertyDetails?.price ? formatUnits(propertyDetails.price, 6) : '0';
+  const formattedSupply = totalSupply ? formatUnits(totalSupply, 18) : '0';
 
-  console.log('Parsed property details:', details);
-
-  // Format price to show in EURC (6 decimals)
-  const formattedPrice = details.price ? new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-    style: 'currency',
-    currency: 'EUR'
-  }).format(Number(formatUnits(details.price, 6))) : 'Price not available';
+  // Ensure image URL is valid and use fallback if not
+  const imageUrl = propertyDetails?.imageUrl && propertyDetails.imageUrl.startsWith('http') 
+    ? propertyDetails.imageUrl 
+    : PLACEHOLDER_IMAGE;
 
   return (
     <div className="container mx-auto p-8">
@@ -158,51 +117,44 @@ export default function PropertyDetails() {
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle>{details.title}</CardTitle>
-              <CardDescription>{details.location}</CardDescription>
+              <CardTitle>{propertyDetails.title}</CardTitle>
+              <CardDescription>{propertyDetails.location}</CardDescription>
             </div>
-            <Badge variant={details.isActive ? "default" : "secondary"}>
-              {details.isActive ? "Active" : "Inactive"}
+            <Badge variant={propertyDetails.isActive ? "success" : "destructive"}>
+              {propertyDetails.isActive ? "Active" : "Inactive"}
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="aspect-video relative rounded-lg overflow-hidden">
+          <div className="relative w-full h-64">
             <Image
-              src={imageError || !details.imageUrl ? PLACEHOLDER_IMAGE : details.imageUrl}
-              alt={details.title}
+              src={imageUrl}
+              alt={propertyDetails.title}
               fill
-              className="object-cover"
+              className="object-cover rounded-md"
               onError={() => setImageError(true)}
               priority
             />
           </div>
-          <div>
-            <h3 className="font-semibold mb-2">Description</h3>
-            <p className="text-muted-foreground">{details.description}</p>
-          </div>
-          <div>
-            <h3 className="font-semibold mb-2">Price per Token</h3>
-            <p className="text-xl font-bold">{formattedPrice}</p>
-          </div>
-          <div>
-            <h3 className="font-semibold mb-2">Total Supply</h3>
-            <p>{totalSupply ? formatUnits(totalSupply, 18) : 'Loading...'} tokens</p>
-          </div>
-          <div>
-            <h3 className="font-semibold mb-2">PropertyToken Address</h3>
-            <p className="font-mono text-sm break-all">{tokenAddress}</p>
+          <p className="text-lg mb-4">{propertyDetails.description}</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <h3 className="font-semibold">Price</h3>
+              <p>{formattedPrice} EURC</p>
+            </div>
+            <div>
+              <h3 className="font-semibold">Total Supply</h3>
+              <p>{formattedSupply} Tokens</p>
+            </div>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-end space-x-4">
-          <Button variant="outline" onClick={() => router.back()}>
-            Back
+        <CardFooter className="flex justify-between">
+          <Button variant="outline" onClick={() => router.push('/property/list')}>
+            Back to List
           </Button>
-          {details.isActive && (
-            <Button onClick={handlePurchase}>
-              Purchase Tokens
-            </Button>
-          )}
+          <Button onClick={() => router.push(`/property/purchase/${tokenAddress}`)}>
+            Invest Now
+          </Button>
         </CardFooter>
       </Card>
     </div>

@@ -6,7 +6,17 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "hardhat/console.sol";
 
+/// @title PropertyToken
+/// @notice This contract represents a tokenized real estate property
+/// @dev Inherits from ERC20 and Ownable for token functionality and access control
 contract PropertyToken is ERC20, Ownable {
+    /// @notice Structure containing all property details
+    /// @param title Name of the property
+    /// @param description Detailed description of the property
+    /// @param location Physical location of the property
+    /// @param imageUrl URL to the property's image
+    /// @param price Price in EURC (6 decimals)
+    /// @param isActive Whether the property is currently active for trading
     struct Property {
         string title;
         string description;
@@ -21,6 +31,11 @@ contract PropertyToken is ERC20, Ownable {
     IERC20 public eurcToken;
     uint256 public constant EURC_DECIMALS = 6;
 
+    /// @notice Emitted when a property is tokenized
+    /// @param title Name of the property
+    /// @param location Physical location of the property
+    /// @param price Price in EURC
+    /// @param owner Address of the property owner
     event PropertyTokenized(
         string title,
         string location,
@@ -28,18 +43,36 @@ contract PropertyToken is ERC20, Ownable {
         address indexed owner
     );
 
+    /// @notice Emitted when tokens are purchased
+    /// @param buyer Address of the token buyer
+    /// @param amount Amount of tokens purchased
+    /// @param eurcPaid Amount of EURC paid for the tokens
     event TokensPurchased(
         address indexed buyer,
         uint256 amount,
         uint256 eurcPaid
     );
 
+    /// @notice Emitted when tokens are sold
+    /// @param seller Address of the token seller
+    /// @param amount Amount of tokens sold
+    /// @param eurcReceived Amount of EURC received for the tokens
     event TokensSold(
         address indexed seller,
         uint256 amount,
         uint256 eurcReceived
     );
 
+    /// @notice Creates a new PropertyToken contract
+    /// @param _name Name of the token
+    /// @param _symbol Symbol of the token
+    /// @param _title Title of the property
+    /// @param _description Description of the property
+    /// @param _location Location of the property
+    /// @param _imageUrl URL of the property image
+    /// @param _price Price of the property in EURC
+    /// @param initialOwner Address of the initial owner
+    /// @param _eurcTokenAddress Address of the EURC token contract
     constructor(
         string memory _name,
         string memory _symbol,
@@ -98,6 +131,8 @@ contract PropertyToken is ERC20, Ownable {
         console.log("PropertyToken created successfully");
     }
 
+    /// @notice Allows users to purchase tokens
+    /// @param _amount Amount of tokens to purchase
     function purchaseTokens(uint256 _amount) external {
         console.log("=== Starting purchaseTokens ===");
         console.log("Buyer address:", msg.sender);
@@ -163,6 +198,8 @@ contract PropertyToken is ERC20, Ownable {
         console.log("=== purchaseTokens completed successfully ===");
     }
 
+    /// @notice Allows users to sell tokens
+    /// @param amount Amount of tokens to sell
     function sellTokens(uint256 amount) external {
         require(amount > 0, "Amount must be greater than 0");
         require(balanceOf(msg.sender) >= amount, "Insufficient token balance");
@@ -183,6 +220,13 @@ contract PropertyToken is ERC20, Ownable {
         emit TokensSold(msg.sender, amount, eurcAmount);
     }
 
+    /// @notice Returns the property details
+    /// @return title Name of the property
+    /// @return description Detailed description of the property
+    /// @return location Physical location of the property
+    /// @return imageUrl URL to the property's image
+    /// @return price Price in EURC
+    /// @return isActive Whether the property is currently active for trading
     function getPropertyDetails()
         public
         view
@@ -205,25 +249,33 @@ contract PropertyToken is ERC20, Ownable {
         );
     }
 
+    /// @notice Sets the property status
+    /// @param _isActive Whether the property is currently active for trading
     function setPropertyStatus(bool _isActive) public onlyOwner {
         propertyDetails.isActive = _isActive;
     }
 
+    /// @notice Updates the property price
+    /// @param _newPrice New price of the property in EURC
     function updatePrice(uint256 _newPrice) public onlyOwner {
         require(_newPrice > 0, "Price must be greater than 0");
         propertyDetails.price = _newPrice;
     }
 
+    /// @notice Returns the EURC token address
+    /// @return Address of the EURC token contract
     function getEURCToken() public view returns (address) {
         return address(eurcToken);
     }
 
+    /// @notice Returns the property price
+    /// @return Price of the property in EURC
     function getPrice() public view returns (uint256) {
         return propertyDetails.price;
     }
 
-    /// @dev Returns the total amount of tokens that are currently in circulation.
-    /// This is the total supply minus the balance of the zero address.
+    /// @notice Returns the total circulating balance of tokens
+    /// @return Total amount of tokens in circulation
     function getTotalCirculatingBalance() public view returns (uint256) {
         return totalSupply() - balanceOf(address(0));
     }

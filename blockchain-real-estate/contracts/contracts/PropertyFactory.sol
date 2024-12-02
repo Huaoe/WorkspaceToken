@@ -6,7 +6,13 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "hardhat/console.sol";
 
+/// @title PropertyFactory
+/// @notice Factory contract for creating and managing PropertyToken contracts
+/// @dev Implements upgradeable pattern and access control
 contract PropertyFactory is Initializable, OwnableUpgradeable {
+    /// @notice Structure containing property token information
+    /// @param tokenAddress Address of the PropertyToken contract
+    /// @param isApproved Approval status of the property
     struct PropertyInfo {
         address tokenAddress;
         bool isApproved;
@@ -22,9 +28,21 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
     address public validator;
     address public paymentToken;
     
+    /// @notice Emitted when a new property is submitted for approval
+    /// @param owner Address of the property owner
+    /// @param tokenAddress Address of the created PropertyToken contract
     event PropertySubmitted(address indexed owner, address indexed tokenAddress);
+    
+    /// @notice Emitted when a property is approved
+    /// @param tokenAddress Address of the approved PropertyToken contract
     event PropertyApproved(address indexed tokenAddress);
+    
+    /// @notice Emitted when a property is rejected
+    /// @param tokenAddress Address of the rejected PropertyToken contract
     event PropertyRejected(address indexed tokenAddress);
+    
+    /// @notice Emitted when the EURC token address is updated
+    /// @param newAddress New address of the EURC token
     event EURCTokenUpdated(address indexed newAddress);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -32,6 +50,12 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         _disableInitializers();
     }
 
+    /// @notice Initializes the PropertyFactory contract
+    /// @param _name Name prefix for created PropertyTokens
+    /// @param _symbol Symbol prefix for created PropertyTokens
+    /// @param _paymentToken Address of the payment token (EURC)
+    /// @param _admin Address of the admin
+    /// @param _validator Address of the validator
     function initialize(
         string memory _name,
         string memory _symbol,
@@ -54,6 +78,15 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         eurcTokenAddress = _paymentToken;
     }
 
+    /// @notice Creates a new PropertyToken contract
+    /// @param _title Title of the property
+    /// @param _description Description of the property
+    /// @param _location Location of the property
+    /// @param _imageUrl URL of the property image
+    /// @param _price Price of the property
+    /// @param _name Name of the PropertyToken
+    /// @param _symbol Symbol of the PropertyToken
+    /// @return Address of the created PropertyToken contract
     function createProperty(
         string memory _title,
         string memory _description,
@@ -126,6 +159,8 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         return tokenAddress;
     }
 
+    /// @notice Approves a property
+    /// @param _propertyAddress Address of the property to approve
     function approveProperty(address _propertyAddress) public onlyOwner {
         console.log("Approving property. Caller:", msg.sender);
         console.log("Property address:", _propertyAddress);
@@ -160,6 +195,8 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         emit PropertyApproved(_propertyAddress);
     }
 
+    /// @notice Rejects a property
+    /// @param _propertyAddress Address of the property to reject
     function rejectProperty(address _propertyAddress) public onlyOwner {
         require(_propertyAddress != address(0), "Invalid property address");
         require(!approvedProperties[_propertyAddress], "Property already approved");
@@ -182,18 +219,28 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         emit PropertyRejected(_propertyAddress);
     }
 
+    /// @notice Gets the approval status of a property
+    /// @param _propertyAddress Address of the property to check
+    /// @return Approval status of the property
     function getPropertyStatus(address _propertyAddress) public view returns (bool) {
         return approvedProperties[_propertyAddress];
     }
 
+    /// @notice Gets the properties of a user
+    /// @param _user Address of the user
+    /// @return Array of PropertyInfo structs containing the user's properties
     function getUserProperties(address _user) public view returns (PropertyInfo[] memory) {
         return userProperties[_user];
     }
 
+    /// @notice Gets the list of property creators
+    /// @return Array of addresses of property creators
     function getPropertyCreators() public view returns (address[] memory) {
         return propertyCreators;
     }
 
+    /// @notice Updates the EURC token address
+    /// @param _newEURCToken New address of the EURC token
     function updateEURCToken(address _newEURCToken) public onlyOwner {
         require(_newEURCToken != address(0), "Invalid EURC token address");
         eurcTokenAddress = _newEURCToken;

@@ -86,7 +86,9 @@ describe("PropertyFactory", function () {
         "A test property description",
         "123 Test Street",
         METADATA_URI,
-        PROPERTY_PRICE
+        PROPERTY_PRICE,
+        "TEST", // Token name
+        "TST"   // Token symbol
       );
 
       const userProperties = await propertyFactory.getUserProperties(seller.address);
@@ -113,7 +115,9 @@ describe("PropertyFactory", function () {
         "A test property description",
         "123 Test Street",
         METADATA_URI,
-        PROPERTY_PRICE
+        PROPERTY_PRICE,
+        "TEST", // Token name
+        "TST"   // Token symbol
       );
       
       // Wait for transaction to be mined

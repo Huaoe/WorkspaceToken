@@ -16,6 +16,7 @@ import { supabase } from "@/lib/supabase/client";
 import { PropertyRequest } from "@/types/property";
 import { Search } from "lucide-react";
 import Image from 'next/image';
+import { AdminCheck } from "@/app/admin/components/AdminCheck";
 
 const formSchema = z.object({
   title: z.string().min(3).max(50, {
@@ -175,211 +176,213 @@ export default function SubmitProperty() {
   }
 
   return (
-    <div className="container mx-auto p-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Submit Property</CardTitle>
-          <CardDescription>
-            Fill in the details of your property to submit it for review
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Apartment, House, Villa" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      The title of your property
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <AdminCheck>
+      <div className="container mx-auto p-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Submit Property</CardTitle>
+            <CardDescription>
+              Fill in the details of your property to submit it for review
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Title</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Apartment, House, Villa" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        The title of your property
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Describe your property" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Provide a detailed description of your property
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Describe your property" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Provide a detailed description of your property
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Location</FormLabel>
-                    <div className="flex gap-2">
+                <FormField
+                  control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter property address" 
+                            {...field}
+                          />
+                        </FormControl>
+                        <Button 
+                          type="button" 
+                          variant="secondary"
+                          onClick={handleAddressSearch}
+                          disabled={isSearching}
+                        >
+                          {isSearching ? (
+                            "Searching..."
+                          ) : (
+                            <>
+                              <Search className="h-4 w-4 mr-2" />
+                              Search
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      <FormDescription>
+                        Enter an address and click search, or select a location on the map
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="space-y-2">
+                  <FormLabel>Map Location</FormLabel>
+                  <LocationPicker
+                    ref={locationPickerRef}
+                    onLocationSelect={handleLocationSelect}
+                    defaultCenter={coordinates || undefined}
+                  />
+                  <FormDescription>
+                    Click on the map to set the exact location of your property
+                  </FormDescription>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="expected_price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Price (EURC)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        The price in EURC tokens
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="number_of_tokens"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Number of Tokens</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="1" placeholder="1" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        The number of tokens
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="image_url"
+                  render={({ field }) => (
+                    <FormItem className="space-y-4">
+                      <FormLabel>Property Image URL</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="Enter property address" 
+                          type="url" 
+                          placeholder="https://example.com/property-image.jpg"
+                          {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            setPreviewError(false);
+                          }}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Enter the URL of your property's main image
+                      </FormDescription>
+                      <FormMessage />
+                      {field.value && (
+                        <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-gray-200">
+                          <Image
+                            src={field.value}
+                            alt="Property preview"
+                            fill
+                            className="object-cover"
+                            onError={() => {
+                              setPreviewError(true);
+                              toast({
+                                title: "Error",
+                                description: "Failed to load image preview. Please check the URL.",
+                                variant: "destructive",
+                              });
+                            }}
+                            onLoad={() => setPreviewError(false)}
+                          />
+                          {previewError && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
+                              <p>Failed to load image preview</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="documents_url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Property Documents URL</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="url" 
+                          placeholder="https://example.com/property-documents.pdf"
                           {...field}
                         />
                       </FormControl>
-                      <Button 
-                        type="button" 
-                        variant="secondary"
-                        onClick={handleAddressSearch}
-                        disabled={isSearching}
-                      >
-                        {isSearching ? (
-                          "Searching..."
-                        ) : (
-                          <>
-                            <Search className="h-4 w-4 mr-2" />
-                            Search
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                    <FormDescription>
-                      Enter an address and click search, or select a location on the map
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="space-y-2">
-                <FormLabel>Map Location</FormLabel>
-                <LocationPicker
-                  ref={locationPickerRef}
-                  onLocationSelect={handleLocationSelect}
-                  defaultCenter={coordinates || undefined}
+                      <FormDescription>
+                        Enter the URL of your property documents
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-                <FormDescription>
-                  Click on the map to set the exact location of your property
-                </FormDescription>
-              </div>
 
-              <FormField
-                control={form.control}
-                name="expected_price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Price (EURC)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      The price in EURC tokens
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="number_of_tokens"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Number of Tokens</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="1" placeholder="1" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      The number of tokens
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="image_url"
-                render={({ field }) => (
-                  <FormItem className="space-y-4">
-                    <FormLabel>Property Image URL</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="url" 
-                        placeholder="https://example.com/property-image.jpg"
-                        {...field}
-                        onChange={(e) => {
-                          field.onChange(e);
-                          setPreviewError(false);
-                        }}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Enter the URL of your property's main image
-                    </FormDescription>
-                    <FormMessage />
-                    {field.value && (
-                      <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-gray-200">
-                        <Image
-                          src={field.value}
-                          alt="Property preview"
-                          fill
-                          className="object-cover"
-                          onError={() => {
-                            setPreviewError(true);
-                            toast({
-                              title: "Error",
-                              description: "Failed to load image preview. Please check the URL.",
-                              variant: "destructive",
-                            });
-                          }}
-                          onLoad={() => setPreviewError(false)}
-                        />
-                        {previewError && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
-                            <p>Failed to load image preview</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="documents_url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Property Documents URL</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="url" 
-                        placeholder="https://example.com/property-documents.pdf"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Enter the URL of your property documents
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Submitting..." : "Submit Property"}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-    </div>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Submitting..." : "Submit Property"}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
+    </AdminCheck>
   );
 }
