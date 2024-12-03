@@ -319,7 +319,7 @@ export default function PropertyRequest() {
                   <FormControl>
                     <Input
                       type="number"
-                      placeholder="100"
+                      placeholder="10000"
                       {...field}
                     />
                   </FormControl>
