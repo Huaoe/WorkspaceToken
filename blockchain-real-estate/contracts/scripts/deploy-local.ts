@@ -14,8 +14,8 @@ async function main() {
     console.log("\nDeploying Mock EURC Token...");
     const MockEURC = await ethers.getContractFactory("MockEURC");
     const mockEURC = await MockEURC.deploy(deployer.address);
-    await mockEURC.deploymentTransaction()?.wait();
-    const eurcAddress = await mockEURC.getAddress();
+    await mockEURC.waitForDeployment();
+    const eurcAddress = mockEURC.target;
     console.log("Mock EURC deployed to:", eurcAddress);
 
     // Deploy PropertyFactory with the mock EURC address
@@ -29,19 +29,58 @@ async function main() {
       deployer.address, // _validator
     ]);
     await propertyFactory.waitForDeployment();
-    const propertyFactoryAddress = await propertyFactory.getAddress();
+    const propertyFactoryAddress = propertyFactory.target;
     console.log("PropertyFactory deployed to:", propertyFactoryAddress);
 
-    // Deploy StakingRewards contract
-    console.log("\nDeploying StakingRewards...");
-    const StakingRewards = await ethers.getContractFactory("StakingRewards");
-    const stakingRewards = await StakingRewards.deploy(
-      eurcAddress, // stakingToken (EURC)
-      eurcAddress  // rewardsToken (also EURC for simplicity)
+    // Create a test property
+    console.log("\nCreating test property...");
+    const createPropertyTx = await propertyFactory.createProperty(
+      "Test Villa", // title (max 20 chars)
+      "Luxury villa with pool", // description (max 50 chars)
+      "123 Test St, City", // location (max 256 chars)
+      "https://example.com/img.jpg", // imageUrl (max 100 chars)
+      ethers.parseUnits("100", 6), // price (100 EURC)
+      "Test Property", // name
+      "TEST" // symbol
     );
-    await stakingRewards.deploymentTransaction()?.wait();
-    const stakingRewardsAddress = await stakingRewards.getAddress();
-    console.log("StakingRewards deployed to:", stakingRewardsAddress);
+    const receipt = await createPropertyTx.wait();
+    
+    // Get the property token address from the event logs
+    const propertySubmittedEvent = receipt?.logs.find(
+      (log: any) => log.fragment?.name === "PropertySubmitted"
+    );
+    if (!propertySubmittedEvent) {
+      throw new Error("PropertySubmitted event not found");
+    }
+    const testPropertyAddress = propertySubmittedEvent.args[1]; // tokenAddress is the second argument
+    console.log("Test PropertyToken deployed to:", testPropertyAddress);
+
+    // Approve the test property
+    console.log("\nApproving test property...");
+    await propertyFactory.approveProperty(testPropertyAddress);
+    console.log("Test property approved");
+
+    // Deploy StakingFactory
+    console.log("\nDeploying StakingFactory...");
+    const StakingFactory = await ethers.getContractFactory("StakingFactory");
+    const stakingFactory = await StakingFactory.deploy(
+      mockEURC.target,
+      deployer.address // initialOwner
+    );
+    await stakingFactory.waitForDeployment();
+    const stakingFactoryAddress = stakingFactory.target;
+    console.log("StakingFactory deployed to:", stakingFactoryAddress);
+
+    // Mint EURC tokens to StakingFactory for rewards
+    const rewardsAmount = ethers.parseUnits("1000000", 6); // 1000 EURC with 6 decimals
+    await mockEURC.mint(stakingFactoryAddress, rewardsAmount);
+    console.log("Minted", ethers.formatUnits(rewardsAmount, 6), "EURC to StakingFactory");
+
+    // Create staking rewards for test property
+    console.log("\nCreating staking rewards for test property...");
+    await stakingFactory.createStakingRewards(testPropertyAddress);
+    const stakingRewardsAddress = await stakingFactory.getStakingRewards(testPropertyAddress);
+    console.log("StakingRewards created at:", stakingRewardsAddress);
 
     // Update .env.local with the new contract addresses
     const envPath = path.join(__dirname, "../../.env.local");
@@ -59,7 +98,9 @@ async function main() {
       {
         NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS: propertyFactoryAddress,
         NEXT_PUBLIC_EURC_TOKEN_ADDRESS: eurcAddress,
-        NEXT_PUBLIC_STAKING_REWARDS_ADDRESS: stakingRewardsAddress,
+        NEXT_PUBLIC_STAKING_FACTORY_ADDRESS: stakingFactoryAddress,
+        NEXT_PUBLIC_TEST_PROPERTY_ADDRESS: testPropertyAddress,
+        NEXT_PUBLIC_TEST_STAKING_REWARDS_ADDRESS: stakingRewardsAddress,
       }
     );
 
@@ -68,6 +109,8 @@ async function main() {
       {
         FACTORY_ADDRESS: propertyFactoryAddress,
         NEXT_PUBLIC_EURC_TOKEN_ADDRESS: eurcAddress,
+        NEXT_PUBLIC_STAKING_FACTORY_ADDRESS: stakingFactoryAddress,
+        NEXT_PUBLIC_TEST_PROPERTY_ADDRESS: testPropertyAddress,
       }
     );
 
@@ -99,25 +142,28 @@ async function main() {
       }
 
       const artifact = require(artifactPath);
+      const abiPath = path.join(frontendAbiPath, `${contractName}.json`);
       fs.writeFileSync(
-        path.join(frontendAbiPath, `${contractName}.json`),
+        abiPath,
         JSON.stringify(
           {
+            address,
             abi: artifact.abi,
-            address: address,
           },
           null,
           2
         )
       );
+      console.log(`Copied ABI for ${contractName} to ${abiPath}`);
     };
 
     // Copy ABIs for all contracts
     await copyAbi("PropertyFactory", propertyFactoryAddress);
     await copyAbi("MockEURC", eurcAddress);
+    await copyAbi("StakingFactory", stakingFactoryAddress);
+    await copyAbi("PropertyToken", testPropertyAddress);
     await copyAbi("StakingRewards", stakingRewardsAddress);
 
-    console.log("\nContract ABIs copied to abis directory");
   } catch (error) {
     console.error("Error during deployment:", error);
     throw error;
@@ -125,15 +171,17 @@ async function main() {
 }
 
 function updateEnvFile(envContent: string, newValues: { [key: string]: string }) {
-  Object.keys(newValues).forEach((key) => {
-    const regex = new RegExp(`${key}=.*`);
-    if (envContent.match(regex)) {
-      envContent = envContent.replace(regex, `${key}=${newValues[key]}`);
-    } else {
-      envContent = envContent ? `${envContent}\n${key}=${newValues[key]}` : `${key}=${newValues[key]}`;
-    }
+  const envLines = envContent.split("\n");
+  const updatedLines = envLines.filter((line) => {
+    const key = line.split("=")[0];
+    return !newValues.hasOwnProperty(key);
   });
-  return envContent;
+
+  for (const [key, value] of Object.entries(newValues)) {
+    updatedLines.push(`${key}=${value}`);
+  }
+
+  return updatedLines.join("\n") + "\n";
 }
 
 main()

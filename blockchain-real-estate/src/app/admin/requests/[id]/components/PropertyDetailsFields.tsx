@@ -15,7 +15,7 @@ export const propertyFormSchema = z.object({
   number_of_tokens: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0),
   token_name: z.string().min(1).max(50),
   token_symbol: z.string().min(1).max(10),
-  status: z.enum(['pending', 'approved', 'rejected', 'onchain']),
+  status: z.enum(['pending', 'approved', 'rejected', 'onchain', 'staking', 'closed', 'paused', 'live']),
 });
 
 type PropertyFormValues = z.infer<typeof propertyFormSchema>;

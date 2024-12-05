@@ -19,34 +19,15 @@ import propertyFactoryJSON from '@contracts/abis/PropertyFactory.json';
 import { type Abi } from 'viem';
 import { parseUnits } from 'viem';
 import { decodeEventLog } from 'viem';
+import { StakingInitButton } from './components/StakingInitButton';
 
-const formSchema = z.object({
-  title: z.string().min(3).max(20, {
-    message: "Title must be between 3 and 20 characters.",
-  }),
-  description: z.string().min(10).max(50, {
-    message: "Description must be between 10 and 50 characters.",
-  }),
+import { propertyFormSchema } from './components/PropertyDetailsFields';
+
+const formSchema = propertyFormSchema.extend({
   location: z.string().min(2).max(256, {
     message: "Location must be between 2 and 256 characters.",
   }),
-  expected_price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: "Price must be a valid number greater than 0",
-  }),
-  image_url: z.string().url("Please enter a valid image URL").max(100, {
-    message: "Image URL must be less than 100 characters.",
-  }).optional(),
-  documents_url: z.string().url("Please enter a valid document URL").optional(),
-  number_of_tokens: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: "Number of tokens must be a valid number greater than 0",
-  }),
-  status: z.enum(['pending', 'approved', 'rejected', 'onchain', 'staking', 'closed', 'paused' ]),
-  token_name: z.string().min(1).max(50, {
-    message: "Token name must be between 1 and 50 characters.",
-  }),
-  token_symbol: z.string().min(1).max(10, {
-    message: "Token symbol must be between 1 and 10 characters.",
-  }),
+  token_address: z.string().optional(),
 });
 
 function CreateTokenButton({ id, status, formData }: { id: string, status: string, formData: any }) {
@@ -441,6 +422,7 @@ export default function ReviewRequest() {
           status: data.status,
           token_name: data.token_name || '',
           token_symbol: data.token_symbol || '',
+          token_address: data.token_address || '',
         });
       } catch (error) {
         console.error('Error fetching request:', error);
@@ -545,6 +527,12 @@ export default function ReviewRequest() {
                   <ClientOnly>
                     {() => <CreateTokenButton id={id} status={status} formData={form.getValues()} />}
                   </ClientOnly>
+                  {status === 'live' && (
+                    <StakingInitButton
+                      propertyTokenAddress={form.getValues().token_address || ''}
+                      status={status}
+                    />
+                  )}
                 </div>
               </div>
             </form>

@@ -123,7 +123,10 @@ contract StakingRewards {
     /// @notice Sets the duration of rewards
     /// @param _duration New duration of rewards
     function setRewardsDuration(uint256 _duration) external onlyOwner {
-        require(finishAt < block.timestamp, "reward duration not finished");
+        require(
+            finishAt < block.timestamp || finishAt == 0,
+            "reward duration not finished"
+        );
         duration = _duration;
     }
 

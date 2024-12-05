@@ -9,9 +9,10 @@ import { supabase } from '@/lib/supabase';
 import { Address } from 'viem';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge'; 
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"; 
+import { ChevronLeftIcon, ChevronRightIcon, ExternalLinkIcon, FileTextIcon, MapPinIcon, CalendarIcon, CoinsIcon, PercentIcon, ClockIcon, BuildingIcon, UserIcon } from "lucide-react"; 
 import { PropertyRequest } from '@/types/property';
-
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatDistanceToNow } from 'date-fns';
 
 export default function AdminRequests() {
   const [requests, setRequests] = useState<PropertyRequest[]>([]);
@@ -87,6 +88,17 @@ export default function AdminRequests() {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'live': return 'bg-purple-100 text-purple-800';
+      case 'onchain': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   // Early return for non-mounted state
   if (!mounted) {
     return null;
@@ -110,7 +122,19 @@ export default function AdminRequests() {
 
   return (
     <div className="container mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-8">Property Requests</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Property Requests</h1>
+        <div className="flex gap-2">
+          <Badge variant="outline">{requests.length} Total Requests</Badge>
+          <Badge variant="outline">
+            {requests.filter(r => r.status === 'pending').length} Pending
+          </Badge>
+          <Badge variant="outline">
+            {requests.filter(r => r.status === 'live').length} Live
+          </Badge>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {currentItems.map((request) => (
           <Card 
@@ -118,71 +142,159 @@ export default function AdminRequests() {
             className="flex flex-col hover:shadow-lg transition-shadow"
           >
             <CardHeader>
-              <CardTitle>{request.title}</CardTitle>
-              <CardDescription>{request.location}</CardDescription>
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="line-clamp-1">{request.title}</CardTitle>
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <MapPinIcon className="w-4 h-4" />
+                    <CardDescription>{request.location}</CardDescription>
+                  </div>
+                </div>
+                <Badge className={getStatusColor(request.status)}>
+                  {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="flex-grow">
-              <div className="aspect-video relative mb-4">
+              <div className="aspect-video relative mb-4 overflow-hidden rounded-lg">
                 <img
                   src={request.image_url}
                   alt={request.title}
-                  className="rounded-lg object-cover w-full h-full"
+                  className="object-cover w-full h-full transform hover:scale-105 transition-transform duration-300"
                 />
               </div>
-              <p className="text-sm mb-2 line-clamp-3">{request.description}</p>
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div>
-                  <h4 className="font-semibold text-sm">Price</h4>
-                  <p className="text-sm">{request.expected_price} EURC</p>
+              <p className="text-sm mb-4 line-clamp-3">{request.description}</p>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <div className="flex items-center gap-2">
+                        <CoinsIcon className="w-4 h-4 text-muted-foreground" />
+                        <div className="text-left">
+                          <p className="text-sm font-medium">{request.expected_price} EURC</p>
+                          <p className="text-xs text-muted-foreground">Price</p>
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Expected property price</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <div className="flex items-center gap-2">
+                        <BuildingIcon className="w-4 h-4 text-muted-foreground" />
+                        <div className="text-left">
+                          <p className="text-sm font-medium">{request.number_of_tokens}</p>
+                          <p className="text-xs text-muted-foreground">Tokens</p>
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Number of property tokens</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <div className="flex items-center gap-2">
+                        <ClockIcon className="w-4 h-4 text-muted-foreground" />
+                        <div className="text-left">
+                          <p className="text-sm font-medium">{request.payout_duration}m</p>
+                          <p className="text-xs text-muted-foreground">Payout</p>
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Payout frequency in months</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <div className="flex items-center gap-2">
+                        <PercentIcon className="w-4 h-4 text-muted-foreground" />
+                        <div className="text-left">
+                          <p className="text-sm font-medium">{request.roi}%</p>
+                          <p className="text-xs text-muted-foreground">ROI</p>
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Expected annual return on investment</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <div className="flex items-center gap-2">
+                        <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                        <div className="text-left">
+                          <p className="text-sm font-medium">
+                            {new Date(request.finish_at).toLocaleDateString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground">End Date</p>
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Contract end date</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <div className="flex items-center gap-2">
+                        <UserIcon className="w-4 h-4 text-muted-foreground" />
+                        <div className="text-left">
+                          <p className="text-sm font-medium truncate w-24">
+                            {request.creator_address?.slice(0, 6)}...{request.creator_address?.slice(-4)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Creator</p>
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>Property creator address</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+
+              {request.token_address && (
+                <div className="mt-4 p-2 bg-muted rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Token Address:</span>
+                    <code className="text-xs">{request.token_address.slice(0, 6)}...{request.token_address.slice(-4)}</code>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-semibold text-sm">Number of Tokens</h4>
-                  <p className="text-sm">{request.number_of_tokens}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-sm">Payout Frequency</h4>
-                  <p className="text-sm">{request.payout_duration} months</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-sm">Expected ROI</h4>
-                  <p className="text-sm">{request.roi}%</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-sm">Contract End Date</h4>
-                  <p className="text-sm">{new Date(request.finish_at).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-sm">Status</h4>
-                  <Badge 
-                    variant={
-                      request.status === 'approved' ? 'success' :
-                      request.status === 'rejected' ? 'destructive' :
-                      request.status === 'pending' ? 'secondary' :
-                      request.status === 'live' ? 'purple' :
-                      request.status === 'onchain' ? 'warning' :
-                      'outline'
-                    }
-                  >
-                    {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                  </Badge>
-                </div>
+              )}
+
+              <div className="mt-4 text-xs text-muted-foreground">
+                Created {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
               </div>
             </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button
-                disabled={!request.documents_url}
-                variant="link"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (request.documents_url) {
+
+            <CardFooter className="flex justify-between gap-2">
+              {request.documents_url && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
                     window.open(request.documents_url, '_blank');
-                  }
-                }}
-              >
-                View Documents
-              </Button>
+                  }}
+                >
+                  <FileTextIcon className="w-4 h-4" />
+                  Documents
+                  <ExternalLinkIcon className="w-3 h-3" />
+                </Button>
+              )}
               <Button
-                variant="outline"
+                variant="default"
+                size="sm"
+                className="flex-1"
                 onClick={(e) => {
                   e.stopPropagation();
                   router.push(`/admin/requests/${request.id}`);
@@ -196,30 +308,28 @@ export default function AdminRequests() {
       </div>
 
       {/* Pagination Controls */}
-      {requests.length > 0 && (
+      {requests.length > itemsPerPage && (
         <div className="flex justify-center items-center gap-4 mt-8">
           <Button
             variant="outline"
             onClick={handlePrevPage}
             disabled={currentPage === 1}
-            className="flex items-center gap-2"
+            size="sm"
           >
-            <ChevronLeftIcon className="h-4 w-4" />
+            <ChevronLeftIcon className="w-4 h-4" />
             Previous
           </Button>
-          
-          <span className="text-sm">
+          <span className="text-sm text-muted-foreground">
             Page {currentPage} of {totalPages}
           </span>
-          
           <Button
             variant="outline"
             onClick={handleNextPage}
             disabled={currentPage === totalPages}
-            className="flex items-center gap-2"
+            size="sm"
           >
             Next
-            <ChevronRightIcon className="h-4 w-4" />
+            <ChevronRightIcon className="w-4 h-4" />
           </Button>
         </div>
       )}
