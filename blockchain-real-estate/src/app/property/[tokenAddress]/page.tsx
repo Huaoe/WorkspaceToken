@@ -60,6 +60,11 @@ export default function PropertyDetails() {
         address: tokenAddress,
         abi: propertyTokenABI,
         functionName: 'owner',
+      },
+      {
+        address: tokenAddress,
+        abi: propertyTokenABI,
+        functionName: 'getPrice',
       }
     ],
     watch: true,
@@ -88,17 +93,18 @@ export default function PropertyDetails() {
   };
 
   useEffect(() => {
-    if (contractData?.[0].error || contractData?.[1].error) {
+    if (contractData?.[0].error || contractData?.[1].error || contractData?.[2].error) {
       setError('Failed to load contract details');
-      console.error('Contract read error:', contractData?.[0].error || contractData?.[1].error);
+      console.error('Contract read error:', contractData?.[0].error || contractData?.[1].error || contractData?.[2].error);
     } else if (contractData && propertyRequest) {
-      const [totalSupply, ownerAddress] = contractData;
+      const [totalSupply, ownerAddress, price] = contractData;
+      const EURC_DECIMALS = 6; // EURC uses 6 decimals
       const propertyDetails: PropertyDetails = {
         title: propertyRequest.title,
         description: propertyRequest.description,
         location: propertyRequest.location,
         imageUrl: propertyRequest.image_url || '',
-        price: BigInt(propertyRequest.price_per_token || 0),
+        price: price.result ? BigInt(price.result.toString()) / BigInt(10 ** (18 - EURC_DECIMALS)) : BigInt(0), // Convert from 18 decimals to 6 decimals
         isActive: propertyRequest.status === 'approved',
         status: propertyRequest.status,
         payoutDuration: propertyRequest.payout_duration,

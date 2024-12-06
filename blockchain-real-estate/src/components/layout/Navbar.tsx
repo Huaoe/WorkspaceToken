@@ -49,11 +49,19 @@ export function Navbar() {
               Home
             </Link>
             <Link
-              href="/property/request"
+              href="/property/list"
               className="text-sm font-medium transition-colors hover:text-primary text-muted-foreground"
             >
-              Submit Property
+              Properties
             </Link>
+            {isAdmin && (
+              <Link
+                href="/property/request"
+                className="text-sm font-medium transition-colors hover:text-primary text-muted-foreground"
+              >
+                Submit Property
+              </Link>
+            )}
           </div>
           <div className="ml-auto flex items-center space-x-4">
             <CustomConnectButton />
@@ -85,29 +93,31 @@ export function Navbar() {
           >
             Properties
           </Link>
-          <Link
-            href="/property/request"
-            className={cn(
-              "text-sm font-medium transition-colors hover:text-primary",
-              pathname === "/property/request"
-                ? "text-foreground"
-                : "text-muted-foreground"
-            )}
-          >
-            Submit Property
-          </Link>
           {isAdmin && (
-            <Link
-              href="/admin/requests"
-              className={cn(
-                "text-sm font-medium transition-colors hover:text-primary",
-                pathname.startsWith("/admin")
-                  ? "text-foreground"
-                  : "text-muted-foreground"
-              )}
-            >
-              Admin
-            </Link>
+            <>
+              <Link
+                href="/property/request"
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-primary",
+                  pathname === "/property/request"
+                    ? "text-foreground"
+                    : "text-muted-foreground"
+                )}
+              >
+                Submit Property
+              </Link>
+              <Link
+                href="/admin/requests"
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-primary",
+                  pathname.startsWith("/admin")
+                    ? "text-foreground"
+                    : "text-muted-foreground"
+                )}
+              >
+                Admin
+              </Link>
+            </>
           )}
         </div>
         <div className="ml-auto flex items-center space-x-4">

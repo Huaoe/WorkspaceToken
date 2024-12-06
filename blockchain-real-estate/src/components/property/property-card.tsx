@@ -18,8 +18,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { supabase } from '@/lib/supabase';
+import { PropertyViewContext } from '@/contexts/property-view-context';
 
 interface PropertyCardProps {
   property: PropertyRequest;
@@ -29,10 +30,11 @@ interface PropertyCardProps {
 export function PropertyCard({ property, showAdminControls = false }: PropertyCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const { address } = useAccount();
   const router = useRouter();
   const { toast } = useToast();
-  
-  const { address, isConnected } = useAccount();
+  const view = useContext(PropertyViewContext);
+
   const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as Address;
 
   // Read owner from the contract
@@ -41,7 +43,7 @@ export function PropertyCard({ property, showAdminControls = false }: PropertyCa
     abi: propertyFactoryABI.abi,
     functionName: 'owner',
     query: {
-      enabled: isConnected, // Optional: only fetch when connected
+      enabled: address !== undefined, // Optional: only fetch when connected
     },
   });
 
@@ -52,7 +54,7 @@ export function PropertyCard({ property, showAdminControls = false }: PropertyCa
     functionName: 'approveProperty',
   });
 
-  const isAdmin = isConnected && address === owner;
+  const isAdmin = address !== undefined && address === owner;
 
   async function handleStatusChange(newStatus: 'approved' | 'rejected') {
     try {
@@ -102,56 +104,112 @@ export function PropertyCard({ property, showAdminControls = false }: PropertyCa
     }
   }
 
-  return (
-    <Card className="overflow-hidden flex flex-col h-full">
-      <div className="relative h-48 w-full">
-        {property.image_url ? (
-          <Image
-            src={property.image_url}
-            alt={property.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-400">
-            No Image Available
-          </div>
-        )}
-      </div>
-      <CardHeader className="flex-none">
-        <div className="flex justify-between items-start gap-2">
-          <div>
-            <CardTitle className="text-xl line-clamp-1">{property.property_type}</CardTitle>
-            <CardDescription className="line-clamp-1">{property.location}</CardDescription>
-          </div>
-          <span className={`px-2 py-1 text-xs rounded-full flex-shrink-0 ${
-            property.status === 'approved'
-              ? "bg-green-100 text-green-800"
-              : property.status === 'rejected'
-              ? "bg-red-100 text-red-800"
-              : "bg-yellow-100 text-yellow-800"
+  const renderGridView = () => (
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
+      <div className="relative h-48 w-full group">
+        <Image
+          src={property.image_url || '/placeholder-property.jpg'}
+          alt={property.address}
+          fill
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+        <div className="absolute top-2 right-2">
+          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+            property.status === 'live' 
+              ? 'bg-green-100 text-green-800'
+              : property.status === 'staking'
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-yellow-100 text-yellow-800'
           }`}>
-            {property.status === 'approved' ? "Approved" : property.status === 'rejected' ? "Rejected" : "Pending"}
+            {property.status.toUpperCase()}
           </span>
         </div>
-      </CardHeader>
-      <CardContent className="flex-grow">
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600 line-clamp-2">{property.description}</p>
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-lg font-semibold">{property.price} ETH</p>
-            </div>
+      </div>
+      <CardHeader>
+        <div className="flex justify-between items-start">
+          <div className="space-y-2 w-full">
+            <CardTitle className="text-xl flex items-center justify-between">
+              <span className="truncate">{property.address}</span>
+              <span className="text-2xl font-bold text-primary">${property.price?.toLocaleString()}</span>
+            </CardTitle>
+            <CardDescription>
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-xs text-muted-foreground">PROPERTY TYPE</span>
+                    <p className="font-medium capitalize">{property.property_type}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">BEDROOMS</span>
+                    <p className="font-medium">{property.bedrooms || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">YEAR BUILT</span>
+                    <p className="font-medium">{property.year_built || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-xs text-muted-foreground">SIZE</span>
+                    <p className="font-medium">{property.square_feet?.toLocaleString()} sq ft</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">BATHROOMS</span>
+                    <p className="font-medium">{property.bathrooms || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground">PARKING</span>
+                    <p className="font-medium">{property.parking_spots ? `${property.parking_spots} spots` : 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+            </CardDescription>
           </div>
         </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-sm font-medium mb-1">Description</h3>
+            <p className="text-sm text-muted-foreground line-clamp-2">{property.description}</p>
+          </div>
+          {property.token_address && (
+            <div className="pt-2 border-t">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div>
+                  <span className="font-semibold">Token Address:</span>
+                  <p className="truncate font-mono">{property.token_address}</p>
+                </div>
+                {property.total_supply && (
+                  <div className="text-right">
+                    <span className="font-semibold">Total Supply:</span>
+                    <p>{property.total_supply.toLocaleString()} tokens</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          {property.owner_address && (
+            <div className="text-xs text-muted-foreground">
+              <span className="font-semibold">Owner:</span>
+              <p className="truncate font-mono">{property.owner_address}</p>
+            </div>
+          )}
+        </div>
       </CardContent>
-      <CardFooter className="flex-none">
-        {showAdminControls && isAdmin && property.status === 'pending' && (
+      <CardFooter className="flex justify-between gap-4">
+        <Button
+          variant="outline"
+          className="flex-1"
+          onClick={() => router.push(`/property/${property.id}`)}
+        >
+          View Details
+        </Button>
+        {showAdminControls && property.status === 'pending' && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="w-full">
-                Review Status
+              <Button className="flex-1" onClick={() => setIsDialogOpen(true)}>
+                Review
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -162,7 +220,7 @@ export function PropertyCard({ property, showAdminControls = false }: PropertyCa
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col gap-4 py-4">
-                <p><strong>Title:</strong> {property.name}</p>
+                <p><strong>Title:</strong> {property.address}</p>
                 <p><strong>Location:</strong> {property.location}</p>
                 <p><strong>Price:</strong> {property.price} ETH</p>
               </div>
@@ -191,12 +249,103 @@ export function PropertyCard({ property, showAdminControls = false }: PropertyCa
             </DialogContent>
           </Dialog>
         )}
-        {!showAdminControls && property.status === 'approved' && (
-          <Button className="w-full">
-            View Details
-          </Button>
-        )}
       </CardFooter>
     </Card>
   );
+
+  const renderListView = () => (
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
+      <div className="flex">
+        <div className="relative w-72 h-full">
+          <Image
+            src={property.image_url || '/placeholder-property.jpg'}
+            alt={property.address}
+            width={288}
+            height={216}
+            className="object-cover h-full"
+          />
+          <div className="absolute top-2 right-2">
+            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+              property.status === 'live' 
+                ? 'bg-green-100 text-green-800'
+                : property.status === 'staking'
+                ? 'bg-blue-100 text-blue-800'
+                : 'bg-yellow-100 text-yellow-800'
+            }`}>
+              {property.status.toUpperCase()}
+            </span>
+          </div>
+        </div>
+        <div className="flex-1 p-6">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h3 className="text-2xl font-bold">{property.address}</h3>
+              <p className="text-muted-foreground">{property.location}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-3xl font-bold text-primary">${property.price?.toLocaleString()}</p>
+              {property.price_per_token && (
+                <p className="text-sm text-muted-foreground">
+                  ${property.price_per_token} per token
+                </p>
+              )}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-6 mb-4">
+            <div>
+              <h4 className="text-sm font-medium mb-2">Property Details</h4>
+              <div className="space-y-1">
+                <p className="text-sm"><span className="text-muted-foreground">Type:</span> {property.property_type}</p>
+                <p className="text-sm"><span className="text-muted-foreground">Size:</span> {property.square_feet?.toLocaleString()} sq ft</p>
+                <p className="text-sm"><span className="text-muted-foreground">Year Built:</span> {property.year_built || 'N/A'}</p>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium mb-2">Features</h4>
+              <div className="space-y-1">
+                <p className="text-sm"><span className="text-muted-foreground">Bedrooms:</span> {property.bedrooms}</p>
+                <p className="text-sm"><span className="text-muted-foreground">Bathrooms:</span> {property.bathrooms}</p>
+                <p className="text-sm"><span className="text-muted-foreground">Parking:</span> {property.parking_spots} spots</p>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium mb-2">Investment Info</h4>
+              <div className="space-y-1">
+                <p className="text-sm"><span className="text-muted-foreground">Total Supply:</span> {property.total_supply?.toLocaleString() || 'N/A'}</p>
+                <p className="text-sm"><span className="text-muted-foreground">Available:</span> {property.available_supply?.toLocaleString() || 'N/A'}</p>
+                <p className="text-sm"><span className="text-muted-foreground">Min Investment:</span> ${property.min_investment?.toLocaleString() || 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center">
+            <div className="space-y-1 flex-1">
+              <p className="text-sm line-clamp-2 text-muted-foreground">{property.description}</p>
+              {property.token_address && (
+                <p className="text-xs text-muted-foreground font-mono truncate">
+                  Token: {property.token_address}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2 ml-4">
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/property/${property.id}`)}
+              >
+                View Details
+              </Button>
+              {showAdminControls && property.status === 'pending' && (
+                <Button onClick={() => setIsDialogOpen(true)}>
+                  Review
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+
+  return view === 'list' ? renderListView() : renderGridView();
 }
