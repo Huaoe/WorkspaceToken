@@ -1,53 +1,30 @@
 import { NextResponse } from 'next/server';
-import fetch from 'node-fetch';
+import { createClient } from '@supabase/supabase-js';
 
-const AGENT_ID = 'ag:33f52f90:20241206:untitled-agent:1bfc9f18';
-const MISTRAL_API_URL = 'https://api.mistral.ai/v1/agents/completions';
-const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
-
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-async function fetchWithRetry(url: string, options: any, maxRetries = 3, initialDelay = 1000) {
-  let lastError;
-  let retryCount = 0;
-
-  while (retryCount < maxRetries) {
-    try {
-      const response = await fetch(url, options);
-      const data = await response.json();
-      
-      if (response.status === 429) {
-        const waitTime = initialDelay * Math.pow(2, retryCount);
-        console.log(`Rate limited. Waiting ${waitTime}ms before retry ${retryCount + 1}/${maxRetries}`);
-        await delay(waitTime);
-        retryCount++;
-        continue;
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error?.message || data.message || 'API request failed');
-      }
-
-      return { response, data };
-    } catch (error) {
-      lastError = error;
-      if (retryCount === maxRetries - 1) break;
-      
-      const waitTime = initialDelay * Math.pow(2, retryCount);
-      console.log(`Request failed. Waiting ${waitTime}ms before retry ${retryCount + 1}/${maxRetries}`);
-      await delay(waitTime);
-      retryCount++;
-    }
+// Initialize Supabase client with service role key for API routes
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
   }
+});
 
-  throw lastError;
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+interface MarketInsightsCache {
+  id: string;
+  location: string;
+  insights: string;
+  created_at: string;
 }
 
 export async function POST(request: Request) {
   try {
     console.log('Starting market insights request...');
     
-    if (!MISTRAL_API_KEY) {
+    if (!process.env.MISTRAL_API_KEY) {
       console.error('MISTRAL_API_KEY not found in environment variables');
       return NextResponse.json(
         { error: 'Mistral API key not configured' },
@@ -66,74 +43,90 @@ export async function POST(request: Request) {
       );
     }
 
-    try {
-      console.log('Sending request to Mistral Agent API...');
-      const { response, data } = await fetchWithRetry(
-        MISTRAL_API_URL,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${MISTRAL_API_KEY}`,
-          },
-          body: JSON.stringify({
-            agent_id: AGENT_ID,
-            messages: [
-              {
-                role: "user",
-                content: `I need a detailed real estate market analysis for ${location}. Please include:
-1. Current market trends and conditions
-2. Average property prices in this specific area
-3. Recent price evolution over the past year
-4. Investment potential and ROI estimates
-5. Local market dynamics (demand, supply, vacancy rates)
-6. Key factors affecting property values in this location
+    // Check cache first
+    const { data: cachedData, error: cacheError } = await supabase
+      .from('market_insights_cache')
+      .select('*')
+      .eq('location', location)
+      .single();
 
-Please be specific about this exact location and provide concrete data where possible.`
-              }
-            ]
-          }),
-        }
-      );
+    if (cacheError && cacheError.code !== 'PGRST116') { // PGRST116 is "not found" error
+      console.error('Cache lookup error:', cacheError);
+    }
 
-      console.log('Response status:', response.status);
-      console.log('Response data:', data);
-
-      const insights = data.choices?.[0]?.message?.content;
-      if (!insights) {
-        throw new Error('No insights received from the API');
+    // If we have valid cached data that's less than 24 hours old, return it
+    if (cachedData) {
+      const cacheAge = Date.now() - new Date(cachedData.created_at).getTime();
+      if (cacheAge < CACHE_DURATION) {
+        console.log('Cache hit for location:', location);
+        return NextResponse.json({ insights: cachedData.insights });
       }
+    }
 
-      return NextResponse.json({ insights });
-    } catch (apiError: any) {
-      console.error('Detailed API error:', {
-        name: apiError.name,
-        message: apiError.message,
-        stack: apiError.stack,
-        response: apiError.response,
+    // If no valid cache, proceed with Mistral API request
+    const systemPrompt = `You are a real estate market analyst. Provide a detailed market analysis for the location: ${location}.
+    Format your response with the following sections:
+    **Location Overview**
+    [Provide a brief overview of the area, including key characteristics and demographics]
+
+    **Market Trends**
+    [Analyze current market trends, including price trends, demand, and supply]
+
+    **Investment Potential**
+    [Evaluate the investment potential, including growth prospects and risk factors]
+
+    Use markdown formatting for better readability. Keep the total response under 1000 characters.`;
+
+    const userMessage = `Please provide a market analysis for ${location}.`;
+
+    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "open-mistral-nemo",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage }
+        ],
+      }),
+    });
+
+    console.log('Response status:', response.status);
+    const data = await response.json();
+    console.log('Response data:', data);
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return NextResponse.json({ error: 'Rate limit exceeded. Please try again later.' }, { status: 429 });
+      }
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const insights = data.choices[0].message.content;
+
+    // Update cache with new data
+    const { error: upsertError } = await supabase
+      .from('market_insights_cache')
+      .upsert({
+        location,
+        insights,
+        created_at: new Date().toISOString(),
+      }, {
+        onConflict: 'location'
       });
 
-      if (apiError.message?.includes('rate limit')) {
-        return NextResponse.json(
-          { error: 'Service is currently busy. Please try again in a few minutes.' },
-          { status: 429 }
-        );
-      }
-
-      return NextResponse.json(
-        { error: `Error getting market insights: ${apiError.message}` },
-        { status: 500 }
-      );
+    if (upsertError) {
+      console.error('Cache update error:', upsertError);
     }
-  } catch (error: any) {
-    console.error('Request processing error:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
+
+    return NextResponse.json({ insights });
+  } catch (error) {
+    console.error('Market insights error:', error);
     return NextResponse.json(
-      { error: `Failed to process request: ${error.message}` },
+      { error: 'Failed to fetch market insights' },
       { status: 500 }
     );
   }

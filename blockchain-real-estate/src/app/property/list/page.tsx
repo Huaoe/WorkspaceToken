@@ -26,6 +26,8 @@ import { PropertyViewProvider } from '@/contexts/property-view-context';
 import AerialView from '@/components/property/aerial-view';
 import MarketInsights from '@/components/property/market-insights';
 import { Spinner } from "@/components/ui/spinner";
+import { useKYCStatus } from '@/hooks/useKYCStatus';
+import { useRouter } from 'next/navigation';
 
 interface PropertyCardProps {
   property: PropertyRequest;
@@ -33,6 +35,17 @@ interface PropertyCardProps {
 }
 
 function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
+  const { address } = useAccount();
+  const { hasSubmittedKYC, isLoading: isKYCLoading } = useKYCStatus(address);
+  const { toast } = useToast();
+  const router = useRouter();
+
+  useEffect(() => {
+    console.log('Wallet Address:', address);
+    console.log('Has Submitted KYC:', hasSubmittedKYC);
+    console.log('KYC Loading:', isKYCLoading);
+  }, [address, hasSubmittedKYC, isKYCLoading]);
+
   const getStatusColor = (status: PropertyStatus) => {
     switch (status) {
       case 'live':
@@ -41,6 +54,27 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
         return 'bg-blue-500 hover:bg-blue-600';
       default:
         return 'bg-gray-500 hover:bg-gray-600';
+    }
+  };
+
+  const handleViewDetails = () => {
+    if (!address) {
+      toast({
+        title: "Connect Wallet",
+        description: "Please connect your wallet to view property details",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!hasSubmittedKYC) {
+      toast({
+        title: "KYC Required",
+        description: "Please submit your KYC information to view property details",
+        variant: "destructive"
+      });
+      router.push('/kyc');
+      return;
     }
   };
 
@@ -69,9 +103,26 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
         <p className="font-medium">€{property.expected_price}</p>
         <div className="mt-4">
           {property.token_address ? (
-            <Link href={`/property/${property.token_address}`}>
-              <Button className="w-full">View Details</Button>
-            </Link>
+            isKYCLoading ? (
+              <Button className="w-full" disabled>
+                <Spinner className="mr-2 h-4 w-4" />
+                Checking KYC Status
+              </Button>
+            ) : (
+              <Button
+                className="w-full"
+                onClick={handleViewDetails}
+                asChild={hasSubmittedKYC}
+              >
+                {hasSubmittedKYC ? (
+                  <Link href={`/property/${property.token_address}`}>
+                    View Details
+                  </Link>
+                ) : (
+                  "Submit KYC to View"
+                )}
+              </Button>
+            )
           ) : (
             <Button className="w-full" disabled>Property Not Available</Button>
           )}

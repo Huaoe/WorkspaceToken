@@ -51,7 +51,7 @@ export default function KYCForm() {
     first_name: '',
     middle_name: '',
     last_name: '',
-    date_of_birth: '',
+    date_of_birth: new Date().toISOString().split('T')[0], // Initialize with current date
     nationality: '',
     country_of_residence: '',
     email: '',
@@ -64,8 +64,8 @@ export default function KYCForm() {
     country: '',
     identification_type: '',
     identification_number: '',
-    identification_issue_date: '',
-    identification_expiry_date: '',
+    identification_issue_date: new Date().toISOString().split('T')[0], // Initialize with current date
+    identification_expiry_date: new Date().toISOString().split('T')[0], // Initialize with current date
     employment_status: 'employed',
     source_of_funds: '',
     annual_income: 0,
@@ -168,6 +168,19 @@ export default function KYCForm() {
         variant: "destructive"
       });
       return;
+    }
+
+    // Validate dates
+    const dateFields = ['date_of_birth', 'identification_issue_date', 'identification_expiry_date'];
+    for (const field of dateFields) {
+      if (!formData[field as keyof KYCFormData]) {
+        toast({
+          title: "Error",
+          description: `Please enter a valid ${field.replace(/_/g, ' ')}`,
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     setLoading(true);

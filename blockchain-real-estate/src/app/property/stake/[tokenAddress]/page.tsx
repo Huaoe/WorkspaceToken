@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import { useReadContract, useWalletClient, usePublicClient, useContractReads, useContractEvent } from "wagmi";
+import { useReadContract, useWalletClient, usePublicClient, useContractReads, useWatchContractEvent } from "wagmi";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -486,12 +486,12 @@ export default function StakeProperty() {
     : 0;
 
   // Get historical staking data from events
-  const { data: stakingEvents } = useContractEvent({
+  useWatchContractEvent({
     address: stakingAddress as `0x${string}`,
     abi: stakingRewardsABI,
     eventName: 'Staked',
-    listener(log) {
-      console.log('New staking event:', log);
+    onLogs(logs) {
+      console.log('New staking event:', logs);
     },
   });
 
