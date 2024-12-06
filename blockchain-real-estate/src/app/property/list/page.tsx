@@ -146,7 +146,7 @@ export default function PropertyList() {
   const filteredProperties = properties
     .filter(property => {
       if (filterStatus !== 'all' && property.status !== filterStatus) return false;
-      if (searchQuery && !property.address.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (searchQuery && !property.location?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       return true;
     })
     .sort((a, b) => {
