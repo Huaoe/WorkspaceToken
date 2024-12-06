@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAccount, useReadContract, usePublicClient } from "wagmi";
 import propertyFactoryABI from "@contracts/abis/PropertyFactory.json";
 import { useEffect, useState } from "react";
-import { Building2, List, ShieldCheck } from "lucide-react";
+import { Building2, List, ShieldCheck, UserCheck } from "lucide-react";
 import Image from "next/image";
 
 const contractAddress = process.env
@@ -96,7 +96,7 @@ export default function Home() {
             <div key={i} className="overflow-hidden">
               <div className="relative aspect-video">
                 <Image
-                  src={`/images/property${i}.jpg`}
+                  src={`/images/testimonials/${i}Test.jpg`}
                   alt={`Featured Property ${i}`}
                   fill
                   className="object-cover"
@@ -138,6 +138,24 @@ export default function Home() {
           </div>
         </Link>
 
+        {!isAdmin && isConnected && (
+          <Link href="/kyc" className="group w-full max-w-md">
+            <div className="relative h-full overflow-hidden rounded-xl border bg-background p-6 transition-all hover:shadow-lg hover:-translate-y-1">
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <UserCheck className="h-8 w-8 text-primary" />
+                <h2 className="text-2xl font-semibold">Complete KYC</h2>
+              </div>
+              <p className="text-center text-muted-foreground">
+                Complete your KYC verification to start investing in properties.
+                Get verified in minutes.
+              </p>
+              <span className="absolute bottom-4 right-4 text-primary transition-transform group-hover:translate-x-1">
+                →
+
+              </span>
+            </div>
+          </Link>
+        )}
         {isAdmin && (
           <Link href="/property/submit" className="group w-full max-w-md">
             <div className="relative h-full overflow-hidden rounded-xl border bg-background p-6 transition-all hover:shadow-lg hover:-translate-y-1">

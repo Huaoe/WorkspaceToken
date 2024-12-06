@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -23,6 +23,9 @@ import { useToast } from "@/components/ui/use-toast"
 import Image from "next/image"
 import Link from 'next/link'
 import { PropertyViewProvider } from '@/contexts/property-view-context';
+import AerialView from '@/components/property/aerial-view';
+import MarketInsights from '@/components/property/market-insights';
+import { Spinner } from "@/components/ui/spinner";
 
 interface PropertyCardProps {
   property: PropertyRequest;
@@ -89,6 +92,7 @@ export default function PropertyList() {
   const { toast } = useToast();
   const [isAdmin, setIsAdmin] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
 
   const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
 
@@ -165,80 +169,99 @@ export default function PropertyList() {
   if (!mounted) return null;
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex flex-col space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Available Properties</h1>
-          {isAdmin && (
-            <Link href="/property/request">
-              <Button>Submit Property</Button>
-            </Link>
-          )}
-        </div>
+    <div className="container py-8">
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold">Properties</h1>
+            {isAdmin && (
+              <Link href="/property/create">
+                <Button>Create Property</Button>
+              </Link>
+            )}
+          </div>
 
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-          <div className="flex gap-2 flex-1">
+          <div className="flex flex-col sm:flex-row gap-4">
             <Input
               placeholder="Search properties..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="max-w-xs"
+              className="flex-1"
             />
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="live">Live</SelectItem>
-                <SelectItem value="staking">Staking</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
                 <SelectItem value="price-high">Price: High to Low</SelectItem>
                 <SelectItem value="price-low">Price: Low to High</SelectItem>
-                <SelectItem value="size-high">Size: Large to Small</SelectItem>
-                <SelectItem value="size-low">Size: Small to Large</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Properties</SelectItem>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="sold">Sold</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex items-center space-x-1">
+              <Button
+                variant={view === 'grid' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setView('grid')}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" /><rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" /></svg>
+              </Button>
+              <Button
+                variant={view === 'list' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setView('list')}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="3" x2="21" y1="6" y2="6" /><line x1="3" x2="21" y1="12" y2="12" /><line x1="3" x2="21" y1="18" y2="18" /></svg>
+              </Button>
+            </div>
           </div>
-          <Tabs value={view} onValueChange={(v) => setView(v as 'grid' | 'list')} className="w-[200px]">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="grid">Grid View</TabsTrigger>
-              <TabsTrigger value="list">List View</TabsTrigger>
-            </TabsList>
-          </Tabs>
         </div>
 
         {loading ? (
-          <div className="text-center py-8">Loading properties...</div>
-        ) : filteredProperties.length === 0 ? (
-          <Card className="w-full">
-            <CardContent className="flex flex-col items-center justify-center py-8">
-              <p className="text-muted-foreground text-lg">No properties found</p>
-              <p className="text-sm text-muted-foreground">Try adjusting your filters</p>
-            </CardContent>
+          <Card className="p-8">
+            <div className="flex items-center justify-center min-h-[200px]">
+              <Spinner className="h-8 w-8 text-primary" />
+            </div>
           </Card>
         ) : (
-          <PropertyViewProvider view={view}>
-            <div className={view === 'grid' 
-              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-              : "flex flex-col space-y-4"
-            }>
-              {filteredProperties.map((property) => (
-                <PropertyCard
-                  key={property.id}
-                  property={property}
-                  showAdminControls={isAdmin}
-                />
-              ))}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Property List */}
+            <div className="flex flex-col gap-4">
+              <div className={view === 'grid' 
+                ? "grid grid-cols-1 md:grid-cols-2 gap-6"
+                : "flex flex-col space-y-4"
+              }>
+                {filteredProperties.map((property) => (
+                  <div
+                    key={property.token_address}
+                    onClick={() => setSelectedLocation(property.location)}
+                    className="cursor-pointer transition-all hover:scale-[1.02]"
+                  >
+                    <PropertyCard property={property} showAdminControls={isAdmin} />
+                  </div>
+                ))}
+              </div>
             </div>
-          </PropertyViewProvider>
+
+            {/* Map View */}
+            <div className="flex flex-col gap-6">
+              <div className="lg:sticky lg:top-6 h-[600px]">
+                <AerialView location={selectedLocation} />
+              </div>
+              <MarketInsights location={selectedLocation} />
+            </div>
+          </div>
         )}
       </div>
     </div>

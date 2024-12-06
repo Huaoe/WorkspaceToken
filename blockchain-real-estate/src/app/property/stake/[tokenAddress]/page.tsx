@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
-import { useReadContract, useWalletClient, usePublicClient } from "wagmi";
+import { useReadContract, useWalletClient, usePublicClient, useContractReads, useContractEvent } from "wagmi";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { propertyTokenABI, stakingRewardsABI, stakingFactoryABI } from "@/contra
 import { formatUnits, parseUnits } from "viem";
 import { InitializeStaking } from "./components/InitializeStaking";
 import { Spinner } from "@/components/ui/spinner";
+import TokenMetrics from '@/components/staking/token-metrics';
 
 export default function StakeProperty() {
   const params = useParams();
@@ -451,6 +452,49 @@ export default function StakeProperty() {
 
   const isOwner = address === process.env.NEXT_PUBLIC_STAKING_CONTRACT_OWNER;
 
+  const { data: stakingMetrics } = useContractReads({
+    contracts: [
+      {
+        address: stakingAddress as `0x${string}`,
+        abi: stakingRewardsABI,
+        functionName: 'totalSupply',
+      },
+      {
+        address: stakingAddress as `0x${string}`,
+        abi: stakingRewardsABI,
+        functionName: 'rewardRate',
+      },
+      {
+        address: stakingAddress as `0x${string}`,
+        abi: stakingRewardsABI,
+        functionName: 'duration',
+      }
+    ],
+    watch: true,
+  });
+
+  // Calculate APY from reward rate
+  const calculateAPY = (rewardRate: bigint, totalStaked: bigint): number => {
+    if (totalStaked === BigInt(0)) return 0;
+    const annualRewards = rewardRate * BigInt(365 * 24 * 60 * 60); // Rewards per year
+    return Number((annualRewards * BigInt(100)) / totalStaked);
+  };
+
+  const [totalStaked, rewardRate, duration] = stakingMetrics || [];
+  const currentAPY = totalStaked?.result && rewardRate?.result 
+    ? calculateAPY(BigInt(rewardRate.result.toString()), BigInt(totalStaked.result.toString()))
+    : 0;
+
+  // Get historical staking data from events
+  const { data: stakingEvents } = useContractEvent({
+    address: stakingAddress as `0x${string}`,
+    abi: stakingRewardsABI,
+    eventName: 'Staked',
+    listener(log) {
+      console.log('New staking event:', log);
+    },
+  });
+
   if (!mounted) return null;
 
   if (isLoading || !stakingAddress) {
@@ -466,69 +510,90 @@ export default function StakeProperty() {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Stake Property Tokens</CardTitle>
-          <CardDescription>Stake your tokens to earn rewards</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label>Available Balance</Label>
-                <p className="text-xl font-bold">{formatUnits(tokenBalance, 18)}</p>
-              </div>
-              <div>
-                <Label>Staked Balance</Label>
-                <p className="text-xl font-bold">{formatUnits(stakedBalance, 18)}</p>
-              </div>
-              <div>
-                <Label>Earned Rewards</Label>
-                <p className="text-xl font-bold">{formatUnits(earnedRewards, 18)}</p>
-              </div>
-            </div>
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex flex-col gap-6">
+        <div className="container mx-auto p-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Stake Property Tokens</CardTitle>
+              <CardDescription>Stake your tokens to earn rewards</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label>Available Balance</Label>
+                    <p className="text-xl font-bold">{formatUnits(tokenBalance, 18)}</p>
+                  </div>
+                  <div>
+                    <Label>Staked Balance</Label>
+                    <p className="text-xl font-bold">{formatUnits(stakedBalance, 18)}</p>
+                  </div>
+                  <div>
+                    <Label>Earned Rewards</Label>
+                    <p className="text-xl font-bold">{formatUnits(earnedRewards, 18)}</p>
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount</Label>
-              <Input
-                id="amount"
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="Enter amount to stake/withdraw"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Amount</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="Enter amount to stake/withdraw"
+                  />
+                </div>
 
-            <div className="flex space-x-4">
-              <Button 
-                onClick={handleStake} 
-                disabled={loading || !amount || Number(amount) <= 0}
-                className="flex-1"
-              >
-                {loading ? "Processing..." : "Stake"}
-              </Button>
-              <Button 
-                onClick={handleWithdraw}
-                disabled={loading || !amount || Number(amount) <= 0}
-                variant="outline"
-                className="flex-1"
-              >
-                {loading ? "Processing..." : "Withdraw"}
-              </Button>
-            </div>
+                <div className="flex space-x-4">
+                  <Button 
+                    onClick={handleStake} 
+                    disabled={loading || !amount || Number(amount) <= 0}
+                    className="flex-1"
+                  >
+                    {loading ? "Processing..." : "Stake"}
+                  </Button>
+                  <Button 
+                    onClick={handleWithdraw}
+                    disabled={loading || !amount || Number(amount) <= 0}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    {loading ? "Processing..." : "Withdraw"}
+                  </Button>
+                </div>
 
-            <Button 
-              onClick={handleClaimRewards}
-              disabled={loading || earnedRewards <= 0}
-              variant="secondary"
-              className="w-full"
-            >
-              {loading ? "Processing..." : "Claim Rewards"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+                <Button 
+                  onClick={handleClaimRewards}
+                  disabled={loading || earnedRewards <= 0}
+                  variant="secondary"
+                  className="w-full"
+                >
+                  {loading ? "Processing..." : "Claim Rewards"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold mb-4">Token Metrics & History</h2>
+          <TokenMetrics 
+            tokenAddress={tokenAddress}
+            stakingHistory={[
+              {
+                timestamp: Math.floor(Date.now() / 1000),
+                amount: Number(formatUnits(totalStaked?.result || BigInt(0), 18)),
+                apy: currentAPY
+              }
+            ]}
+            totalStaked={Number(formatUnits(totalStaked?.result || BigInt(0), 18))}
+            averageStakingPeriod={Number(duration?.result || 0) / (24 * 60 * 60)} // Convert seconds to days
+            currentAPY={currentAPY}
+          />
+        </div>
+      </div>
     </div>
   );
 }
