@@ -84,6 +84,7 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
     /// @param _location Location of the property
     /// @param _imageUrl URL of the property image
     /// @param _price Price of the property
+    /// @param _totalSupply Total supply of the property
     /// @param _name Name of the PropertyToken
     /// @param _symbol Symbol of the PropertyToken
     /// @return Address of the created PropertyToken contract
@@ -93,6 +94,7 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         string memory _location,
         string memory _imageUrl,
         uint256 _price,
+        uint256 _totalSupply,
         string memory _name,
         string memory _symbol
     ) public returns (address) {
@@ -101,6 +103,7 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         console.log("Location:", _location);
         console.log("Image URL:", _imageUrl);
         console.log("Price:", _price);
+        console.log("Total Supply:", _totalSupply);
         console.log("Token Name:", _name);
         console.log("Token Symbol:", _symbol);
         console.log("Sender:", msg.sender);
@@ -113,6 +116,7 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         require(bytes(_name).length > 0, "Token name cannot be empty");
         require(bytes(_symbol).length > 0, "Token symbol cannot be empty");
         require(_price > 0, "Price must be greater than 0");
+        require(_totalSupply > 0, "Total supply must be greater than 0");
 
         // Create new property token with EURC support
         PropertyToken newProperty = new PropertyToken(
@@ -123,6 +127,7 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
             _location,
             _imageUrl,
             _price,
+            _totalSupply,
             msg.sender,
             eurcTokenAddress
         );

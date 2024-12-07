@@ -25,6 +25,12 @@ export default function AdminRequests() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
+  // Calculate pagination values
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = requests.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(requests.length / itemsPerPage);
+
   const [selectedRequest, setSelectedRequest] = useState<PropertyRequest | null>(null);
   const [mapCenter, setMapCenter] = useState({ lat: 0, lng: 0 });
   const [geocodedLocations, setGeocodedLocations] = useState<Map<string, { lat: number; lng: number }>>(new Map());
@@ -117,7 +123,7 @@ export default function AdminRequests() {
 
   useEffect(() => {
     const geocodeLocations = async () => {
-      for (const request of currentItems) {
+      for (const request of requests.slice(indexOfFirstItem, indexOfLastItem)) {
         if (!geocodedLocations.has(request.id!) && request.location) {
           const coords = await geocodeLocation(request.location);
           if (coords) {
@@ -128,13 +134,7 @@ export default function AdminRequests() {
     };
 
     geocodeLocations();
-  }, [currentItems]);
-
-  // Calculate pagination values
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = requests.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(requests.length / itemsPerPage);
+  }, [requests, indexOfFirstItem, indexOfLastItem]);
 
   // Add pagination handlers
   const handleNextPage = () => {

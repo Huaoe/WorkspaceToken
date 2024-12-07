@@ -27,7 +27,7 @@ contract PropertyToken is ERC20, Ownable {
     }
 
     Property public propertyDetails;
-    uint256 public constant TOTAL_SUPPLY = 1000 * 10 ** 18; // 1000 tokens
+    uint256 public immutable totalSupply_;
     IERC20 public eurcToken;
     uint256 public constant EURC_DECIMALS = 6;
 
@@ -66,6 +66,7 @@ contract PropertyToken is ERC20, Ownable {
     /// @param _location Location of the property
     /// @param _imageUrl URL of the property image
     /// @param _price Price of the property in EURC
+    /// @param _totalSupply Total supply of tokens
     /// @param initialOwner Address of the initial owner
     /// @param _eurcTokenAddress Address of the EURC token contract
     constructor(
@@ -76,11 +77,13 @@ contract PropertyToken is ERC20, Ownable {
         string memory _location,
         string memory _imageUrl,
         uint256 _price,
+        uint256 _totalSupply,
         address initialOwner,
         address _eurcTokenAddress
     ) ERC20(_name, _symbol) Ownable(initialOwner) {
         console.log("Creating PropertyToken with title:", _title);
         console.log("Price:", _price);
+        console.log("Total supply:", _totalSupply);
         console.log("Initial owner:", initialOwner);
         console.log("EURC token:", _eurcTokenAddress);
 
@@ -102,6 +105,7 @@ contract PropertyToken is ERC20, Ownable {
             "Invalid image URL length"
         );
         require(_price > 0, "Price must be greater than 0");
+        require(_totalSupply > 0, "Total supply must be greater than 0");
         require(initialOwner != address(0), "Invalid owner address");
         require(_eurcTokenAddress != address(0), "Invalid EURC token address");
 
@@ -114,15 +118,13 @@ contract PropertyToken is ERC20, Ownable {
             isActive: true
         });
 
+        totalSupply_ = _totalSupply;
         eurcToken = IERC20(_eurcTokenAddress);
-        _mint(initialOwner, TOTAL_SUPPLY);
 
-        emit PropertyTokenized(
-            propertyDetails.title,
-            propertyDetails.location,
-            propertyDetails.price,
-            initialOwner
-        );
+        // Mint all tokens to the contract owner
+        _mint(initialOwner, _totalSupply);
+
+        emit PropertyTokenized(_title, _location, _price, initialOwner);
         console.log("PropertyToken created successfully");
     }
 
@@ -145,10 +147,13 @@ contract PropertyToken is ERC20, Ownable {
         // Calculate EURC amount needed (considering 6 decimals for EURC)
         uint256 eurcAmount = (_amount * propertyDetails.price) /
             (10 ** (decimals() - EURC_DECIMALS));
-        console.log("Property price (EURC):", propertyDetails.price);
+        console.log("=== Debug EURC Amount Calculation ===");
+        console.log("Input amount (wei):", _amount);
+        console.log("Property price (EURC with 6 decimals):", propertyDetails.price);
         console.log("Token decimals:", decimals());
         console.log("EURC decimals:", EURC_DECIMALS);
-        console.log("Total EURC amount needed:", eurcAmount);
+        console.log("Decimal adjustment:", 10 ** (decimals() - EURC_DECIMALS));
+        console.log("Calculated EURC amount:", eurcAmount);
 
         // Check allowance and balance
         uint256 currentAllowance = eurcToken.allowance(
@@ -156,8 +161,12 @@ contract PropertyToken is ERC20, Ownable {
             address(this)
         );
         uint256 buyerBalance = eurcToken.balanceOf(msg.sender);
-        console.log("Buyer's EURC allowance:", currentAllowance);
-        console.log("Buyer's EURC balance:", buyerBalance);
+        console.log("=== Debug Allowance and Balance ===");
+        console.log("Current allowance (6 decimals):", currentAllowance);
+        console.log("Buyer balance (6 decimals):", buyerBalance);
+        console.log("Required amount (raw):", eurcAmount);
+        console.log("Allowance check:", currentAllowance * 10 ** 6);
+        console.log("Balance check:", buyerBalance * 10 ** 6);
 
         require(
             currentAllowance * 10 ** 6 >= eurcAmount,
@@ -168,6 +177,8 @@ contract PropertyToken is ERC20, Ownable {
             "Insufficient EURC balance"
         );
 
+        console.log("=== Debug Transfer ===");
+        console.log("Transfer amount (6 decimals):", eurcAmount / 10 ** 6);
         console.log("Transferring EURC from buyer to owner...");
         console.log("From:", msg.sender);
         console.log("To:", owner());

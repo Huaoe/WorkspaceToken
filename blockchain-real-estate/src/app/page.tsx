@@ -7,7 +7,6 @@ import propertyFactoryABI from "@contracts/abis/PropertyFactory.json";
 import { useEffect, useState } from "react";
 import { Building2, List, ShieldCheck, UserCheck } from "lucide-react";
 import Image from "next/image";
-import { useKYCStatus } from "@/hooks/useKYCStatus";
 
 const contractAddress = process.env
   .NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
@@ -16,7 +15,6 @@ export default function Home() {
   const { address, isConnected } = useAccount();
   const [mounted, setMounted] = useState(false);
   const publicClient = usePublicClient();
-  const { hasSubmittedKYC, isLoading: isKYCLoading } = useKYCStatus(address);
 
   const { data: owner, isError: ownerError } = useReadContract({
     address: contractAddress,
@@ -135,28 +133,12 @@ export default function Home() {
             </p>
             <span className="absolute bottom-4 right-4 text-primary transition-transform group-hover:translate-x-1">
               →
+
             </span>
           </div>
         </Link>
 
-        {isConnected && (
-          <Link href="/dashboard" className="group w-full max-w-md">
-            <div className="relative h-full overflow-hidden rounded-xl border bg-background p-6 transition-all hover:shadow-lg hover:-translate-y-1">
-              <div className="flex items-center justify-center gap-4 mb-4">
-                <Building2 className="h-8 w-8 text-primary" />
-                <h2 className="text-2xl font-semibold">My Dashboard</h2>
-              </div>
-              <p className="text-center text-muted-foreground">
-                View your property tokens and staking rewards.
-              </p>
-              <span className="absolute bottom-4 right-4 text-primary transition-transform group-hover:translate-x-1">
-                →
-              </span>
-            </div>
-          </Link>
-        )}
-
-        {isConnected && !isAdmin && !hasSubmittedKYC && !isKYCLoading && (
+        {!isAdmin && isConnected && (
           <Link href="/kyc" className="group w-full max-w-md">
             <div className="relative h-full overflow-hidden rounded-xl border bg-background p-6 transition-all hover:shadow-lg hover:-translate-y-1">
               <div className="flex items-center justify-center gap-4 mb-4">
@@ -169,11 +151,11 @@ export default function Home() {
               </p>
               <span className="absolute bottom-4 right-4 text-primary transition-transform group-hover:translate-x-1">
                 →
+
               </span>
             </div>
           </Link>
         )}
-
         {isAdmin && (
           <Link href="/property/submit" className="group w-full max-w-md">
             <div className="relative h-full overflow-hidden rounded-xl border bg-background p-6 transition-all hover:shadow-lg hover:-translate-y-1">
@@ -187,6 +169,7 @@ export default function Home() {
               </p>
               <span className="absolute bottom-4 right-4 text-primary transition-transform group-hover:translate-x-1">
                 →
+
               </span>
             </div>
           </Link>
@@ -203,10 +186,12 @@ export default function Home() {
               </p>
               <span className="absolute bottom-4 right-4 text-primary transition-transform group-hover:translate-x-1">
                 →
+
               </span>
             </div>
           </Link>
         )}
+
       </div>
     </main>
   );
