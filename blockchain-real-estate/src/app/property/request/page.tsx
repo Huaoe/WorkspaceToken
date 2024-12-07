@@ -38,7 +38,7 @@ const formSchema = z.object({
     .url('Please enter a valid URL for documents')
     .max(500, 'URL must not exceed 500 characters')
     .optional(),
-  numberOfTokens: z.coerce.number().int().min(1, "Must have at least 1 token").max(10000, "Cannot exceed 10000 tokens"),
+  numberOfTokens: z.coerce.number().int().min(1, "Must have at least 1 token").max(100000, "Cannot exceed 100000 tokens"),
   payoutDuration: z.coerce.number().int().min(1, "Payout duration must be at least 1 month").max(12, "Payout duration cannot exceed 12 months"),
   finishAt: z.string().min(1, "End date is required"),
   roi: z.coerce.number().min(0, "ROI must be positive").max(100, "ROI cannot exceed 100%")

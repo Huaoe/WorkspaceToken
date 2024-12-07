@@ -40,15 +40,9 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
   const { toast } = useToast();
   const router = useRouter();
 
-  useEffect(() => {
-    console.log('Wallet Address:', address);
-    console.log('Has Submitted KYC:', hasSubmittedKYC);
-    console.log('KYC Loading:', isKYCLoading);
-  }, [address, hasSubmittedKYC, isKYCLoading]);
-
   const getStatusColor = (status: PropertyStatus) => {
     switch (status) {
-      case 'live':
+      case 'funding':
         return 'bg-purple-500 hover:bg-purple-600';
       case 'staking':
         return 'bg-blue-500 hover:bg-blue-600';
@@ -96,7 +90,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
         <div className="flex justify-between items-start mb-2">
           <h3 className="text-lg font-semibold">{property.title}</h3>
           <Badge className={getStatusColor(property.status as PropertyStatus)}>
-            {property.status === 'staking' ? 'Staking' : 'Live'}
+            {property.status === 'staking' ? 'Staking' : 'Funding'}
           </Badge>
         </div>
         <p className="text-muted-foreground text-sm mb-2">{property.location}</p>
@@ -173,7 +167,7 @@ export default function PropertyList() {
         const { data, error } = await supabase
           .from('property_requests')
           .select('*')
-          .in('status', ['live', 'staking'])
+          .in('status', ['funding', 'staking'])
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -196,8 +190,18 @@ export default function PropertyList() {
 
   const filteredProperties = properties
     .filter(property => {
+      // Filter by status
       if (filterStatus !== 'all' && property.status !== filterStatus) return false;
-      if (searchQuery && !property.location?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      
+      // Search across multiple fields
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase();
+        return (
+          property.title?.toLowerCase().includes(searchLower) ||
+          property.location?.toLowerCase().includes(searchLower) ||
+          property.description?.toLowerCase().includes(searchLower)
+        );
+      }
       return true;
     })
     .sort((a, b) => {
@@ -256,8 +260,8 @@ export default function PropertyList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Properties</SelectItem>
-                <SelectItem value="available">Available</SelectItem>
-                <SelectItem value="sold">Sold</SelectItem>
+                <SelectItem value="funding">funding</SelectItem>
+                <SelectItem value="staking">Staking</SelectItem>
               </SelectContent>
             </Select>
             <div className="flex items-center space-x-1">

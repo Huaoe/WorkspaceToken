@@ -36,8 +36,14 @@ contract StakingFactory is Ownable {
 
     /// @notice Creates a new StakingRewards contract for a PropertyToken
     /// @param propertyToken Address of the PropertyToken contract
+    /// @param rewardsDuration Duration of rewards in seconds
+    /// @param rewardsAmount Amount of rewards tokens to distribute
     /// @return Address of the created StakingRewards contract
-    function createStakingRewards(address propertyToken) external onlyOwner returns (address) {
+    function createStakingRewards(
+        address propertyToken,
+        uint256 rewardsDuration,
+        uint256 rewardsAmount
+    ) external onlyOwner returns (address) {
         require(propertyToken != address(0), "Invalid property token");
         require(propertyToStaking[propertyToken] == address(0), "Staking already exists");
 
@@ -50,10 +56,6 @@ contract StakingFactory is Ownable {
             address(token),    // stakingToken (PropertyToken)
             address(rewardsToken)  // rewardsToken (EURC)
         );
-
-        // Initialize rewards parameters
-        uint256 rewardsDuration = 365 days; // 1 year duration
-        uint256 rewardsAmount = 1000 * 10**6; // 1000 EURC (6 decimals)
 
         // Transfer rewards to staking contract
         require(

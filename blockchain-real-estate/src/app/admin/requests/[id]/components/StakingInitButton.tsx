@@ -145,12 +145,21 @@ export function StakingInitButton({ propertyTokenAddress, status }: StakingInitB
         throw new Error('Staking contract already exists for this property');
       }
 
+      // Calculate staking parameters
+      const rewardsDuration = BigInt(365 * 24 * 60 * 60); // 1 year in seconds
+      const rewardsAmount = 1000n * 10n**6n; // 1000 EURC (6 decimals)
+
+      console.log('Staking parameters:', {
+        propertyToken: propertyTokenAddress,
+        rewardsDuration: rewardsDuration.toString(),
+        rewardsAmount: formatUnits(rewardsAmount, 6),
+      });
+
       // First simulate the transaction
       console.log('Simulating createStakingRewards transaction...');
 
       // First approve EURC token transfer
       console.log('Approving EURC token transfer...');
-      const rewardsAmount = 1000n * 10n**6n; // 1000 EURC (6 decimals)
       const eurcContract = {
         address: rewardsToken as `0x${string}`,
         abi: mockEURCJSON.abi as Abi,
@@ -310,7 +319,11 @@ export function StakingInitButton({ propertyTokenAddress, status }: StakingInitB
             address: stakingFactoryAddress,
             abi: stakingFactoryABI,
             functionName: 'createStakingRewards',
-            args: [propertyTokenAddress as `0x${string}`],
+            args: [
+              propertyTokenAddress as `0x${string}`,
+              rewardsDuration,
+              rewardsAmount
+            ],
             account: address,
           });
           console.log('Estimated gas for staking creation:', stakingGasEstimate.toString());
@@ -334,7 +347,11 @@ export function StakingInitButton({ propertyTokenAddress, status }: StakingInitB
           address: stakingFactoryAddress,
           abi: stakingFactoryABI,
           functionName: 'createStakingRewards',
-          args: [propertyTokenAddress as `0x${string}`],
+          args: [
+            propertyTokenAddress as `0x${string}`,
+            rewardsDuration,
+            rewardsAmount
+          ],
           account: address,
           gas: stakingGasLimit,
           gasPrice: stakingGasPrice ? stakingGasPrice * BigInt(12) / BigInt(10) : undefined, // 20% higher
@@ -436,7 +453,7 @@ export function StakingInitButton({ propertyTokenAddress, status }: StakingInitB
     }
   };
 
-  if (status !== 'live') {
+  if (status !== 'funding') {
     return null;
   }
 

@@ -93,6 +93,17 @@ export function Navbar() {
           >
             Properties
           </Link>
+          {address && (
+            <Link
+              href="/dashboard"
+              className={cn(
+                "text-sm font-medium transition-colors hover:text-primary",
+                pathname === "/dashboard" ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              Dashboard
+            </Link>
+          )}
           {isAdmin && (
             <>
               <Link

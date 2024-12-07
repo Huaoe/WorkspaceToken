@@ -20,7 +20,7 @@ export interface Database {
           image_url?: string
           documents_url?: string
           number_of_tokens: string
-          status: 'pending' | 'approved' | 'rejected' | 'onchain' | 'live'
+          status: 'pending' | 'approved' | 'rejected' | 'onchain' | 'funding'
           token_name: string
           token_symbol: string
           token_address?: string
@@ -36,7 +36,7 @@ export interface Database {
           image_url?: string
           documents_url?: string
           number_of_tokens: string
-          status?: 'pending' | 'approved' | 'rejected' | 'onchain' | 'live'
+          status?: 'pending' | 'approved' | 'rejected' | 'onchain' | 'funding'
           token_name: string
           token_symbol: string
           token_address?: string
@@ -52,7 +52,7 @@ export interface Database {
           image_url?: string
           documents_url?: string
           number_of_tokens?: string
-          status?: 'pending' | 'approved' | 'rejected' | 'onchain' | 'live'
+          status?: 'pending' | 'approved' | 'rejected' | 'onchain' | 'funding'
           token_name?: string
           token_symbol?: string
           token_address?: string

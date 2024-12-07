@@ -7,12 +7,12 @@ export const STATUS_COLORS = {
   approved: 'green',
   rejected: 'red',
   onchain: 'yellow',
-  live: 'purple',
+  funding: 'purple',
   staking: 'blue',
   closed: 'gray',
   paused: 'orange'
 } as const
 
-export const STATUS_OPTIONS = ['pending', 'approved', 'rejected', 'onchain', 'live',  'staking', 'closed', 'paused'] as const
+export const STATUS_OPTIONS = ['pending', 'approved', 'rejected', 'onchain', 'funding',  'staking', 'closed', 'paused'] as const
 
 export type PropertyStatus = typeof STATUS_OPTIONS[number]

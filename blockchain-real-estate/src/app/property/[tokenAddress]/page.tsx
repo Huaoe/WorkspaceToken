@@ -21,7 +21,7 @@ interface PropertyDetails {
   description: string;
   location: string;
   imageUrl: string;
-  price: bigint;
+  expected_price: bigint;
   isActive: boolean;
   status: string;
   payoutDuration: number;
@@ -97,14 +97,13 @@ export default function PropertyDetails() {
       setError('Failed to load contract details');
       console.error('Contract read error:', contractData?.[0].error || contractData?.[1].error || contractData?.[2].error);
     } else if (contractData && propertyRequest) {
-      const [totalSupply, ownerAddress, price] = contractData;
-      const EURC_DECIMALS = 6; // EURC uses 6 decimals
+      const [totalSupply, ownerAddress] = contractData;
       const propertyDetails: PropertyDetails = {
         title: propertyRequest.title,
         description: propertyRequest.description,
         location: propertyRequest.location,
         imageUrl: propertyRequest.image_url || '',
-        price: price.result ? BigInt(price.result.toString()) / BigInt(10 ** (18 - EURC_DECIMALS)) : BigInt(0), // Convert from 18 decimals to 6 decimals
+        expected_price: BigInt(propertyRequest.expected_price * 10**6), // Convert to BigInt with 6 decimals
         isActive: propertyRequest.status === 'approved',
         status: propertyRequest.status,
         payoutDuration: propertyRequest.payout_duration,
@@ -159,13 +158,16 @@ export default function PropertyDetails() {
     );
   }
 
-  const formattedPrice = propertyDetails.price ? formatUnits(propertyDetails.price, 6) : '0';
+  const formattedPrice = propertyDetails.expected_price ? formatUnits(propertyDetails.expected_price, 6) : '0';
   const formattedSupply = propertyDetails.numberOfTokens?.toString() || '0';
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case 'live':
-        return 'bg-purple-500 hover:bg-purple-600';
+      case 'funding':
+        return {
+          label: 'Funding',
+          color: 'bg-purple-100 text-purple-800'
+        };
       case 'staking':
         return 'bg-blue-500 hover:bg-blue-600';
       case 'onchain':
@@ -192,8 +194,8 @@ export default function PropertyDetails() {
               <CardTitle className="text-3xl">{propertyDetails.title}</CardTitle>
               <CardDescription className="text-lg mt-2">{propertyDetails.location}</CardDescription>
             </div>
-            <Badge className={getStatusBadgeColor(propertyRequest.status)}>
-              {propertyRequest.status.charAt(0).toUpperCase() + propertyRequest.status.slice(1)}
+            <Badge className={getStatusBadgeColor(propertyRequest.status).color}>
+              {getStatusBadgeColor(propertyRequest.status).label}
             </Badge>
           </div>
         </CardHeader>
@@ -210,30 +212,29 @@ export default function PropertyDetails() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold">Description</h3>
-                <p className="text-muted-foreground">{propertyDetails.description}</p>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold">Investment Details</h3>
-                <div className="grid grid-cols-2 gap-4 mt-2">
+                <h3 className="text-lg font-semibold mb-4">Investment Details</h3>
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Price</p>
-                    <p className="font-medium">{formattedPrice} EURC</p>
+                    <p className="text-sm text-muted-foreground">Price per Token</p>
+                    <p className="font-medium text-xl text-green-600">
+                      {formattedPrice} EURC
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Supply</p>
-                    <p className="font-medium">{formattedSupply} Tokens</p>
+                    <p className="font-medium">
+                      {formattedSupply} Tokens
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">ROI</p>
-                    <p className="font-medium">{propertyRequest.roi}%</p>
+                    <p className="font-medium">{propertyDetails.roi}%</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Payout Duration</p>
-                    <p className="font-medium">{propertyRequest.payout_duration} months</p>
+                    <p className="text-sm text-muted-foreground">Duration</p>
+                    <p className="font-medium">{propertyDetails.payoutDuration} months</p>
                   </div>
                 </div>
               </div>
@@ -287,7 +288,7 @@ export default function PropertyDetails() {
               <Button onClick={() => router.push(`/property/stake/${tokenAddress}`)}>
                 Stake Tokens
               </Button>
-            ) : propertyRequest.status === 'live' ? (
+            ) : propertyRequest.status === 'funding' ? (
               <Button onClick={() => router.push(`/property/purchase/${tokenAddress}`)}>
                 Invest Now
               </Button>

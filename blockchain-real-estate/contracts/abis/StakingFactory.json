@@ -1,5 +1,5 @@
 {
-  "address": "0xD8a5a9b31c3C0232E196d518E89Fd8bF83AcAd43",
+  "address": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
   "abi": [
     {
       "inputs": [
@@ -83,6 +83,16 @@
           "internalType": "address",
           "name": "propertyToken",
           "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "rewardsDuration",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "rewardsAmount",
+          "type": "uint256"
         }
       ],
       "name": "createStakingRewards",

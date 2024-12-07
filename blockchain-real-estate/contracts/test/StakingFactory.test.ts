@@ -80,8 +80,20 @@ describe("StakingFactory", function () {
     });
 
     describe("Creating Staking Rewards", function () {
+        const rewardsDuration = 365 * 24 * 60 * 60; // 1 year in seconds
+        const rewardsAmount = ethers.parseUnits("1000", 6); // 1000 EURC
+
+        beforeEach(async function () {
+            // Mint EURC tokens to StakingFactory for rewards
+            await mockEURC.mint(await stakingFactory.getAddress(), rewardsAmount);
+        });
+
         it("Should create a new StakingRewards contract", async function () {
-            const tx = await stakingFactory.createStakingRewards(await propertyToken.getAddress());
+            const tx = await stakingFactory.createStakingRewards(
+                await propertyToken.getAddress(),
+                rewardsDuration,
+                rewardsAmount
+            );
             const receipt = await tx.wait();
 
             // Check event emission
@@ -96,25 +108,74 @@ describe("StakingFactory", function () {
             const stakingRewards = await ethers.getContractAt("StakingRewards", stakingAddress) as StakingRewards;
             expect(await stakingRewards.stakingToken()).to.equal(await propertyToken.getAddress());
             expect(await stakingRewards.rewardsToken()).to.equal(await mockEURC.getAddress());
+            expect(await stakingRewards.duration()).to.equal(rewardsDuration);
+            expect(await mockEURC.balanceOf(stakingAddress)).to.equal(rewardsAmount);
         });
 
         it("Should not allow creating duplicate staking contracts", async function () {
-            await stakingFactory.createStakingRewards(await propertyToken.getAddress());
+            await stakingFactory.createStakingRewards(
+                await propertyToken.getAddress(),
+                rewardsDuration,
+                rewardsAmount
+            );
             await expect(
-                stakingFactory.createStakingRewards(await propertyToken.getAddress())
-            ).to.be.revertedWith("Staking already exists");
+                stakingFactory.createStakingRewards(
+                    await propertyToken.getAddress(),
+                    rewardsDuration,
+                    rewardsAmount
+                )
+            ).to.be.rejectedWith("Staking already exists");
+        });
+
+        it("Should not allow creating staking with zero duration", async function () {
+            await expect(
+                stakingFactory.createStakingRewards(
+                    await propertyToken.getAddress(),
+                    0,
+                    rewardsAmount
+                )
+            ).to.be.rejectedWith("reward rate = 0");
+        });
+
+        it("Should not allow creating staking with zero rewards", async function () {
+            await expect(
+                stakingFactory.createStakingRewards(
+                    await propertyToken.getAddress(),
+                    rewardsDuration,
+                    0
+                )
+            ).to.be.rejectedWith("reward rate = 0");
+        });
+
+        it("Should not allow creating staking with insufficient rewards balance", async function () {
+            const tooMuchRewards = ethers.parseUnits("2000", 6); // More than minted
+            await expect(
+                stakingFactory.createStakingRewards(
+                    await propertyToken.getAddress(),
+                    rewardsDuration,
+                    tooMuchRewards
+                )
+            ).to.be.rejectedWith("Failed to transfer rewards");
         });
 
         it("Should not allow non-owner to create staking contracts", async function () {
             await expect(
-                stakingFactory.connect(addr1).createStakingRewards(await propertyToken.getAddress())
-            ).to.be.revertedWith("Ownable: caller is not the owner");
+                stakingFactory.connect(addr1).createStakingRewards(
+                    await propertyToken.getAddress(),
+                    rewardsDuration,
+                    rewardsAmount
+                )
+            ).to.be.rejectedWith("Ownable: caller is not the owner");
         });
     });
 
     describe("View Functions", function () {
         beforeEach(async function () {
-            await stakingFactory.createStakingRewards(await propertyToken.getAddress());
+            await stakingFactory.createStakingRewards(
+                await propertyToken.getAddress(),
+                rewardsDuration,
+                rewardsAmount
+            );
         });
 
         it("Should return correct staking contract address", async function () {

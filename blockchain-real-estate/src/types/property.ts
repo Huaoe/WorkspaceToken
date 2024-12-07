@@ -22,7 +22,7 @@ export interface PendingPropertyRequest extends BasePropertyRequest {
 }
 
 export interface OnChainPropertyRequest extends BasePropertyRequest {
-  status: 'onchain' | 'live';
+  status: 'onchain' | 'funding';
   token_address: string; 
 }
 
@@ -32,7 +32,7 @@ export interface PropertyRequest {
   description: string;
   location: string;
   imageUrl: string;
-  price: number;
+  expected_price: number;
   ownerAddress: string;
   status?: string;
   createdAt?: string;
@@ -40,6 +40,8 @@ export interface PropertyRequest {
   payoutDuration: Date;
   finishAt: Date;
   roi: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface PropertyRequestFormData {
@@ -47,7 +49,7 @@ export interface PropertyRequestFormData {
   description: string;
   location: string;
   imageUrl: string;
-  price: number;
+  expected_price: number;
   payoutDuration: Date;
   finishAt: Date;
   roi: number;

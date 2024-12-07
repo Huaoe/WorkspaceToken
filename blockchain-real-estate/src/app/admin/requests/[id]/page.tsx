@@ -325,7 +325,7 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
       if (receipt.status === 'success') {
         await supabase
           .from('property_requests')
-          .update({ status: 'live' })
+          .update({ status: 'funding' })
           .eq('id', id);
 
         toast({
@@ -380,7 +380,7 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
           disabled={loading}
           className="bg-primary"
         >
-          {loading ? 'Approving Property...' : 'Go Live Property'}
+          {loading ? 'Approving Property...' : 'Go Funding Property'}
         </Button>
       )}
     </div>
@@ -463,6 +463,8 @@ export default function ReviewRequest() {
         updates['rejected_at'] = now;
       } else if (values.status === 'onchain') {
         updates['tokenized_at'] = now;
+      } else if (values.status === 'funding') {
+        updates['funding_at'] = now;
       }
 
       const { error } = await supabase
@@ -527,7 +529,7 @@ export default function ReviewRequest() {
                   <ClientOnly>
                     {() => <CreateTokenButton id={id} status={status} formData={form.getValues()} />}
                   </ClientOnly>
-                  {status === 'live' && (
+                  {status === 'funding' && (
                     <StakingInitButton
                       propertyTokenAddress={form.getValues().token_address || ''}
                       status={status}

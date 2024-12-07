@@ -23,7 +23,7 @@ export function StatusField({ form }: StatusFieldProps) {
         return 'bg-red-500';
       case 'onchain':
         return 'bg-yellow-500';
-      case 'live':
+      case 'funding':
         return 'bg-purple-500';
       case 'staking':
         return 'bg-blue-500';

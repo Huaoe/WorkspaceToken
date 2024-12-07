@@ -107,9 +107,15 @@ export default function StakeProperty() {
 
   useEffect(() => {
     const checkInitialization = async () => {
-      if (!stakingAddress) return;
+      if (!stakingAddress || stakingAddress === '0x0000000000000000000000000000000000000000') {
+        console.log("No valid staking address found");
+        setIsInitialized(false);
+        setIsLoading(false);
+        return;
+      }
       
       try {
+        console.log("Checking staking contract at:", stakingAddress);
         const [rewardRate, duration, updatedAt] = await Promise.all([
           publicClient.readContract({
             address: stakingAddress,

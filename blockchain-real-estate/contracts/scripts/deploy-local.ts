@@ -71,14 +71,21 @@ async function main() {
     const stakingFactoryAddress = stakingFactory.target;
     console.log("StakingFactory deployed to:", stakingFactoryAddress);
 
+    // Setup staking rewards parameters
+    const rewardsDuration = 365 * 24 * 60 * 60; // 1 year in seconds
+    const rewardsAmount = ethers.parseUnits("1000", 6); // 1000 EURC with 6 decimals
+
     // Mint EURC tokens to StakingFactory for rewards
-    const rewardsAmount = ethers.parseUnits("1000000", 6); // 1000 EURC with 6 decimals
     await mockEURC.mint(stakingFactoryAddress, rewardsAmount);
     console.log("Minted", ethers.formatUnits(rewardsAmount, 6), "EURC to StakingFactory");
 
     // Create staking rewards for test property
     console.log("\nCreating staking rewards for test property...");
-    await stakingFactory.createStakingRewards(testPropertyAddress);
+    await stakingFactory.createStakingRewards(
+      testPropertyAddress,
+      rewardsDuration,
+      rewardsAmount
+    );
     const stakingRewardsAddress = await stakingFactory.getStakingRewards(testPropertyAddress);
     console.log("StakingRewards created at:", stakingRewardsAddress);
 
