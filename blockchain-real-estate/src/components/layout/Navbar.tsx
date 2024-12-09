@@ -46,7 +46,7 @@ export function Navbar() {
               href="/"
               className="text-sm font-medium transition-colors hover:text-primary text-muted-foreground"
             >
-              Home
+              Work Space Token
             </Link>
             <Link
               href="/property/list"
@@ -82,7 +82,7 @@ export function Navbar() {
               pathname === "/" ? "text-foreground" : "text-muted-foreground"
             )}
           >
-            Home
+            Work Space Token
           </Link>
           <Link
             href="/property/list"

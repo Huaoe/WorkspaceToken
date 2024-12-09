@@ -24,16 +24,16 @@ export default function AdminRequests() {
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  const [selectedRequest, setSelectedRequest] = useState<PropertyRequest | null>(null);
+  const [mapCenter, setMapCenter] = useState({ lat: 0, lng: 0 });
+  const [geocodedLocations, setGeocodedLocations] = useState<Map<string, { lat: number; lng: number }>>(new Map());
+  const [selectedKYC, setSelectedKYC] = useState<any>(null);
 
   // Calculate pagination values
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = requests.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(requests.length / itemsPerPage);
-
-  const [selectedRequest, setSelectedRequest] = useState<PropertyRequest | null>(null);
-  const [mapCenter, setMapCenter] = useState({ lat: 0, lng: 0 });
-  const [geocodedLocations, setGeocodedLocations] = useState<Map<string, { lat: number; lng: number }>>(new Map());
 
   const mapContainerStyle = {
     width: '100%',
@@ -155,6 +155,33 @@ export default function AdminRequests() {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  async function handleKYCValidation(kycId: string, status: 'approved' | 'rejected') {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('kyc_submissions')
+        .update({ status: status, validated_at: new Date().toISOString() })
+        .eq('id', kycId);
+
+      if (error) throw error;
+
+      // Update local state
+      setKYCSubmissions(prev => 
+        prev.map(kyc => 
+          kyc.id === kycId ? { ...kyc, status: status, validated_at: new Date().toISOString() } : kyc
+        )
+      );
+
+      // Close the modal if open
+      setSelectedKYC(null);
+    } catch (err) {
+      console.error('Error updating KYC status:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update KYC status');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // Early return for non-mounted state
   if (!mounted) {
@@ -382,44 +409,156 @@ export default function AdminRequests() {
       <div className="mt-12">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">KYC Submissions</h1>
-          <Badge variant="outline">{kycSubmissions.length} Total Submissions</Badge>
+          <div className="flex gap-2">
+            <Badge variant="outline">{kycSubmissions.length} Total Submissions</Badge>
+            <Badge variant="outline">
+              {kycSubmissions.filter(k => !k.status || k.status === 'pending').length} Pending
+            </Badge>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {kycSubmissions.map((submission) => (
-            <Card key={submission.id} className="flex flex-col">
+          {kycSubmissions.map((kyc) => (
+            <Card key={kyc.id} className="flex flex-col hover:shadow-lg transition-shadow">
               <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg font-medium break-all">
-                      {submission.wallet_address}
-                    </CardTitle>
-                    <CardDescription>
-                      Submitted {formatDistanceToNow(new Date(submission.created_at), { addSuffix: true })}
-                    </CardDescription>
+                <CardTitle className="flex justify-between items-center">
+                  <span className="truncate">
+                    {kyc.first_name} {kyc.last_name}
+                  </span>
+                  <Badge className={getStatusColor(kyc.status || 'pending')}>
+                    {kyc.status || 'Pending'}
+                  </Badge>
+                </CardTitle>
+                <CardDescription>
+                  <div className="flex items-center gap-2">
+                    <UserIcon className="h-4 w-4" />
+                    <span className="truncate">{kyc.wallet_address}</span>
                   </div>
-                </div>
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <UserIcon className="w-4 h-4" />
-                    <span>{submission.full_name}</span>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="font-medium">Nationality:</span> {kyc.nationality}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FileTextIcon className="w-4 h-4" />
-                    <span>{submission.document_type}</span>
+                  <div>
+                    <span className="font-medium">Country of Residence:</span> {kyc.country_of_residence}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CalendarIcon className="w-4 h-4" />
-                    <span>{new Date(submission.created_at).toLocaleDateString()}</span>
+                  <div>
+                    <span className="font-medium">Employment:</span> {kyc.employment_status}
+                  </div>
+                  <div>
+                    <span className="font-medium">Trading Experience:</span> {kyc.trading_experience}
                   </div>
                 </div>
               </CardContent>
+              <CardFooter className="flex justify-between mt-auto">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setSelectedKYC(kyc)}
+                >
+                  View Details
+                </Button>
+                {(!kyc.status || kyc.status === 'pending') && (
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="default"
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => handleKYCValidation(kyc.id, 'approved')}
+                    >
+                      Approve
+                    </Button>
+                    <Button 
+                      variant="destructive"
+                      onClick={() => handleKYCValidation(kyc.id, 'rejected')}
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                )}
+              </CardFooter>
             </Card>
           ))}
         </div>
       </div>
+
+      {/* KYC Details Modal */}
+      {selectedKYC && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <CardTitle>KYC Details</CardTitle>
+                <Button variant="ghost" onClick={() => setSelectedKYC(null)}>×</Button>
+              </div>
+              <Badge className={getStatusColor(selectedKYC.status || 'pending')}>
+                {selectedKYC.status || 'Pending'}
+              </Badge>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="font-semibold mb-2">Personal Information</h3>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Full Name:</span> {selectedKYC.salutation} {selectedKYC.first_name} {selectedKYC.middle_name} {selectedKYC.last_name}</p>
+                    <p><span className="font-medium">Date of Birth:</span> {selectedKYC.date_of_birth}</p>
+                    <p><span className="font-medium">Nationality:</span> {selectedKYC.nationality}</p>
+                    <p><span className="font-medium">Country of Residence:</span> {selectedKYC.country_of_residence}</p>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Contact Information</h3>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Email:</span> {selectedKYC.email}</p>
+                    <p><span className="font-medium">Phone:</span> {selectedKYC.phone_country_code} {selectedKYC.phone_number}</p>
+                    <p><span className="font-medium">Address:</span> {selectedKYC.street_address}, {selectedKYC.city}, {selectedKYC.state} {selectedKYC.postal_code}, {selectedKYC.country}</p>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Identity Information</h3>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">ID Type:</span> {selectedKYC.identification_type}</p>
+                    <p><span className="font-medium">ID Number:</span> {selectedKYC.identification_number}</p>
+                    <p><span className="font-medium">Issue Date:</span> {selectedKYC.identification_issue_date}</p>
+                    <p><span className="font-medium">Expiry Date:</span> {selectedKYC.identification_expiry_date}</p>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">Financial Information</h3>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Employment:</span> {selectedKYC.employment_status}</p>
+                    <p><span className="font-medium">Source of Funds:</span> {selectedKYC.source_of_funds}</p>
+                    <p><span className="font-medium">Annual Income:</span> {selectedKYC.annual_income}</p>
+                    <p><span className="font-medium">Trading Experience:</span> {selectedKYC.trading_experience}</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-2">
+              {(!selectedKYC.status || selectedKYC.status === 'pending') && (
+                <>
+                  <Button 
+                    variant="default"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => handleKYCValidation(selectedKYC.id, 'approved')}
+                  >
+                    Approve
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    onClick={() => handleKYCValidation(selectedKYC.id, 'rejected')}
+                  >
+                    Reject
+                  </Button>
+                </>
+              )}
+              <Button variant="outline" onClick={() => setSelectedKYC(null)}>
+                Close
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      )}
 
       {/* Pagination Controls */}
       {requests.length > itemsPerPage && (

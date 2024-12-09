@@ -7,6 +7,7 @@ import propertyFactoryABI from "@contracts/abis/PropertyFactory.json";
 import { useEffect, useState } from "react";
 import { Building2, List, ShieldCheck, UserCheck } from "lucide-react";
 import Image from "next/image";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 const contractAddress = process.env
   .NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
@@ -14,7 +15,9 @@ const contractAddress = process.env
 export default function Home() {
   const { address, isConnected } = useAccount();
   const [mounted, setMounted] = useState(false);
+  const [hasKYC, setHasKYC] = useState(false);
   const publicClient = usePublicClient();
+  const supabase = createClientComponentClient();
 
   const { data: owner, isError: ownerError } = useReadContract({
     address: contractAddress,
@@ -25,6 +28,28 @@ export default function Home() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    async function checkKYCStatus() {
+      if (!address) return;
+      try {
+        const { data } = await supabase
+          .from('kyc_submissions')
+          .select('*')
+          .eq('wallet_address', address)
+          .single();
+        
+        setHasKYC(!!data);
+      } catch (error) {
+        console.error('Error checking KYC status:', error);
+        setHasKYC(false);
+      }
+    }
+
+    if (mounted && address) {
+      checkKYCStatus();
+    }
+  }, [mounted, address, supabase]);
 
   useEffect(() => {
     if (mounted) {
@@ -138,7 +163,7 @@ export default function Home() {
           </div>
         </Link>
 
-        {!isAdmin && isConnected && (
+        {!isAdmin && isConnected && !hasKYC && (
           <Link href="/kyc" className="group w-full max-w-md">
             <div className="relative h-full overflow-hidden rounded-xl border bg-background p-6 transition-all hover:shadow-lg hover:-translate-y-1">
               <div className="flex items-center justify-center gap-4 mb-4">
