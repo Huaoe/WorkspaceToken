@@ -9,9 +9,9 @@
     "clean": "hardhat clean",
     "deploy:local": "npx hardhat run scripts/deploy-local.ts --network localhost",
     "n": "npx hardhat node",
-    "distributeMockEURC":"npx hardhat run scripts/distribute-mock-eurc.ts --network localhost",
-    "verifyMockEURC":"npx hardhat run scripts/verify-eurc-approve.ts --network localhost",
-    "test:pt":"npx hardhat test test/PropertyToken.test.ts --network localhost"
+    "distributeMockEURC": "npx hardhat run scripts/distribute-mock-eurc.ts --network localhost",
+    "verifyMockEURC": "npx hardhat run scripts/verify-eurc-approve.ts --network localhost",
+    "test:pt": "npx hardhat test test/PropertyToken.test.ts --network localhost"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
@@ -24,7 +24,7 @@
     "@nomicfoundation/ignition-core": "^0.15.7",
     "@openzeppelin/contracts": "^5.1.0",
     "@openzeppelin/contracts-upgradeable": "^5.1.0",
-    "@openzeppelin/hardhat-upgrades": "^3.5.0",
+    "@openzeppelin/hardhat-upgrades": "^3.7.0",
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
     "@types/chai": "^4.3.11",
@@ -50,6 +50,7 @@
     "@drizzle/store": "^1.5.3",
     "@pinata/sdk": "^2.1.0",
     "axios": "^1.7.7",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "hardhat-deploy": "^0.14.0"
   }
 }

@@ -40,7 +40,7 @@ async function main() {
       "123 Test St, City", // location (max 256 chars)
       "https://example.com/img.jpg", // imageUrl (max 100 chars)
       ethers.parseUnits("100", 6), // price (100 EURC)
-      ethers.parseUnits("1000", 18), // totalSupply (1000 tokens)
+      1000, // totalSupply (raw value, contract will add decimals)
       "Test Property", // name
       "TEST" // symbol
     );

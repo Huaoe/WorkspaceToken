@@ -4,7 +4,7 @@
 ## 1. Product Overview
 ### 1.1 Purpose
 Develop a decentralized marketplace for tokenizing and trading real estate assets using blockchain technology, enabling fractional ownership through ERC20 tokens.
-There is 3 personnas :
+There is 2 personnas :
 Investor : Buy tokens emit by Fiducie
 Fiducie : submit a form with realEsate description, picture to fiducie approval, Validate and Emit ERC20 for each submitted property and yield revenue shares to investor using EURC (circle)
 

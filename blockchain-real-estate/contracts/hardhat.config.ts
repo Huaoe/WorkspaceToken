@@ -1,6 +1,7 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
+import "hardhat-deploy";
 import "dotenv/config";
 
 const config: HardhatUserConfig = {
@@ -13,6 +14,11 @@ const config: HardhatUserConfig = {
       },
     },
   },
+  namedAccounts: {
+    deployer: {
+      default: 0, // here this will by default take the first account as deployer
+    },
+  },
   networks: {
     hardhat: {
       chainId: 31337,
@@ -23,7 +29,8 @@ const config: HardhatUserConfig = {
           order: "fifo"
         }
       },
-      allowUnlimitedContractSize: true,
+      allowUnlimitedContractSize: true,   
+      loggingEnabled: true
     },
     localhost: {
       chainId: 31337,
@@ -31,6 +38,8 @@ const config: HardhatUserConfig = {
     },
   },
   paths: {
+    deploy: 'scripts',
+    deployments: 'deployments',
     sources: "./contracts",
     tests: "./test",
     cache: "./cache",

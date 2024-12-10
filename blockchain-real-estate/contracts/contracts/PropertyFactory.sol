@@ -27,6 +27,7 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
     address public admin;
     address public validator;
     address public paymentToken;
+    address public whitelistContract;
     
     /// @notice Emitted when a new property is submitted for approval
     /// @param owner Address of the property owner
@@ -56,17 +57,20 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
     /// @param _paymentToken Address of the payment token (EURC)
     /// @param _admin Address of the admin
     /// @param _validator Address of the validator
+    /// @param _whitelistContract Address of the whitelist contract
     function initialize(
         string memory _name,
         string memory _symbol,
         address _paymentToken,
         address _admin,
-        address _validator
+        address _validator,
+        address _whitelistContract
     ) public initializer {
         console.log("Initializing PropertyFactory");
         require(_paymentToken != address(0), "Invalid payment token address");
         require(_admin != address(0), "Invalid admin address");
         require(_validator != address(0), "Invalid validator address");
+        require(_whitelistContract != address(0), "Invalid whitelist contract address");
         
         __Ownable_init(_admin);
         
@@ -76,6 +80,7 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         admin = _admin;
         validator = _validator;
         eurcTokenAddress = _paymentToken;
+        whitelistContract = _whitelistContract;
     }
 
     /// @notice Creates a new PropertyToken contract
@@ -98,7 +103,7 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         string memory _name,
         string memory _symbol
     ) public returns (address) {
-        console.log("Creating property with title:", _title);
+        console.log("Creating * property with title:", _title);
         console.log("Description:", _description);
         console.log("Location:", _location);
         console.log("Image URL:", _imageUrl);
@@ -116,21 +121,25 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         require(bytes(_name).length > 0, "Token name cannot be empty");
         require(bytes(_symbol).length > 0, "Token symbol cannot be empty");
         require(_price > 0, "Price must be greater than 0");
-        require(_totalSupply > 0, "Total supply must be greater than 0");
+        require(_totalSupply > 0 && _totalSupply <= 1000000, "Total supply must be between 1 and 1,000,000");
 
         // Create new property token with EURC support
-        PropertyToken newProperty = new PropertyToken(
-            _name,
-            _symbol,
-            _title,
-            _description,
-            _location,
-            _imageUrl,
-            _price,
-            _totalSupply,
-            msg.sender,
-            eurcTokenAddress
-        );
+        PropertyToken.InitParams memory initParams = PropertyToken.InitParams({
+            name: _name,
+            symbol: _symbol,
+            title: _title,
+            description: _description,
+            location: _location,
+            imageUrl: _imageUrl,
+            price: _price,
+            totalSupply: _totalSupply,
+            initialOwner: msg.sender,
+            eurcTokenAddress: eurcTokenAddress,
+            whitelistContract: whitelistContract
+        });
+
+        PropertyToken newProperty = new PropertyToken();
+        newProperty.initialize(initParams);
 
         address tokenAddress = address(newProperty);
         console.log("Created property token at address:", tokenAddress);

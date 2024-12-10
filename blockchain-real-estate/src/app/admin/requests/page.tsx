@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount, useContractRead } from 'wagmi';
+import { useAccount, useContractRead, useContractWrite } from 'wagmi';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
+import whitelistABI from '@contracts/abis/Whitelist.json';
 import { supabase } from '@/lib/supabase';
 import { Address } from 'viem';
 import { useRouter } from 'next/navigation';
@@ -14,6 +15,7 @@ import { PropertyRequest } from '@/types/property';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDistanceToNow } from 'date-fns';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function AdminRequests() {
   const [requests, setRequests] = useState<PropertyRequest[]>([]);
@@ -28,6 +30,19 @@ export default function AdminRequests() {
   const [mapCenter, setMapCenter] = useState({ lat: 0, lng: 0 });
   const [geocodedLocations, setGeocodedLocations] = useState<Map<string, { lat: number; lng: number }>>(new Map());
   const [selectedKYC, setSelectedKYC] = useState<any>(null);
+  const { toast } = useToast();
+
+  // Whitelist contract configuration
+  const whitelistContract = {
+    address: process.env.NEXT_PUBLIC_WHITELIST_ADDRESS as `0x${string}`,
+    abi: whitelistABI.abi,
+  };
+
+  // Setup contract write for whitelist
+  const { write: addToWhitelist } = useContractWrite({
+    ...whitelistContract,
+    functionName: 'addToWhitelist',
+  });
 
   // Calculate pagination values
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -136,6 +151,66 @@ export default function AdminRequests() {
     geocodeLocations();
   }, [requests, indexOfFirstItem, indexOfLastItem]);
 
+  async function handleKYCValidation(kycId: string, status: 'approved' | 'rejected') {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('kyc_submissions')
+        .update({ status: status, validated_at: new Date().toISOString() })
+        .eq('id', kycId);
+
+      if (error) throw error;
+
+      // Get the KYC submission to get the wallet address
+      const { data: kycData, error: kycError } = await supabase
+        .from('kyc_submissions')
+        .select('wallet_address')
+        .eq('id', kycId)
+        .single();
+
+      if (kycError) throw kycError;
+
+      // If approving, add the address to the whitelist
+      if (status === 'approved' && kycData?.wallet_address && addToWhitelist) {
+        try {
+          addToWhitelist({
+            args: [kycData.wallet_address as `0x${string}`],
+          });
+
+          console.log('Added to whitelist:', kycData.wallet_address);
+        } catch (contractError) {
+          console.error('Error adding to whitelist:', contractError);
+          toast({
+            title: "Whitelist Error",
+            description: "Failed to add address to whitelist",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // Update local state
+      setKYCSubmissions(prev => 
+        prev.map(kyc => 
+          kyc.id === kycId ? { ...kyc, status: status, validated_at: new Date().toISOString() } : kyc
+        )
+      );
+
+      // Close the modal if open
+      setSelectedKYC(null);
+
+      toast({
+        title: "Success",
+        description: `KYC ${status} successfully${status === 'approved' ? ' and added to whitelist' : ''}`,
+      });
+    } catch (err) {
+      console.error('Error updating KYC status:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update KYC status');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // Add pagination handlers
   const handleNextPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
@@ -155,33 +230,6 @@ export default function AdminRequests() {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
-
-  async function handleKYCValidation(kycId: string, status: 'approved' | 'rejected') {
-    try {
-      setLoading(true);
-      const { error } = await supabase
-        .from('kyc_submissions')
-        .update({ status: status, validated_at: new Date().toISOString() })
-        .eq('id', kycId);
-
-      if (error) throw error;
-
-      // Update local state
-      setKYCSubmissions(prev => 
-        prev.map(kyc => 
-          kyc.id === kycId ? { ...kyc, status: status, validated_at: new Date().toISOString() } : kyc
-        )
-      );
-
-      // Close the modal if open
-      setSelectedKYC(null);
-    } catch (err) {
-      console.error('Error updating KYC status:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update KYC status');
-    } finally {
-      setLoading(false);
-    }
-  }
 
   // Early return for non-mounted state
   if (!mounted) {

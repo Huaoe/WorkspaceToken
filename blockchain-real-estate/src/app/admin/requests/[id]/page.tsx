@@ -17,7 +17,7 @@ import { ClientOnly } from './components/ClientOnly';
 import { useAccount, usePublicClient, useWalletClient, useSwitchChain, useReadContract } from "wagmi";
 import propertyFactoryJSON from '@contracts/abis/PropertyFactory.json';
 import { type Abi } from 'viem';
-import { parseUnits } from 'viem';
+import { parseUnits, formatUnits } from 'viem';
 import { decodeEventLog } from 'viem';
 import { StakingInitButton } from './components/StakingInitButton';
 
@@ -118,6 +118,7 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
 
       // Convert and validate price
       const priceValue = convertPriceToTokens(formData.expected_price);
+      const totalSupply = parseUnits(formData.number_of_tokens.toString(), 18);
       
       console.log('Starting token creation with:', {
         contractAddress,
@@ -126,9 +127,9 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
         location,
         imageUrl,
         price: priceValue.toString(),
+        totalSupply: formatUnits(totalSupply, 18),
         walletAddress: address,
         nonce,
-        
       });
 
       // First simulate the transaction
@@ -142,6 +143,7 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
           location,
           imageUrl,
           priceValue,
+          totalSupply,
           formData.token_name,
           formData.token_symbol
         ],

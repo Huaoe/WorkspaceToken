@@ -2,14 +2,16 @@ import { http, createConfig, Chain } from 'wagmi';
 import { hardhat } from 'viem/chains';
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 
-if (!process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID) {
+const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID;
+
+if (!projectId) {
   throw new Error('Missing NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID');
 }
 
 // Define our own Hardhat chain to ensure correct chain ID
 const hardhatChain: Chain = {
   ...hardhat,
-  id: 31337,  // Remove underscore
+  id: 31337,
   name: 'Hardhat',
   network: 'hardhat',
   nativeCurrency: {
@@ -25,9 +27,10 @@ const hardhatChain: Chain = {
 
 export const config = getDefaultConfig({
   appName: 'Blockchain Real Estate',
-  projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID,
-  chains: [hardhatChain],  // Use our custom chain
+  projectId,
+  chains: [hardhatChain],
   transports: {
-    [hardhatChain.id]: http(),  // Use the correct chain ID
+    [hardhatChain.id]: http(),
   },
+  ssr: true // Enable server-side rendering support
 });

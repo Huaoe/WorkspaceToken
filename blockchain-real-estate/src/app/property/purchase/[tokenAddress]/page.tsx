@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { useAccount, usePublicClient, useWalletClient, useChainId } from "wagmi";
+import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,6 @@ export default function PurchaseProperty() {
   const { tokenAddress } = useParams();
   const { address, isConnected } = useAccount();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
   const [propertyDetails, setPropertyDetails] =
     useState<PropertyRequest | null>(null);
   const [tokenAmount, setTokenAmount] = useState("");
@@ -40,28 +39,11 @@ export default function PurchaseProperty() {
   const supabase = createClientComponentClient<Database>();
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
-  const chainId: number = useChainId();
-
-  const calculateRequiredEURCAmount = (tokenAmount: string): bigint => {
-    if (!onChainDetails?.price) {
-      throw new Error("Property price not available");
-    }
-    const tokenAmountBigInt = parseUnits(tokenAmount, 18);
-    const priceInEurc = BigInt(onChainDetails.price);
-    // Calculate EURC amount: (tokenAmount * price) / 10^18
-    const eurcAmount = (tokenAmountBigInt * priceInEurc) / BigInt(10 ** 18);
-    // Convert to EURC decimals (6)
-    return parseUnits(formatUnits(eurcAmount, 6), 6);
-  };
-
-  const eurcContract = {
-    address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
-    abi: mockEURCABI,
-  };
+  const [purchaseLoading, setPurchaseLoading] = useState(false);
+  const [sellLoading, setSellLoading] = useState(false);
 
   const fetchPropertyDetails = async () => {
     if (!address || !tokenAddress) return;
-    setLoading(true);
     try {
       // Fetch on-chain data first
       const propertyContract = {
@@ -69,14 +51,19 @@ export default function PurchaseProperty() {
         abi: propertyTokenABI,
       };
 
+      const eurcContract = {
+        address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
+        abi: mockEURCABI,
+      };
+
       const [
         tokenName,
         tokenSymbol,
         totalSupply,
+        owner,
         userBalance,
         userEurcBalance,
         userEurcAllowance,
-        remainingTokens,
         price,
       ] = await Promise.all([
         publicClient.readContract({
@@ -90,6 +77,10 @@ export default function PurchaseProperty() {
         publicClient.readContract({
           ...propertyContract,
           functionName: "totalSupply",
+        }),
+        publicClient.readContract({
+          ...propertyContract,
+          functionName: "owner",
         }),
         publicClient.readContract({
           ...propertyContract,
@@ -108,18 +99,37 @@ export default function PurchaseProperty() {
         }),
         publicClient.readContract({
           ...propertyContract,
-          functionName: "getTotalCirculatingBalance",
-        }),
-        publicClient.readContract({
-          ...propertyContract,
           functionName: "getPrice",
         }),
       ]);
-      console.log("Your balanace:", userBalance);
-      console.log("Remaining tokens:", remainingTokens);
 
-      // Calculate remaining tokens available for purchase (total - circulating)
-      const remaining = Number(formatUnits(remainingTokens, 0));
+      // After getting the owner, fetch their balance
+      const ownerBalance = await publicClient.readContract({
+        ...propertyContract,
+        functionName: "balanceOf",
+        args: [owner],
+      });
+
+      setOnChainDetails({
+        name: tokenName,
+        symbol: tokenSymbol,
+        totalSupply,
+        owner,
+        price,
+      });
+
+      console.log("Fetched balances:", {
+        userBalance: formatUnits(userBalance, 18),
+        userEurcBalance: formatUnits(userEurcBalance, 6),
+        userEurcAllowance: formatUnits(userEurcAllowance, 6),
+        ownerBalance: formatUnits(ownerBalance, 18),
+        price: formatUnits(price, 6),
+      });
+
+      setTokenBalance(userBalance);
+      setEurcBalance(userEurcBalance);
+      setEurcAllowance(userEurcAllowance);
+      setRemainingTokens(ownerBalance);
 
       // Try to fetch Supabase data, but don't fail if it's not available
       try {
@@ -144,7 +154,7 @@ export default function PurchaseProperty() {
             expected_price: Number(formatUnits(price, 6)),
             latitude: 0,
             longitude: 0,
-            status: "funding",
+            status: "live",
             token_address: tokenAddress as string,
           });
         }
@@ -162,22 +172,10 @@ export default function PurchaseProperty() {
           expected_price: Number(formatUnits(price, 6)),
           latitude: 0,
           longitude: 0,
-          status: "funding",
+          status: "live",
           token_address: tokenAddress as string,
         });
       }
-
-      setOnChainDetails({
-        name: tokenName,
-        symbol: tokenSymbol,
-        totalSupply: totalSupply,
-        price: price,
-      });
-
-      setTokenBalance(formatUnits(userBalance, 18));
-      setEurcBalance(userEurcBalance);
-      setEurcAllowance(userEurcAllowance);
-      setRemainingTokens(formatUnits(remainingTokens, 18));
     } catch (error) {
       console.error("Error fetching details:", error);
       toast({
@@ -185,8 +183,6 @@ export default function PurchaseProperty() {
         description: "Failed to fetch token details",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -275,7 +271,6 @@ export default function PurchaseProperty() {
       return;
     }
 
-    setLoading(true);
     try {
       // Calculate EURC amount needed (considering 6 decimals for EURC)
       const tokenAmountBigInt = parseUnits(tokenAmount, 18);
@@ -285,167 +280,28 @@ export default function PurchaseProperty() {
       // Convert to EURC decimals (6)
       const eurcAmountWithDecimals = parseUnits(formatUnits(eurcAmount, 6), 6);
 
-      console.log("=== EURC Debug Information ===");
-      console.log("Contract Addresses:", {
-        eurcAddress: eurcContract.address,
-        tokenAddress: tokenAddress,
-        userAddress: address,
-        eurcAddressFromEnv: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS,
-      });
-
-      console.log("Amount Calculations:", {
+      console.log("Debug - Approval calculation:", {
         tokenAmount,
-        tokenAmountInWei: tokenAmountBigInt.toString(),
-        pricePerToken: formatUnits(priceInEurc, 6),
-        calculatedEurcAmount: formatUnits(eurcAmount, 6),
-        finalEurcAmount: formatUnits(eurcAmountWithDecimals, 6),
-        rawEurcAmount: eurcAmountWithDecimals.toString(),
+        tokenAmountBigInt: tokenAmountBigInt.toString(),
+        price: priceInEurc.toString(),
+        calculatedEurcAmount: eurcAmount.toString(),
+        calculatedEurcFormatted: formatUnits(eurcAmount, 6),
+        eurcAmountWithDecimals: eurcAmountWithDecimals.toString(),
+        eurcAmountWithDecimalsFormatted: formatUnits(eurcAmountWithDecimals, 6),
       });
 
-      // First check EURC balance
-      const balance = await publicClient.readContract({
-        ...eurcContract,
-        functionName: "balanceOf",
-        args: [address],
+      const { request } = await publicClient.simulateContract({
+        address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
+        abi: mockEURCABI,
+        functionName: "approve",
+        args: [tokenAddress as `0x${string}`, eurcAmountWithDecimals],
+        account: address,
       });
 
-      console.log("EURC Balance Check:", {
-        currentBalance: formatUnits(balance, 6),
-        requiredAmount: formatUnits(eurcAmountWithDecimals, 6),
-        hasEnoughBalance: balance >= eurcAmountWithDecimals,
-        rawBalance: balance.toString(),
-        rawRequired: eurcAmountWithDecimals.toString(),
-      });
+      // Execute the transaction
+      const hash = await walletClient.writeContract(request);
+      await publicClient.waitForTransactionReceipt({ hash });
 
-      if (balance < eurcAmountWithDecimals) {
-        throw new Error(`Insufficient EURC balance. You need ${formatUnits(eurcAmountWithDecimals, 6)} EURC but only have ${formatUnits(balance, 6)} EURC.`);
-      }
-
-      // If allowance is insufficient, request approval
-      if (eurcAllowance < eurcAmountWithDecimals) {
-        try {
-          // First verify contract exists
-          const code = await publicClient.getBytecode({
-            address: eurcContract.address,
-          });
-
-          if (!code) {
-            throw new Error(`No contract found at EURC address: ${eurcContract.address}`);
-          }
-
-          // Get the current nonce
-          const nonce = await publicClient.getTransactionCount({
-            address: address!,
-          });
-          
-          console.log('Starting approval process:', {
-            eurcContract: eurcContract.address,
-            spender: tokenAddress,
-            amount: formatUnits(eurcAmountWithDecimals, 6),
-            owner: address,
-            nonce
-          });
-
-          try {
-            // First check our balance
-            const balance = await publicClient.readContract({
-              address: eurcContract.address,
-              abi: mockEURCABI,
-              functionName: "balanceOf",
-              args: [address],
-            });
-
-            console.log("EURC balance check:", {
-              balance: formatUnits(balance, 6),
-              needed: formatUnits(eurcAmountWithDecimals, 6),
-              hasEnough: balance >= eurcAmountWithDecimals
-            });
-
-            if (balance < eurcAmountWithDecimals) {
-              throw new Error(`Insufficient EURC balance. You need ${formatUnits(eurcAmountWithDecimals, 6)} EURC but only have ${formatUnits(balance, 6)} EURC`);
-            }
-
-            // First simulate the transaction
-            const { request } = await publicClient.simulateContract({
-              address: eurcContract.address,
-              abi: mockEURCABI,
-              functionName: "approve",
-              args: [tokenAddress, eurcAmountWithDecimals],
-              account: address
-            });
-
-            console.log('Simulation successful, executing transaction...');
-
-            // Execute the transaction with explicit nonce
-            const hash = await walletClient.writeContract({
-              ...request,
-              nonce
-            });
-            
-            console.log('Approval transaction submitted:', {
-              hash,
-              nonce
-            });
-
-            // Wait for confirmation
-            const receipt = await publicClient.waitForTransactionReceipt({ 
-              hash,
-              timeout: 30_000,
-              retryDelay: 2_000
-            });
-
-            console.log('Transaction receipt:', {
-              status: receipt.status,
-              blockNumber: receipt.blockNumber,
-              gasUsed: receipt.gasUsed.toString()
-            });
-
-            if (receipt.status !== "success") {
-              throw new Error("Transaction failed");
-            }
-
-            // Add a small delay after approval
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Verify the new allowance
-            const newAllowance = await publicClient.readContract({
-              address: eurcContract.address,
-              abi: mockEURCABI,
-              functionName: "allowance",
-              args: [address, tokenAddress],
-            });
-
-            console.log("Post-approval state:", {
-              allowance: formatUnits(newAllowance, 6),
-              rawAllowance: newAllowance.toString(),
-              requiredAmount: formatUnits(eurcAmountWithDecimals, 6),
-              rawRequired: eurcAmountWithDecimals.toString(),
-              isEnough: newAllowance >= eurcAmountWithDecimals
-            });
-
-            if (newAllowance < eurcAmountWithDecimals) {
-              throw new Error("Approval was successful but allowance is still insufficient");
-            }
-
-          } catch (error: any) {
-            console.error("Approval transaction failed:", {
-              error: error.message,
-              code: error.code,
-              data: error.data
-            });
-            throw error;
-          }
-
-        } catch (approvalError: any) {
-          console.error("EURC Approval Error:", {
-            error: approvalError,
-            message: approvalError.message,
-            code: approvalError.code,
-            details: approvalError.details
-          });
-          throw new Error(`Failed to approve EURC: ${approvalError.message}`);
-        }
-      }
       await fetchPropertyDetails();
       toast({
         title: "Success",
@@ -458,359 +314,264 @@ export default function PurchaseProperty() {
         description: error.message || "Failed to approve EURC",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  const purchaseTokens = async (tokenAmount: string) => {
-    if (!walletClient || !isConnected || !address) {
-      console.error("Purchase failed: Wallet not connected", {
-        walletClient: !!walletClient,
-        isConnected,
-        address
+  const purchaseTokens = async () => {
+    console.log("\n=== Starting purchaseTokens ===");
+    console.log("Input validation:", {
+      walletClient: !!walletClient,
+      address,
+      tokenAmount,
+      price: onChainDetails?.price?.toString(),
+    });
+
+    if (!walletClient || !address || !tokenAmount || !onChainDetails?.price) {
+      console.error("Missing required information:", {
+        hasWalletClient: !!walletClient,
+        hasAddress: !!address,
+        hasTokenAmount: !!tokenAmount,
+        hasPrice: !!onChainDetails?.price,
       });
       toast({
         title: "Error",
-        description: "Please connect your wallet",
+        description: "Missing required information for purchase",
         variant: "destructive",
       });
       return;
     }
 
+    setPurchaseLoading(true);
     try {
-      setLoading(true);
-      console.log("Starting purchase process", {
-        tokenAddress,
+      console.log("\nStep 1: Calculate amounts");
+      // Calculate EURC amount needed (price is in EURC with 6 decimals)
+      const priceInWei = BigInt(onChainDetails.price); // price already includes 6 decimals
+      const tokenAmountBigInt = parseUnits(tokenAmount, 18);
+
+      // Calculate required EURC amount: (tokenAmount * price)
+      const calculatedEurcAmount = (tokenAmountBigInt * priceInWei) / BigInt(10 ** 18);
+
+      console.log("Amount calculations: ", {
         tokenAmount,
-        userAddress: address,
-        chainId: chainId,
-        eurcContractAddress: eurcContract.address
+        tokenAmountInWei: tokenAmountBigInt.toString(),
+        pricePerToken: formatUnits(priceInWei, 6),
+        priceInWei: priceInWei.toString(),
+        calculatedEurcAmount: calculatedEurcAmount.toString(),
+        calculatedEurcFormatted: formatUnits(calculatedEurcAmount, 6),
       });
 
-      // Calculate EURC amount needed
-      const eurcAmountWithDecimals = calculateRequiredEURCAmount(tokenAmount);
-      console.log("EURC calculation", {
-        tokenAmount,
-        eurcAmountWithDecimals: eurcAmountWithDecimals.toString(),
-        formattedEURCAmount: formatUnits(eurcAmountWithDecimals, 6)
+      console.log("\nStep 2: Contract addresses");
+      console.log("Addresses:", {
+        tokenContract: tokenAddress,
+        eurcContract: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS,
+        userWallet: address,
       });
 
-      // Check EURC contract state
-      const eurcCode = await publicClient.getBytecode({
-        address: eurcContract.address
+      console.log("\nStep 3: Check EURC allowance");
+      // Check current EURC allowance
+      const currentAllowance = await publicClient.readContract({
+        address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
+        abi: mockEURCABI,
+        functionName: "allowance",
+        args: [address, tokenAddress as `0x${string}`],
       });
-      console.log("EURC contract check", {
-        address: eurcContract.address,
-        hasCode: !!eurcCode,
-        codeLength: eurcCode?.length || 0
+      console.log("EURC allowance check:", {
+        rawAllowance: currentAllowance.toString(),
+        formattedAllowance: formatUnits(currentAllowance, 6),
+        requiredAmount: formatUnits(calculatedEurcAmount, 6),
+        sufficientAllowance: currentAllowance >= calculatedEurcAmount,
       });
 
+      console.log("\nStep 4: Check EURC balance");
       // Check EURC balance
-      const eurcBalance = await publicClient.readContract({
-        address: eurcContract.address,
+      const balance = await publicClient.readContract({
+        address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
         abi: mockEURCABI,
         functionName: "balanceOf",
         args: [address],
       });
-      console.log("EURC balance check", {
-        balance: formatUnits(eurcBalance, 6),
-        required: formatUnits(eurcAmountWithDecimals, 6),
-        hasEnough: eurcBalance >= eurcAmountWithDecimals,
-        rawBalance: eurcBalance.toString(),
-        rawRequired: eurcAmountWithDecimals.toString()
+      console.log("EURC balance check:", {
+        rawBalance: balance.toString(),
+        formattedBalance: formatUnits(balance, 6),
+        requiredAmount: formatUnits(calculatedEurcAmount, 6),
+        sufficientBalance: balance >= calculatedEurcAmount,
       });
 
-      // Check current allowance
-      const allowance = await publicClient.readContract({
-        address: eurcContract.address,
-        abi: mockEURCABI,
-        functionName: "allowance",
-        args: [address, tokenAddress],
-      });
-      console.log("Current EURC allowance", {
-        allowance: formatUnits(allowance, 6),
-        required: formatUnits(eurcAmountWithDecimals, 6),
-        isEnough: allowance >= eurcAmountWithDecimals,
-        rawAllowance: allowance.toString(),
-        spender: tokenAddress
-      });
+      // First approve EURC spending if needed
+      if (currentAllowance < calculatedEurcAmount) {
+        console.log("\nStep 5: Approve EURC spending");
+        console.log("Need to approve EURC:", {
+          currentAllowance: formatUnits(currentAllowance, 6),
+          neededAmount: formatUnits(calculatedEurcAmount, 6),
+          difference: formatUnits(calculatedEurcAmount - currentAllowance, 6),
+        });
 
-      // If allowance is insufficient, request approval
-      if (allowance < eurcAmountWithDecimals) {
-        try {
-          // First verify contract exists
-          const code = await publicClient.getBytecode({
-            address: eurcContract.address,
+        // Get the current nonce
+        const nonce = await publicClient.getTransactionCount({
+          address: address as `0x${string}`,
+        });
+        
+        console.log('Current nonce:', nonce);
+
+        // First simulate the approval transaction
+        const { request } = await publicClient.simulateContract({
+          address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
+          abi: mockEURCABI,
+          functionName: "approve",
+          args: [tokenAddress as `0x${string}`, calculatedEurcAmount],
+          account: address as `0x${string}`,
+        });
+
+        console.log("Approval simulation successful:", {
+          spender: tokenAddress,
+          amount: formatUnits(calculatedEurcAmount, 6),
+          rawAmount: calculatedEurcAmount.toString(),
+          nonce,
+        });
+
+        // Execute the transaction with explicit nonce
+        const hash = await walletClient.writeContract({
+          ...request,
+          address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
+          nonce,
+        });
+        
+        console.log("Approval transaction submitted:", { hash });
+
+        // Wait for transaction confirmation with timeout
+        const receipt = await publicClient.waitForTransactionReceipt({ 
+          hash,
+          timeout: 60_000,
+        });
+        
+        console.log("Approval transaction confirmed:", { 
+          status: receipt.status,
+          blockNumber: receipt.blockNumber,
+          gasUsed: receipt.gasUsed.toString(),
+        });
+
+        // Verify the new allowance
+        let retries = 0;
+        let newAllowance;
+        while (retries < 5) {
+          newAllowance = await publicClient.readContract({
+            address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
+            abi: mockEURCABI,
+            functionName: "allowance",
+            args: [address, tokenAddress as `0x${string}`],
+          });
+          console.log("Allowance check attempt", retries + 1, ":", {
+            rawAllowance: newAllowance.toString(),
+            formattedAllowance: formatUnits(newAllowance, 6),
+            requiredAmount: formatUnits(calculatedEurcAmount, 6),
+            sufficient: newAllowance >= calculatedEurcAmount,
           });
 
-          if (!code) {
-            console.error("EURC contract not found", {
-              address: eurcContract.address,
-              chainId: chainId ?? 'Unknown'
-            });
-            throw new Error(`No contract found at EURC address: ${eurcContract.address}`);
+          if (newAllowance >= calculatedEurcAmount) {
+            console.log("Sufficient allowance verified");
+            break;
           }
 
-          // Get the current nonce
-          const nonce = await publicClient.getTransactionCount({
-            address: address!,
+          retries++;
+          console.log("Waiting 2 seconds before next check...");
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+
+        if (!newAllowance || newAllowance < calculatedEurcAmount) {
+          console.error("Failed to increase allowance:", {
+            currentAllowance: formatUnits(newAllowance || 0n, 6),
+            requiredAmount: formatUnits(calculatedEurcAmount, 6),
+            difference: formatUnits((calculatedEurcAmount - (newAllowance || 0n)), 6),
           });
-          
-          console.log('Starting approval process:', {
-            eurcContract: eurcContract.address,
-            spender: tokenAddress,
-            amount: formatUnits(eurcAmountWithDecimals, 6),
-            owner: address,
-            nonce,
-            chainId: chainId ?? 'Unknown'
-          });
-
-          try {
-            // First check our balance
-            const balance = await publicClient.readContract({
-              address: eurcContract.address,
-              abi: mockEURCABI,
-              functionName: "balanceOf",
-              args: [address],
-            });
-
-            console.log("EURC balance check before approval:", {
-              balance: formatUnits(balance, 6),
-              needed: formatUnits(eurcAmountWithDecimals, 6),
-              hasEnough: balance >= eurcAmountWithDecimals,
-              rawBalance: balance.toString(),
-              rawNeeded: eurcAmountWithDecimals.toString()
-            });
-
-            if (balance < eurcAmountWithDecimals) {
-              throw new Error(`Insufficient EURC balance. You need ${formatUnits(eurcAmountWithDecimals, 6)} EURC but only have ${formatUnits(balance, 6)} EURC`);
-            }
-
-            console.log("Starting approval simulation");
-            // First simulate the transaction
-            const { request } = await publicClient.simulateContract({
-              address: eurcContract.address,
-              abi: mockEURCABI,
-              functionName: "approve",
-              args: [tokenAddress, eurcAmountWithDecimals],
-              account: address
-            });
-
-            console.log('Approval simulation successful:', {
-              request,
-              gasEstimate: request.gas?.toString()
-            });
-
-            // Execute the transaction with explicit nonce
-            const hash = await walletClient.writeContract({
-              ...request,
-              nonce
-            });
-            
-            console.log('Approval transaction submitted:', {
-              hash,
-              nonce,
-              chainId: chainId ?? 'Unknown'
-            });
-
-            // Wait for confirmation
-            console.log("Waiting for approval confirmation...");
-            const receipt = await publicClient.waitForTransactionReceipt({ 
-              hash,
-              timeout: 30_000,
-              retryDelay: 2_000
-            });
-
-            console.log('Approval transaction receipt:', {
-              status: receipt.status,
-              blockNumber: receipt.blockNumber,
-              gasUsed: receipt.gasUsed.toString(),
-              transactionHash: receipt.transactionHash,
-              blockHash: receipt.blockHash,
-              logs: receipt.logs
-            });
-
-            if (receipt.status !== "success") {
-              throw new Error("Approval transaction failed");
-            }
-
-            // Add a small delay after approval
-            console.log("Adding delay after approval...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Verify the new allowance
-            const newAllowance = await publicClient.readContract({
-              address: eurcContract.address,
-              abi: mockEURCABI,
-              functionName: "allowance",
-              args: [address, tokenAddress],
-            });
-
-            console.log("Post-approval allowance check:", {
-              allowance: formatUnits(newAllowance, 6),
-              rawAllowance: newAllowance.toString(),
-              requiredAmount: formatUnits(eurcAmountWithDecimals, 6),
-              rawRequired: eurcAmountWithDecimals.toString(),
-              isEnough: newAllowance >= eurcAmountWithDecimals,
-              spender: tokenAddress
-            });
-
-            if (newAllowance < eurcAmountWithDecimals) {
-              throw new Error("Approval was successful but allowance is still insufficient");
-            }
-
-          } catch (error: any) {
-            console.error("Approval transaction failed:", {
-              error: error.message,
-              code: error.code,
-              data: error.data,
-              chainId: chainId ?? 'Unknown',
-              nonce
-            });
-            throw error;
-          }
-
-        } catch (approvalError: any) {
-          console.error("EURC Approval Error:", {
-            error: approvalError,
-            message: approvalError.message,
-            code: approvalError.code,
-            details: approvalError.details,
-            chainId: chainId ?? 'Unknown'
-          });
-          throw new Error(`Failed to approve EURC: ${approvalError.message}`);
+          throw new Error("Failed to increase EURC allowance");
         }
       }
 
-      // Get a fresh nonce for the purchase transaction
-      const purchaseNonce = await publicClient.getTransactionCount({
-        address: address!,
-      });
-
-      console.log('Starting token purchase:', {
-        tokenAddress,
-        amount: tokenAmount,
-        eurcAmount: formatUnits(eurcAmountWithDecimals, 6),
-        nonce: purchaseNonce,
-        chainId: chainId ?? 'Unknown'
-      });
-
-      // Check property token contract
-      const propertyCode = await publicClient.getBytecode({
-        address: tokenAddress
-      });
-      console.log("Property token contract check", {
-        address: tokenAddress,
-        hasCode: !!propertyCode,
-        codeLength: propertyCode?.length || 0
-      });
-
-      console.log("Starting purchase simulation");
+      console.log("\nStep 7: Purchase tokens");
       // Simulate the purchase transaction
-      const { request } = await publicClient.simulateContract({
-        address: tokenAddress,
+      const { request: purchaseRequest } = await publicClient.simulateContract({
+        address: tokenAddress as `0x${string}`,
         abi: propertyTokenABI,
         functionName: "purchaseTokens",
-        args: [parseUnits(tokenAmount, 18)],
-        account: address,
+        args: [tokenAmountBigInt],
+        account: address as `0x${string}`,
       });
 
-      console.log('Purchase simulation successful:', {
-        request,
-        gasEstimate: request.gas?.toString()
+      console.log("Purchase simulation successful:", {
+        tokenAmount: formatUnits(tokenAmountBigInt, 18),
+        eurcAmount: formatUnits(calculatedEurcAmount, 6),
+        contract: tokenAddress,
+        args: purchaseRequest.args.map((arg) =>
+          typeof arg === "bigint" ? formatUnits(arg, 18) : arg
+        ),
       });
+
+      console.log("\nStep 8: Submit purchase transaction");
+      
+      // Get the current nonce
+      const purchaseNonce = await publicClient.getTransactionCount({
+        address: address as `0x${string}`,
+      });
+      
+      console.log('Purchase nonce:', purchaseNonce);
 
       // Execute the purchase with explicit nonce
       const purchaseHash = await walletClient.writeContract({
-        ...request,
-        nonce: purchaseNonce
-      });
-
-      console.log('Purchase transaction submitted:', {
-        hash: purchaseHash,
+        ...purchaseRequest,
+        address: tokenAddress as `0x${string}`,
         nonce: purchaseNonce,
-        chainId: chainId ?? 'Unknown'
       });
 
-      // Wait for purchase confirmation
-      console.log("Waiting for purchase confirmation...");
-      const purchaseReceipt = await publicClient.waitForTransactionReceipt({
+      console.log("Purchase transaction submitted:", { hash: purchaseHash });
+
+      const purchaseReceipt = await publicClient.waitForTransactionReceipt({ 
         hash: purchaseHash,
-        timeout: 30_000,
-        retryDelay: 2_000
+        timeout: 60_000,
       });
 
-      console.log('Purchase transaction receipt:', {
+      console.log("Purchase transaction confirmed:", { 
         status: purchaseReceipt.status,
         blockNumber: purchaseReceipt.blockNumber,
         gasUsed: purchaseReceipt.gasUsed.toString(),
-        transactionHash: purchaseReceipt.transactionHash,
-        blockHash: purchaseReceipt.blockHash,
-        logs: purchaseReceipt.logs
       });
 
       if (purchaseReceipt.status !== "success") {
         throw new Error("Purchase transaction failed");
       }
 
-      // Final balance checks
-      const finalEURCBalance = await publicClient.readContract({
-        address: eurcContract.address,
-        abi: mockEURCABI,
-        functionName: "balanceOf",
-        args: [address],
-      });
-
-      const finalTokenBalance = await publicClient.readContract({
-        address: tokenAddress,
-        abi: propertyTokenABI,
-        functionName: "balanceOf",
-        args: [address],
-      });
-
-      console.log("Final balances after purchase:", {
-        eurcBalance: formatUnits(finalEURCBalance, 6),
-        tokenBalance: formatUnits(finalTokenBalance, 18),
-        rawEURCBalance: finalEURCBalance.toString(),
-        rawTokenBalance: finalTokenBalance.toString()
-      });
-
+      console.log("\nStep 10: Update UI state");
+      await fetchPropertyDetails();
+      setTokenAmount("");
       toast({
         title: "Success",
-        description: `Successfully purchased ${tokenAmount} tokens`,
+        description: "Tokens purchased successfully",
       });
-
-      // Refresh token holders and balances
-      console.log("Refreshing UI data...");
-      await Promise.all([
-        fetchPropertyDetails(),
-        fetchTokenHolders(),
-      ]);
-
+      
+      console.log("=== Purchase completed successfully ===\n");
     } catch (error: any) {
-      console.error("Purchase error:", {
-        error: error.message,
+      console.error("\n=== Purchase failed ===");
+      console.error("Error details:", {
+        message: error.message,
         code: error.code,
-        data: error.data,
-        chainId: chainId ?? 'Unknown',
-        tokenAddress,
-        eurcAddress: eurcContract.address
+        name: error.name,
       });
+      if (error.cause) console.error("Error cause:", error.cause);
+      if (error.data) console.error("Error data:", error.data);
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to purchase tokens",
+        description: error.message || "Failed to purchase tokens. Check console for details.",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setPurchaseLoading(false);
     }
   };
 
   const sellTokens = async () => {
     if (!walletClient || !tokenAddress || !tokenAmount) return;
+    setSellLoading(true);
     try {
-      setLoading(true);
       const hash = await walletClient.writeContract({
         address: tokenAddress as `0x${string}`,
         abi: propertyTokenABI,
@@ -832,20 +593,12 @@ export default function PurchaseProperty() {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setSellLoading(false);
     }
   };
 
   return (
-    <div className="container mx-auto py-8 px-4 relative">
-      {loading && (
-        <div className="fixed top-4 right-4 bg-white rounded-lg shadow-lg p-4 z-50">
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
-            <span className="text-sm text-gray-600">Loading...</span>
-          </div>
-        </div>
-      )}
+    <div className="container mx-auto py-8">
       <Card className="w-full max-w-4xl mx-auto">
         <CardHeader>
           <CardTitle>Purchase Property Tokens</CardTitle>
@@ -865,7 +618,7 @@ export default function PurchaseProperty() {
                   {tokenAddress as string}
                 </div>
               </div>
-
+             
               <div className="flex flex-col md:flex-row gap-6">
                 {/* Property Image */}
                 <div className="w-full md:w-1/2 relative">
@@ -939,8 +692,7 @@ export default function PurchaseProperty() {
                             Total Supply
                           </span>
                           <span className="font-semibold text-purple-600">
-                            {formatUnits(onChainDetails?.totalSupply || 0n, 18)}{" "}
-                            Tokens
+                            {Number(formatUnits(onChainDetails?.totalSupply || 0n, 18)).toLocaleString()} Tokens
                           </span>
                         </div>
                       </div>
@@ -950,7 +702,7 @@ export default function PurchaseProperty() {
                             Available Tokens
                           </span>
                           <span className="font-semibold text-green-600">
-                            {remainingTokens.toString()} Tokens
+                            {Number(formatUnits(remainingTokens, 18)).toLocaleString()} Tokens
                           </span>
                         </div>
                       </div>
@@ -960,7 +712,7 @@ export default function PurchaseProperty() {
                             Your Balance
                           </span>
                           <span className="font-semibold text-green-600">
-                            {tokenBalance.toString()} Tokens
+                            {Number(formatUnits(tokenBalance, 18)).toLocaleString()} Tokens
                           </span>
                         </div>
                       </div>
@@ -999,7 +751,7 @@ export default function PurchaseProperty() {
                             }
                             placeholder="Enter number of tokens"
                             className="w-full border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                            disabled={loading}
+                            disabled={purchaseLoading}
                           />
                           <div className="flex justify-between items-center text-sm">
                             <span className="text-gray-600">Total Cost:</span>
@@ -1013,11 +765,11 @@ export default function PurchaseProperty() {
                       {/* Action Buttons */}
                       <div className="flex gap-3 pt-4">
                         <Button
-                          onClick={() => purchaseTokens(tokenAmount)}
-                          disabled={loading || !tokenAmount}
+                          onClick={purchaseTokens}
+                          disabled={purchaseLoading || !tokenAmount}
                           className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white transition-all duration-200"
                         >
-                          {loading ? (
+                          {purchaseLoading ? (
                             <div className="flex items-center gap-2">
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                               <span>Processing...</span>
@@ -1045,7 +797,7 @@ export default function PurchaseProperty() {
                             {holder.address}
                           </p>
                           <p className="text-lg font-bold mt-1">
-                            {formatUnits(holder.balance, 18)} tokens
+                            {Number(formatUnits(holder.balance, 18)).toLocaleString()} tokens
                           </p>
                         </div>
                         {holder.address.toLowerCase() ===

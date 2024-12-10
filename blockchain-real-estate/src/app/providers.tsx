@@ -8,13 +8,14 @@ import { Toaster } from '@/components/ui/toaster';
 import '@rainbow-me/rainbowkit/styles.css';
 import { WalletEventsProvider } from './wallet-events-provider';
 
+// Create a client
 const queryClient = new QueryClient();
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
+        <RainbowKitProvider chains={config.chains}>
           <WalletEventsProvider>
             {children}
             <Toaster />

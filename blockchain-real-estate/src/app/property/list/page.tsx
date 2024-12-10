@@ -230,7 +230,7 @@ export default function PropertyList() {
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold">Properties</h1>
             {isAdmin && (
-              <Link href="/property/create">
+              <Link href="/property/request">
                 <Button>Create Property</Button>
               </Link>
             )}

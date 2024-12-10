@@ -1,43 +1,61 @@
 {
-  "address": "0x82e01223d51Eb87e16A03E24687EDF0F294da6f1",
   "abi": [
     {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_rewardsToken",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "initialOwner",
-          "type": "address"
-        }
-      ],
+      "inputs": [],
       "stateMutability": "nonpayable",
       "type": "constructor"
     },
     {
+      "anonymous": false,
       "inputs": [
         {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        }
-      ],
-      "name": "OwnableInvalidOwner",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
+          "indexed": true,
           "internalType": "address",
           "name": "account",
           "type": "address"
         }
       ],
-      "name": "OwnableUnauthorizedAccount",
-      "type": "error"
+      "name": "AddressRemovedFromWhitelist",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "AddressWhitelisted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address[]",
+          "name": "accounts",
+          "type": "address[]"
+        }
+      ],
+      "name": "BatchWhitelistAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address[]",
+          "name": "accounts",
+          "type": "address[]"
+        }
+      ],
+      "name": "BatchWhitelistRemoved",
+      "type": "event"
     },
     {
       "anonymous": false,
@@ -59,56 +77,34 @@
       "type": "event"
     },
     {
-      "anonymous": false,
       "inputs": [
         {
-          "indexed": true,
-          "internalType": "address",
-          "name": "propertyToken",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "stakingRewards",
-          "type": "address"
+          "internalType": "address[]",
+          "name": "accounts",
+          "type": "address[]"
         }
       ],
-      "name": "StakingRewardsCreated",
-      "type": "event"
+      "name": "addBatchToWhitelist",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
     },
     {
       "inputs": [
         {
           "internalType": "address",
-          "name": "propertyToken",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "rewardsDuration",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "rewardsAmount",
-          "type": "uint256"
-        }
-      ],
-      "name": "createStakingRewards",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
+          "name": "account",
           "type": "address"
         }
       ],
+      "name": "addToWhitelist",
+      "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
     },
     {
       "inputs": [],
-      "name": "getAllStakingContracts",
+      "name": "getWhitelistedAddresses",
       "outputs": [
         {
           "internalType": "address[]",
@@ -121,7 +117,7 @@
     },
     {
       "inputs": [],
-      "name": "getStakingContractsCount",
+      "name": "getWhitelistedCount",
       "outputs": [
         {
           "internalType": "uint256",
@@ -136,16 +132,29 @@
       "inputs": [
         {
           "internalType": "address",
-          "name": "propertyToken",
+          "name": "initialOwner",
           "type": "address"
         }
       ],
-      "name": "getStakingRewards",
-      "outputs": [
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
         {
           "internalType": "address",
-          "name": "",
+          "name": "account",
           "type": "address"
+        }
+      ],
+      "name": "isAddressWhitelisted",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",
@@ -155,11 +164,11 @@
       "inputs": [
         {
           "internalType": "address",
-          "name": "propertyToken",
+          "name": "",
           "type": "address"
         }
       ],
-      "name": "hasStakingRewards",
+      "name": "isWhitelisted",
       "outputs": [
         {
           "internalType": "bool",
@@ -186,20 +195,27 @@
     {
       "inputs": [
         {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
+          "internalType": "address[]",
+          "name": "accounts",
+          "type": "address[]"
         }
       ],
-      "name": "propertyToStaking",
-      "outputs": [
+      "name": "removeBatchFromWhitelist",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
         {
           "internalType": "address",
-          "name": "",
+          "name": "account",
           "type": "address"
         }
       ],
-      "stateMutability": "view",
+      "name": "removeFromWhitelist",
+      "outputs": [],
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -207,38 +223,6 @@
       "name": "renounceOwnership",
       "outputs": [],
       "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "rewardsToken",
-      "outputs": [
-        {
-          "internalType": "contract IERC20",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "stakingContracts",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -252,6 +236,25 @@
       "name": "transferOwnership",
       "outputs": [],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "whitelistedAddresses",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     }
   ]
