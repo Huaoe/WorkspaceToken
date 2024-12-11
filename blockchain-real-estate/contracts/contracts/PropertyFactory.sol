@@ -2,59 +2,62 @@
 pragma solidity ^0.8.20;
 
 import "./PropertyToken.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "./interfaces/IWhitelist.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "hardhat/console.sol";
 
 /// @title PropertyFactory
-/// @notice Factory contract for creating and managing PropertyToken contracts
-/// @dev Implements upgradeable pattern and access control
-contract PropertyFactory is Initializable, OwnableUpgradeable {
+/// @notice Factory contract for creating new PropertyToken contracts
+contract PropertyFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+    error NotWhitelisted(address account);
+    error NotValidator(address account);
+
     /// @notice Structure containing property token information
     /// @param tokenAddress Address of the PropertyToken contract
-    /// @param isApproved Approval status of the property
+    /// @param isApproved Whether the property has been approved by the validator
     struct PropertyInfo {
         address tokenAddress;
         bool isApproved;
     }
 
-    mapping(address => PropertyInfo[]) public userProperties;
-    mapping(address => bool) public approvedProperties;
-    address[] private propertyCreators;
-    address public eurcTokenAddress;
     string public name;
     string public symbol;
+    address public paymentToken;
     address public admin;
     address public validator;
-    address public paymentToken;
+    address public eurcTokenAddress;
     address public whitelistContract;
-    
-    /// @notice Emitted when a new property is submitted for approval
-    /// @param owner Address of the property owner
-    /// @param tokenAddress Address of the created PropertyToken contract
-    event PropertySubmitted(address indexed owner, address indexed tokenAddress);
-    
-    /// @notice Emitted when a property is approved
-    /// @param tokenAddress Address of the approved PropertyToken contract
-    event PropertyApproved(address indexed tokenAddress);
-    
-    /// @notice Emitted when a property is rejected
-    /// @param tokenAddress Address of the rejected PropertyToken contract
-    event PropertyRejected(address indexed tokenAddress);
-    
-    /// @notice Emitted when the EURC token address is updated
-    /// @param newAddress New address of the EURC token
-    event EURCTokenUpdated(address indexed newAddress);
+
+    PropertyInfo[] public properties;
+    mapping(address => PropertyInfo[]) public userProperties;
+    address[] public propertyCreators;
+
+    event PropertyCreated(
+        address indexed propertyToken,
+        address indexed creator,
+        string title,
+        string location,
+        uint256 price
+    );
+
+    event PropertySubmitted(address indexed creator, address indexed propertyToken);
+    event PropertyApproved(address indexed propertyToken);
+    event PropertyRejected(address indexed propertyToken);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
     /// @notice Initializes the PropertyFactory contract
-    /// @param _name Name prefix for created PropertyTokens
-    /// @param _symbol Symbol prefix for created PropertyTokens
-    /// @param _paymentToken Address of the payment token (EURC)
+    /// @param _name Name of the factory
+    /// @param _symbol Symbol of the factory
+    /// @param _paymentToken Address of the EURC token contract
     /// @param _admin Address of the admin
     /// @param _validator Address of the validator
     /// @param _whitelistContract Address of the whitelist contract
@@ -66,13 +69,7 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         address _validator,
         address _whitelistContract
     ) public initializer {
-        console.log("Initializing PropertyFactory");
-        require(_paymentToken != address(0), "Invalid payment token address");
-        require(_admin != address(0), "Invalid admin address");
-        require(_validator != address(0), "Invalid validator address");
-        require(_whitelistContract != address(0), "Invalid whitelist contract address");
-        
-        __Ownable_init(_admin);
+        __Ownable_init(msg.sender);
         
         name = _name;
         symbol = _symbol;
@@ -90,9 +87,8 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
     /// @param _imageUrl URL of the property image
     /// @param _price Price of the property
     /// @param _totalSupply Total supply of the property
-    /// @param _name Name of the PropertyToken
-    /// @param _symbol Symbol of the PropertyToken
-    /// @return Address of the created PropertyToken contract
+    /// @param _tokenName Name of the token
+    /// @param _tokenSymbol Symbol of the token
     function createProperty(
         string memory _title,
         string memory _description,
@@ -100,33 +96,28 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
         string memory _imageUrl,
         uint256 _price,
         uint256 _totalSupply,
-        string memory _name,
-        string memory _symbol
+        string memory _tokenName,
+        string memory _tokenSymbol
     ) public returns (address) {
-        console.log("Creating * property with title:", _title);
+        console.log("Creating property with title:", _title);
         console.log("Description:", _description);
         console.log("Location:", _location);
         console.log("Image URL:", _imageUrl);
         console.log("Price:", _price);
         console.log("Total Supply:", _totalSupply);
-        console.log("Token Name:", _name);
-        console.log("Token Symbol:", _symbol);
+        console.log("Token Name:", _tokenName);
+        console.log("Token Symbol:", _tokenSymbol);
         console.log("Sender:", msg.sender);
         
-        // Input validation with detailed error messages
-        require(bytes(_title).length > 0, "Title cannot be empty");
-        require(bytes(_description).length > 0, "Description cannot be empty");
-        require(bytes(_location).length > 0, "Location cannot be empty");
-        require(bytes(_imageUrl).length > 0, "Image URL cannot be empty");
-        require(bytes(_name).length > 0, "Token name cannot be empty");
-        require(bytes(_symbol).length > 0, "Token symbol cannot be empty");
-        require(_price > 0, "Price must be greater than 0");
-        require(_totalSupply > 0 && _totalSupply <= 1000000, "Total supply must be between 1 and 1,000,000");
+        // Check if sender is whitelisted first
+        if (!IWhitelist(whitelistContract).isWhitelisted(msg.sender)) {
+            revert NotWhitelisted(msg.sender);
+        }
 
-        // Create new property token with EURC support
+        // Create initialization parameters
         PropertyToken.InitParams memory initParams = PropertyToken.InitParams({
-            name: _name,
-            symbol: _symbol,
+            name: _tokenName,
+            symbol: _tokenSymbol,
             title: _title,
             description: _description,
             location: _location,
@@ -138,126 +129,114 @@ contract PropertyFactory is Initializable, OwnableUpgradeable {
             whitelistContract: whitelistContract
         });
 
-        PropertyToken newProperty = new PropertyToken();
-        newProperty.initialize(initParams);
+        // Deploy new PropertyToken with proxy
+        console.log("Deploying new PropertyToken...");
+        bytes memory initData = abi.encodeWithSelector(
+            PropertyToken.initialize.selector,
+            initParams
+        );
 
-        address tokenAddress = address(newProperty);
-        console.log("Created property token at address:", tokenAddress);
-        
-        // Store property info under the actual creator's address
-        userProperties[msg.sender].push(PropertyInfo({
-            tokenAddress: tokenAddress,
+        PropertyToken propertyToken = new PropertyToken();
+        address proxy = address(new ERC1967Proxy(
+            address(propertyToken),
+            initData
+        ));
+
+        console.log("PropertyToken created at:", proxy);
+
+        // Add property to storage
+        properties.push(PropertyInfo({
+            tokenAddress: proxy,
             isApproved: false
         }));
 
-        // Add creator to list if not already present
-        bool creatorExists = false;
-        for (uint i = 0; i < propertyCreators.length; i++) {
-            if (propertyCreators[i] == msg.sender) {
-                creatorExists = true;
-                break;
-            }
-        }
-        if (!creatorExists) {
-            propertyCreators.push(msg.sender);
-        }
+        userProperties[msg.sender].push(PropertyInfo({
+            tokenAddress: proxy,
+            isApproved: false
+        }));
 
-        // Add logging before event emission
-        console.log("About to emit PropertySubmitted event");
-        console.log("Owner (msg.sender):", msg.sender);
-        console.log("Token Address:", tokenAddress);
+        propertyCreators.push(msg.sender);
+
+        emit PropertyCreated(
+            proxy,
+            msg.sender,
+            _title,
+            _location,
+            _price
+        );
+
+        emit PropertySubmitted(msg.sender, proxy);
         
-        emit PropertySubmitted(msg.sender, tokenAddress);
-        
-        console.log("PropertySubmitted event emitted successfully");
-        return tokenAddress;
+        console.log("Property creation complete");
+        return proxy;
     }
 
-    /// @notice Approves a property
-    /// @param _propertyAddress Address of the property to approve
-    function approveProperty(address _propertyAddress) public onlyOwner {
-        console.log("Approving property. Caller:", msg.sender);
-        console.log("Property address:", _propertyAddress);
-        console.log("Contract owner:", owner());
-        console.log("Number of property creators:", propertyCreators.length);
-        
-        require(_propertyAddress != address(0), "Invalid property address");
-        require(!approvedProperties[_propertyAddress], "Property already approved");
+    /// @notice Approves a property token
+    /// @param propertyToken Address of the property token to approve
+    function approveProperty(address propertyToken) public {
+        if (msg.sender != validator) {
+            revert NotValidator(msg.sender);
+        }
 
-        // Check if the property exists in any user's properties
-        bool propertyFound = false;
-        for (uint i = 0; i < propertyCreators.length; i++) {
-            address creator = propertyCreators[i];
-            console.log("Checking creator:", creator);
-            PropertyInfo[] storage creatorProperties = userProperties[creator];
-            console.log("Creator has", creatorProperties.length, "properties");
-            
-            for (uint j = 0; j < creatorProperties.length; j++) {
-                console.log("Checking property:", creatorProperties[j].tokenAddress);
-                if (creatorProperties[j].tokenAddress == _propertyAddress) {
-                    propertyFound = true;
-                    // Update the approval status in the user's properties
-                    creatorProperties[j].isApproved = true;
-                    break;
+        for (uint256 i = 0; i < properties.length; i++) {
+            if (properties[i].tokenAddress == propertyToken) {
+                properties[i].isApproved = true;
+                
+                // Update in user properties as well
+                address creator = propertyCreators[i];
+                PropertyInfo[] storage userProps = userProperties[creator];
+                for (uint256 j = 0; j < userProps.length; j++) {
+                    if (userProps[j].tokenAddress == propertyToken) {
+                        userProps[j].isApproved = true;
+                        break;
+                    }
                 }
+                
+                emit PropertyApproved(propertyToken);
+                return;
             }
-            if (propertyFound) break;
         }
-        require(propertyFound, "Property not found in any user's properties");
-
-        approvedProperties[_propertyAddress] = true;
-        emit PropertyApproved(_propertyAddress);
+        revert("Property not found");
     }
 
-    /// @notice Rejects a property
-    /// @param _propertyAddress Address of the property to reject
-    function rejectProperty(address _propertyAddress) public onlyOwner {
-        require(_propertyAddress != address(0), "Invalid property address");
-        require(!approvedProperties[_propertyAddress], "Property already approved");
-
-        // Check if the property exists in any user's properties
-        bool propertyFound = false;
-        for (uint i = 0; i < propertyCreators.length; i++) {
-            address creator = propertyCreators[i];
-            PropertyInfo[] storage creatorProperties = userProperties[creator];
-            for (uint j = 0; j < creatorProperties.length; j++) {
-                if (creatorProperties[j].tokenAddress == _propertyAddress) {
-                    propertyFound = true;
-                    break;
-                }
-            }
-            if (propertyFound) break;
-        }
-        require(propertyFound, "Property not found in any user's properties");
-
-        emit PropertyRejected(_propertyAddress);
+    /// @notice Get a human-readable description of a Solidity panic code
+    /// @param code The panic code
+    /// @return A string describing the panic
+    function getPanicReason(uint code) internal pure returns (string memory) {
+        if (code == 0x01) return "Assertion failed";
+        if (code == 0x11) return "Arithmetic overflow/underflow";
+        if (code == 0x12) return "Division or modulo by zero";
+        if (code == 0x21) return "Invalid enum value";
+        if (code == 0x22) return "Storage slot out of bounds";
+        if (code == 0x31) return "Pop on empty array";
+        if (code == 0x32) return "Array index out of bounds";
+        if (code == 0x41) return "Memory allocation failed";
+        if (code == 0x51) return "Zero-initialized variable";
+        return "Unknown panic code";
     }
 
-    /// @notice Gets the approval status of a property
-    /// @param _propertyAddress Address of the property to check
-    /// @return Approval status of the property
-    function getPropertyStatus(address _propertyAddress) public view returns (bool) {
-        return approvedProperties[_propertyAddress];
+    /// @notice Get the total number of properties
+    /// @return The number of properties
+    function getPropertyCount() public view returns (uint256) {
+        return properties.length;
     }
 
-    /// @notice Gets the properties of a user
-    /// @param _user Address of the user
-    /// @return Array of PropertyInfo structs containing the user's properties
-    function getUserProperties(address _user) public view returns (PropertyInfo[] memory) {
-        return userProperties[_user];
+    /// @notice Get all properties
+    /// @return Array of PropertyInfo structs
+    function getAllProperties() public view returns (PropertyInfo[] memory) {
+        return properties;
     }
 
-    /// @notice Gets the list of property creators
+    /// @notice Get properties created by a specific user
+    /// @param user Address of the user
+    /// @return Array of PropertyInfo structs
+    function getUserProperties(address user) public view returns (PropertyInfo[] memory) {
+        return userProperties[user];
+    }
+
+    /// @notice Get all property creators
     /// @return Array of addresses of property creators
     function getPropertyCreators() public view returns (address[] memory) {
         return propertyCreators;
-    }
-
-    /// @notice Updates the EURC token address
-    /// @param _newEURCToken New address of the EURC token
-    function updateEURCToken(address _newEURCToken) public onlyOwner {
-        require(_newEURCToken != address(0), "Invalid EURC token address");
-        eurcTokenAddress = _newEURCToken;
-        emit EURCTokenUpdated(_newEURCToken);
     }
 }

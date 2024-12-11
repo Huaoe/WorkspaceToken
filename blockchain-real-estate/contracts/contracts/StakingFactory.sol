@@ -46,22 +46,28 @@ contract StakingFactory is Ownable {
     ) external onlyOwner returns (address) {
         require(propertyToken != address(0), "Invalid property token");
         require(propertyToStaking[propertyToken] == address(0), "Staking already exists");
+        require(rewardsDuration > 0, "Duration must be greater than 0");
 
         // Verify it's a valid PropertyToken
-        PropertyToken token = PropertyToken(propertyToken);
-        require(token.getEURCToken() == address(rewardsToken), "Invalid property token");
+        try PropertyToken(propertyToken).eurcToken() returns (IERC20 eurcToken) {
+            require(address(eurcToken) == address(rewardsToken), "Invalid property token");
+        } catch {
+            revert("Invalid property token");
+        }
 
         // Create new StakingRewards contract
         StakingRewards stakingRewards = new StakingRewards(
-            address(token),    // stakingToken (PropertyToken)
-            address(rewardsToken)  // rewardsToken (EURC)
+            address(propertyToken),    // stakingToken (PropertyToken)
+            address(rewardsToken)      // rewardsToken (EURC)
         );
 
+        // Check rewards token balance before transfer
+        uint256 balance = rewardsToken.balanceOf(address(this));
+        require(balance >= rewardsAmount, "Insufficient rewards balance");
+
         // Transfer rewards to staking contract
-        require(
-            rewardsToken.transfer(address(stakingRewards), rewardsAmount),
-            "Failed to transfer rewards"
-        );
+        bool success = rewardsToken.transfer(address(stakingRewards), rewardsAmount);
+        require(success, "Failed to transfer rewards");
 
         // Initialize rewards parameters
         stakingRewards.setRewardsDuration(rewardsDuration);

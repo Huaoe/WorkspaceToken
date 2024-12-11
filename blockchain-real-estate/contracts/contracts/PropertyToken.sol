@@ -4,13 +4,16 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "hardhat/console.sol";
 import "./Whitelist.sol";
+import "./interfaces/IWhitelist.sol";
 
 /// @title PropertyToken
 /// @notice This contract represents a tokenized real estate property
 /// @dev Inherits from ERC20Upgradeable and OwnableUpgradeable for proxy support
-contract PropertyToken is ERC20Upgradeable, OwnableUpgradeable {
+contract PropertyToken is Initializable, ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
     /// @notice Structure containing all property details
     struct PropertyDetails {
         string title;
@@ -36,8 +39,15 @@ contract PropertyToken is ERC20Upgradeable, OwnableUpgradeable {
         address whitelistContract;
     }
 
+    // Custom errors
+    error InsufficientBalance();
+    error NotWhitelisted();
+    error InvalidAmount();
+    error PropertyInactive();
+    error InsufficientAllowance();
+    error TransferFailed();
+
     PropertyDetails public propertyDetails;
-    uint256 public totalSupply_;
     IERC20 public eurcToken;
     uint256 public constant EURC_DECIMALS = 6;
     address public whitelistContract;
@@ -61,46 +71,82 @@ contract PropertyToken is ERC20Upgradeable, OwnableUpgradeable {
         uint256 eurcReceived
     );
 
+    event PropertyStatusUpdated(bool isActive);
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
     /// @notice Initializes the PropertyToken contract
     /// @dev This replaces the constructor for proxy deployment
     function initialize(InitParams memory params) public initializer {
-        __ERC20_init(params.name, params.symbol);
-        __Ownable_init(params.initialOwner);
-
-        console.log("Initializing PropertyToken with title:", params.title);
+        console.log("Initializing PropertyToken with params:");
+        console.log("Name:", params.name);
+        console.log("Symbol:", params.symbol);
+        console.log("Title:", params.title);
+        console.log("Description:", params.description);
+        console.log("Location:", params.location);
+        console.log("Image URL:", params.imageUrl);
         console.log("Price:", params.price);
-        console.log("Total supply:", params.totalSupply);
-        console.log("Initial owner:", params.initialOwner);
-        console.log("EURC token:", params.eurcTokenAddress);
-        console.log("Whitelist contract:", params.whitelistContract);
+        console.log("Total Supply:", params.totalSupply);
+        console.log("Initial Owner:", params.initialOwner);
+        console.log("EURC Token:", params.eurcTokenAddress);
+        console.log("Whitelist:", params.whitelistContract);
 
-        require(
-            bytes(params.title).length > 0 && bytes(params.title).length <= 20,
-            "Invalid title length"
-        );
-        require(
-            bytes(params.description).length > 0 && bytes(params.description).length <= 50,
-            "Invalid description length"
-        );
-        require(
-            bytes(params.location).length > 0 && bytes(params.location).length <= 256,
-            "Invalid location length"
-        );
-        require(
-            bytes(params.imageUrl).length > 0 && bytes(params.imageUrl).length <= 100,
-            "Invalid image URL length"
-        );
+        // Validate parameters first
+        console.log("Validating parameters...");
+        require(bytes(params.name).length > 0, "Token name cannot be empty");
+        require(bytes(params.name).length <= 100, "Token name too long");
+        require(bytes(params.symbol).length > 0, "Token symbol cannot be empty");
+        require(bytes(params.symbol).length <= 10, "Token symbol too long");
+        
+        require(bytes(params.title).length > 0, "Title cannot be empty");
+        require(bytes(params.title).length <= 100, "Title too long");
+        
+        require(bytes(params.description).length > 0, "Description cannot be empty");
+        require(bytes(params.description).length <= 500, "Description too long");
+        
+        require(bytes(params.location).length > 0, "Location cannot be empty");
+        require(bytes(params.location).length <= 256, "Location too long");
+        
+        require(bytes(params.imageUrl).length > 0, "Image URL cannot be empty");
+        require(bytes(params.imageUrl).length <= 500, "Image URL too long");
+        
         require(params.price > 0, "Price must be greater than 0");
         require(params.totalSupply > 0, "Total supply must be greater than 0");
-        require(params.initialOwner != address(0), "Invalid owner address");
-        require(params.eurcTokenAddress != address(0), "Invalid EURC token address");
-        require(params.whitelistContract != address(0), "Invalid whitelist contract address");
+        require(params.totalSupply <= 1000000 * 10**18, "Total supply exceeds maximum limit");
+        
+        require(params.initialOwner != address(0), "Initial owner cannot be zero address");
+        require(params.eurcTokenAddress != address(0), "EURC token address cannot be zero address");
+        require(params.whitelistContract != address(0), "Whitelist contract cannot be zero address");
 
+        // Initialize ERC20 and Ownable
+        console.log("Initializing ERC20...");
+        __ERC20_init(params.name, params.symbol);
+        console.log("Initializing Ownable...");
+        __Ownable_init(params.initialOwner);
+
+        // Validate contract interfaces
+        console.log("Validating EURC token contract...");
+        try IERC20(params.eurcTokenAddress).totalSupply() returns (uint256) {
+            console.log("EURC token contract verified");
+        } catch {
+            revert("Invalid EURC token contract");
+        }
+
+        console.log("Validating whitelist contract...");
+        try IWhitelist(params.whitelistContract).isWhitelisted(params.initialOwner) returns (bool isWhitelisted) {
+            console.log("Initial owner whitelist status:", isWhitelisted);
+            require(isWhitelisted, "Initial owner is not whitelisted");
+            console.log("Whitelist contract verified");
+        } catch {
+            revert("Invalid whitelist contract");
+        }
+
+        console.log("Setting property details...");
         propertyDetails = PropertyDetails({
             title: params.title,
             description: params.description,
@@ -110,86 +156,76 @@ contract PropertyToken is ERC20Upgradeable, OwnableUpgradeable {
             isActive: true
         });
 
-        totalSupply_ = params.totalSupply;
+        console.log("Setting contract references...");
         eurcToken = IERC20(params.eurcTokenAddress);
         whitelistContract = params.whitelistContract;
 
-        // Mint all tokens to the contract owner with 18 decimals
-        _mint(params.initialOwner, params.totalSupply * 10**18);
+        console.log("Minting initial supply...");
+        _mint(params.initialOwner, params.totalSupply);
 
-        emit PropertyTokenized(params.title, params.location, params.price, params.initialOwner);
-        console.log("PropertyToken initialized successfully");
-    }
+        console.log("Emitting PropertyTokenized event...");
+        emit PropertyTokenized(
+            params.title,
+            params.location,
+            params.price,
+            params.initialOwner
+        );
 
-    /// @notice Modifier to check if the caller is whitelisted
-    modifier onlyWhitelisted() {
-        require(Whitelist(whitelistContract).isAddressWhitelisted(msg.sender), "Address not whitelisted");
-        _;
+        console.log("PropertyToken initialization complete");
     }
 
     /// @notice Allows users to purchase tokens
     /// @param _amount Amount of tokens to purchase
-    function purchaseTokens(uint256 _amount) external onlyWhitelisted {
-        console.log("=== Starting purchaseTokens ===");
-        console.log("Buyer address:", msg.sender);
-        console.log("Requested token amount:", _amount);
-        console.log("Current owner:", owner());
-        console.log("Contract address:", address(this));
-
-        require(propertyDetails.isActive, "Property is not active");
-        require(_amount > 0, "Amount must be greater than 0");
-
-        uint256 ownerBalance = balanceOf(owner());
-        console.log("Owner's token balance:", ownerBalance);
-        require(_amount <= ownerBalance, "Not enough tokens available");
+    function purchaseTokens(uint256 _amount) external {
+        if (!Whitelist(whitelistContract).isWhitelisted(msg.sender)) {
+            revert NotWhitelisted();
+        }
+        if (!propertyDetails.isActive) {
+            revert PropertyInactive();
+        }
+        if (_amount == 0) {
+            revert InvalidAmount();
+        }
 
         // Calculate EURC amount needed
-        uint256 eurcAmount = (_amount * propertyDetails.price) / (10 ** 18);
+        uint256 eurcAmount = (_amount * propertyDetails.price) / (10 ** decimals());
         
-        console.log("=== Debug EURC Amount Calculation ===");
-        console.log("Input amount (wei):", _amount);
-        console.log("Property price (EURC with 6 decimals):", propertyDetails.price);
-        console.log("Token decimals:", decimals());
-        console.log("EURC decimals:", EURC_DECIMALS);
-        console.log("Calculated EURC amount (6 decimals):", eurcAmount);
+        // Check EURC balance first
+        if (eurcToken.balanceOf(msg.sender) < eurcAmount) {
+            revert InsufficientBalance();
+        }
 
-        // Check allowance and balance
-        uint256 currentAllowance = eurcToken.allowance(msg.sender, address(this));
-        uint256 buyerBalance = eurcToken.balanceOf(msg.sender);
-        
-        console.log("=== Debug Allowance and Balance ===");
-        console.log("Current allowance:", currentAllowance);
-        console.log("Required EURC amount:", eurcAmount);
-        console.log("Buyer EURC balance:", buyerBalance);
+        uint256 ownerBalance = balanceOf(owner());
+        if (_amount > ownerBalance) {
+            revert InsufficientBalance();
+        }
 
-        require(currentAllowance >= eurcAmount, "Insufficient EURC allowance");
-        require(buyerBalance >= eurcAmount, "Insufficient EURC balance");
-
-        console.log("=== Debug Transfer ===");
-        console.log("Transfer amount (6 decimals):", eurcAmount);
-        console.log("Transferring EURC from buyer to owner...");
-        console.log("From:", msg.sender);
-        console.log("To:", owner());
-        console.log("Amount (EURC):", eurcAmount);
+        // Check allowance
+        if (eurcToken.allowance(msg.sender, address(this)) < eurcAmount) {
+            revert InsufficientAllowance();
+        }
 
         // Transfer EURC from buyer to token owner
-        require(eurcToken.transferFrom(msg.sender, owner(), eurcAmount), "EURC transfer failed");
-        console.log("EURC transfer successful");
+        bool success = eurcToken.transferFrom(msg.sender, owner(), eurcAmount);
+        if (!success) {
+            revert TransferFailed();
+        }
 
-        console.log("Transferring property tokens to buyer...");
         // Transfer property tokens to buyer
         _transfer(owner(), msg.sender, _amount);
-        console.log("Property token transfer successful");
 
         emit TokensPurchased(msg.sender, _amount, eurcAmount);
-        console.log("=== purchaseTokens completed successfully ===");
     }
 
     /// @notice Allows users to sell tokens
     /// @param amount Amount of tokens to sell
     function sellTokens(uint256 amount) external {
-        require(amount > 0, "Amount must be greater than 0");
-        require(balanceOf(msg.sender) >= amount, "Insufficient token balance");
+        if (amount == 0) {
+            revert InvalidAmount();
+        }
+        if (balanceOf(msg.sender) < amount) {
+            revert InsufficientBalance();
+        }
 
         // Calculate EURC amount to receive
         uint256 eurcAmount = (amount * propertyDetails.price) / (10 ** decimals());
@@ -198,40 +234,18 @@ contract PropertyToken is ERC20Upgradeable, OwnableUpgradeable {
         _burn(msg.sender, amount);
 
         // Transfer EURC to seller
-        require(eurcToken.transfer(msg.sender, eurcAmount), "EURC transfer failed");
+        bool success = eurcToken.transfer(msg.sender, eurcAmount);
+        if (!success) {
+            revert TransferFailed();
+        }
 
         emit TokensSold(msg.sender, amount, eurcAmount);
     }
 
-    function getPropertyDetails() public view returns (
-        string memory title,
-        string memory description,
-        string memory location,
-        string memory imageUrl,
-        uint256 price,
-        bool isActive
-    ) {
-        return (
-            propertyDetails.title,
-            propertyDetails.description,
-            propertyDetails.location,
-            propertyDetails.imageUrl,
-            propertyDetails.price,
-            propertyDetails.isActive
-        );
-    }
-
-    function setPropertyStatus(bool _isActive) public onlyOwner {
-        propertyDetails.isActive = _isActive;
-    }
-
-    function getEURCToken() public view returns (address) {
-        return address(eurcToken);
-    }
-
-    /// @notice Returns the property price
-    /// @return uint256 The price of the property in EURC
-    function getPrice() public view returns (uint256) {
-        return propertyDetails.price;
+    /// @notice Updates the property's active status
+    /// @param status New status to set
+    function updatePropertyStatus(bool status) external onlyOwner {
+        propertyDetails.isActive = status;
+        emit PropertyStatusUpdated(status);
     }
 }

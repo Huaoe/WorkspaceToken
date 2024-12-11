@@ -9,6 +9,11 @@ import "hardhat/console.sol";
 /// @notice This contract manages whitelisted addresses that can interact with other contracts
 /// @dev Inherits from Initializable and OwnableUpgradeable for proxy support
 contract Whitelist is Initializable, OwnableUpgradeable {
+    // Custom errors
+    error InvalidAddress();
+    error AddressAlreadyWhitelisted();
+    error AddressNotWhitelisted();
+
     // Mapping of whitelisted addresses
     mapping(address => bool) public isWhitelisted;
     
@@ -36,8 +41,8 @@ contract Whitelist is Initializable, OwnableUpgradeable {
     /// @notice Adds a single address to the whitelist
     /// @param account The address to whitelist
     function addToWhitelist(address account) public onlyOwner {
-        require(account != address(0), "Cannot whitelist zero address");
-        require(!isWhitelisted[account], "Address already whitelisted");
+        if (account == address(0)) revert InvalidAddress();
+        if (isWhitelisted[account]) revert AddressAlreadyWhitelisted();
 
         isWhitelisted[account] = true;
         whitelistedAddresses.push(account);
@@ -49,7 +54,7 @@ contract Whitelist is Initializable, OwnableUpgradeable {
     /// @notice Removes a single address from the whitelist
     /// @param account The address to remove from whitelist
     function removeFromWhitelist(address account) public onlyOwner {
-        require(isWhitelisted[account], "Address not whitelisted");
+        if (!isWhitelisted[account]) revert AddressNotWhitelisted();
 
         isWhitelisted[account] = false;
         
@@ -70,10 +75,11 @@ contract Whitelist is Initializable, OwnableUpgradeable {
     /// @param accounts Array of addresses to whitelist
     function addBatchToWhitelist(address[] memory accounts) public onlyOwner {
         for (uint256 i = 0; i < accounts.length; i++) {
-            require(accounts[i] != address(0), "Cannot whitelist zero address");
+            if (accounts[i] == address(0)) revert InvalidAddress();
             if (!isWhitelisted[accounts[i]]) {
                 isWhitelisted[accounts[i]] = true;
                 whitelistedAddresses.push(accounts[i]);
+                emit AddressWhitelisted(accounts[i]);
             }
         }
         emit BatchWhitelistAdded(accounts);
@@ -84,17 +90,17 @@ contract Whitelist is Initializable, OwnableUpgradeable {
     /// @param accounts Array of addresses to remove from whitelist
     function removeBatchFromWhitelist(address[] memory accounts) public onlyOwner {
         for (uint256 i = 0; i < accounts.length; i++) {
-            if (isWhitelisted[accounts[i]]) {
-                isWhitelisted[accounts[i]] = false;
-                // Remove from whitelistedAddresses array
-                for (uint256 j = 0; j < whitelistedAddresses.length; j++) {
-                    if (whitelistedAddresses[j] == accounts[i]) {
-                        whitelistedAddresses[j] = whitelistedAddresses[whitelistedAddresses.length - 1];
-                        whitelistedAddresses.pop();
-                        break;
-                    }
+            if (!isWhitelisted[accounts[i]]) revert AddressNotWhitelisted();
+            isWhitelisted[accounts[i]] = false;
+            // Remove from whitelistedAddresses array
+            for (uint256 j = 0; j < whitelistedAddresses.length; j++) {
+                if (whitelistedAddresses[j] == accounts[i]) {
+                    whitelistedAddresses[j] = whitelistedAddresses[whitelistedAddresses.length - 1];
+                    whitelistedAddresses.pop();
+                    break;
                 }
             }
+            emit AddressRemovedFromWhitelist(accounts[i]);
         }
         emit BatchWhitelistRemoved(accounts);
         console.log("Removed batch from whitelist, count:", accounts.length);
@@ -102,13 +108,13 @@ contract Whitelist is Initializable, OwnableUpgradeable {
 
     /// @notice Checks if an address is whitelisted
     /// @param account The address to check
-    /// @return bool True if the address is whitelisted
+    /// @return bool True if the address is whitelisted, false otherwise
     function isAddressWhitelisted(address account) public view returns (bool) {
         return isWhitelisted[account];
     }
 
     /// @notice Gets all whitelisted addresses
-    /// @return Array of all whitelisted addresses
+    /// @return address[] Array of all whitelisted addresses
     function getWhitelistedAddresses() public view returns (address[] memory) {
         return whitelistedAddresses;
     }
