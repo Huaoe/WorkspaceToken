@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useState } from "react";
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,13 +8,13 @@ import { UseFormReturn } from "react-hook-form";
 import { LocationPicker, geocodeAddress } from "@/components/LocationPicker";
 import { Search } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { useRef, useState } from "react";
 
 interface LocationFieldProps {
   form: UseFormReturn<any>;
+  defaultLocation?: { lat: number; lng: number } | null;
 }
 
-export function LocationField({ form }: LocationFieldProps) {
+export function LocationField({ form, defaultLocation }: LocationFieldProps) {
   const { toast } = useToast();
   const [isSearching, setIsSearching] = useState(false);
   const locationPickerRef = useRef<{ updateMapLocation: (lat: number, lng: number) => void }>(null);
@@ -87,6 +88,7 @@ export function LocationField({ form }: LocationFieldProps) {
         onLocationSelect={({ lat, lng, address }) => {
           form.setValue('location', address);
         }}
+        defaultCenter={defaultLocation || undefined}
       />
     </div>
   );

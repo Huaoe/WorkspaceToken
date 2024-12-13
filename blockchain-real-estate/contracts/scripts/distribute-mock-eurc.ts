@@ -10,7 +10,7 @@ async function main() {
   console.log("Distributing MockEURC tokens with account:", deployer.address);
 
   // MockEURC contract address from deployment
-  const mockEURCAddress = process.env.EURC_TOKEN_ADDRESS || "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+  const mockEURCAddress = process.env.EURC_TOKEN_ADDRESS || "";
   if (!mockEURCAddress) {
     throw new Error("EURC_TOKEN_ADDRESS not found in environment variables");
   }
@@ -34,11 +34,11 @@ async function main() {
   const accounts = await ethers.getSigners();
   const testAccounts = accounts.slice(1, 5); // Get 4 test accounts
 
-  // Amount to distribute to each account (10000 EURC)
-  const distributionAmount = ethers.parseUnits("10000", 6);
+  // Amount to distribute to each account (100000 EURC)
+  const distributionAmount = ethers.parseUnits("100000", 6);
 
   console.log("\nStarting token distribution...");
-  console.log(`Distribution amount per address: 10000 EURC`);
+  console.log(`Distribution amount per address: 100000 EURC`);
 
   // Check deployer balance first
   const deployerBalance = await mockEURC.balanceOf(deployer.address);

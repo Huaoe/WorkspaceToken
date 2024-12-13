@@ -64,7 +64,7 @@ export default function PropertyDetails() {
       {
         address: tokenAddress,
         abi: propertyTokenABI,
-        functionName: 'getPrice',
+        functionName: 'propertyDetails',
       }
     ],
     watch: true,
@@ -97,21 +97,21 @@ export default function PropertyDetails() {
       setError('Failed to load contract details');
       console.error('Contract read error:', contractData?.[0].error || contractData?.[1].error || contractData?.[2].error);
     } else if (contractData && propertyRequest) {
-      const [totalSupply, ownerAddress] = contractData;
+      const [totalSupply, ownerAddress, details] = contractData;
       const propertyDetails: PropertyDetails = {
         title: propertyRequest.title,
         description: propertyRequest.description,
         location: propertyRequest.location,
-        imageUrl: propertyRequest.image_url || '',
-        expected_price: BigInt(propertyRequest.expected_price * 10**6), // Convert to BigInt with 6 decimals
-        isActive: propertyRequest.status === 'approved',
+        imageUrl: propertyRequest.image_url || PLACEHOLDER_IMAGE,
+        expected_price: details.result.price, // Getting price from the struct
+        isActive: details.result.isActive,
         status: propertyRequest.status,
-        payoutDuration: propertyRequest.payout_duration,
-        finishAt: propertyRequest.finish_at,
-        roi: propertyRequest.roi,
-        numberOfTokens: Number(formatUnits(totalSupply.result || BigInt(0), 18)),
-        ownerAddress: ownerAddress.result as string,
-        documents_url: propertyRequest.documents_url
+        payoutDuration: propertyRequest.payout_duration || 0,
+        finishAt: propertyRequest.finish_at || '',
+        roi: propertyRequest.roi || 0,
+        numberOfTokens: Number(formatUnits(totalSupply.result || 0n, 18)),
+        ownerAddress: ownerAddress.result,
+        documents_url: propertyRequest.documents_url,
       };
       setPropertyDetails(propertyDetails);
       setError(null);

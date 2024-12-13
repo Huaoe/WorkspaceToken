@@ -9,6 +9,7 @@
     "clean": "hardhat clean",
     "deploy:local": "npx hardhat run scripts/deploy-local.ts --network localhost",
     "deploy:proxy": "npx hardhat run scripts/deploy-proxy.ts --network localhost",
+    "deploy:eurc": "npx hardhat run scripts/deploy-mock-eurc-upgradeable.ts --network localhost",
     "n": "npx hardhat node",
     "distributeMockEURC": "npx hardhat run scripts/distribute-mock-eurc.ts --network localhost",
     "verifyMockEURC": "npx hardhat run scripts/verify-eurc-approve.ts --network localhost",

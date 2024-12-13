@@ -48,6 +48,14 @@ async function main() {
   const eurcAddress = await mockEURC.getAddress();
   console.log("MockEURC deployed to:", eurcAddress);
 
+  // Update .env files with new addresses
+  updateEnvFiles(process.cwd(), {
+    WHITELIST_PROXY_ADDRESS: whitelistAddress,
+    WHITELIST_IMPLEMENTATION_ADDRESS: whitelistImplAddress,
+    WHITELIST_ADMIN_ADDRESS: whitelistAdminAddress,
+    EURC_TOKEN_ADDRESS: eurcAddress,
+  });
+
   // Deploy PropertyToken implementation
   console.log("\nDeploying PropertyToken implementation...");
   const PropertyToken = await ethers.getContractFactory("PropertyToken");
@@ -86,6 +94,13 @@ async function main() {
   console.log("- Proxy:", propertyFactoryAddress);
   console.log("- Implementation:", propertyFactoryImplAddress);
   console.log("- Admin:", propertyFactoryAdminAddress);
+
+  // Update .env files with new addresses
+  updateEnvFiles(process.cwd(), {
+    PROPERTY_FACTORY_PROXY_ADDRESS: propertyFactoryAddress,
+    PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS: propertyFactoryImplAddress,
+    PROPERTY_FACTORY_ADMIN_ADDRESS: propertyFactoryAdminAddress
+  });
 
   // Update environment variables
   const envValues = {

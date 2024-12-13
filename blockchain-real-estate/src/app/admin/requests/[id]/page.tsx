@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import { type Abi } from 'viem';
 import { parseUnits, formatUnits } from 'viem';
 import { decodeEventLog } from 'viem';
 import { StakingInitButton } from './components/StakingInitButton';
+import { geocodeAddress } from "@/components/LocationPicker";
 
 import { propertyFormSchema } from './components/PropertyDetailsFields';
 
@@ -90,6 +91,26 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
 
     try {
       setLoading(true);
+
+      // Save changes to database first
+      const { error: saveError } = await supabase
+        .from('property_requests')
+        .update({
+          title: formData.title,
+          description: formData.description,
+          location: formData.location,
+          expected_price: formData.expected_price,
+          number_of_tokens: formData.number_of_tokens,
+          token_name: formData.token_name,
+          token_symbol: formData.token_symbol,
+          image_url: formData.image_url,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (saveError) {
+        throw new Error(`Failed to save changes: ${saveError.message}`);
+      }
 
       // Get the current nonce
       const nonce = await publicClient.getTransactionCount({
@@ -391,17 +412,28 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
 
 export default function ReviewRequest() {
   const { id } = useParams();
-  const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [request, setRequest] = useState<any>(null);
+  const [mapLocation, setMapLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const locationPickerRef = useRef<{ updateMapLocation: (lat: number, lng: number) => void }>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      location: "",
+      expected_price: "",
+      number_of_tokens: 0,
+      token_name: "",
+      token_symbol: "",
+      image_url: "",
+      status: "pending",
+      token_address: "",
+    },
   });
 
-  const status = form.watch('status');
-  
   useEffect(() => {
     const fetchRequest = async () => {
       try {
@@ -413,38 +445,54 @@ export default function ReviewRequest() {
 
         if (error) throw error;
 
-        form.reset({
-          title: data.title,
-          description: data.description,
-          location: data.location,
-          expected_price: data.expected_price.toString(),
-          image_url: data.image_url || '',
-          documents_url: data.documents_url || '',
-          number_of_tokens: data.number_of_tokens?.toString() || '',
-          status: data.status,
-          token_name: data.token_name || '',
-          token_symbol: data.token_symbol || '',
-          token_address: data.token_address || '',
-        });
+        if (data) {
+          setRequest(data);
+          form.reset({
+            title: data.title || "",
+            description: data.description || "",
+            location: data.location || "",
+            expected_price: data.expected_price?.toString() || "",
+            number_of_tokens: data.number_of_tokens || 0,
+            token_name: data.token_name || "",
+            token_symbol: data.token_symbol || "",
+            image_url: data.image_url || "",
+            status: data.status || "pending",
+            token_address: data.token_address || "",
+          });
+
+          // Geocode the location and update the map
+          if (data.location) {
+            try {
+              const result = await geocodeAddress(data.location);
+              if (result) {
+                setMapLocation({ lat: result.lat, lng: result.lng });
+                // Update the map location using the ref
+                locationPickerRef.current?.updateMapLocation(result.lat, result.lng);
+              }
+            } catch (error) {
+              console.error('Failed to geocode location:', error);
+            }
+          }
+        }
       } catch (error) {
-        console.error('Error fetching request:', error);
+        console.error('Error:', error);
         toast({
-          title: 'Error',
-          description: 'Failed to fetch property request',
-          variant: 'destructive',
+          title: "Error",
+          description: "Failed to load property request",
+          variant: "destructive",
         });
       } finally {
         setLoading(false);
       }
     };
 
-    fetchRequest();
-  }, [id, toast, form]);
+    if (id) {
+      fetchRequest();
+    }
+  }, [id]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      setSaving(true);
-
       const now = new Date().toISOString();
       const updates = {
         title: values.title,
@@ -457,6 +505,7 @@ export default function ReviewRequest() {
         status: values.status,
         token_name: values.token_name,
         token_symbol: values.token_symbol,
+        token_address: values.token_address,
       };
 
       if (values.status === 'approved') {
@@ -489,8 +538,6 @@ export default function ReviewRequest() {
         description: 'Failed to save property request',
         variant: 'destructive',
       });
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -507,7 +554,7 @@ export default function ReviewRequest() {
   }
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto py-6 space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Review Property Request</CardTitle>
@@ -518,23 +565,26 @@ export default function ReviewRequest() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <StatusField form={form} />
               <PropertyDetailsFields form={form} />
-              <LocationField form={form} />
-              
+              <LocationField 
+                form={form} 
+                ref={locationPickerRef}
+                defaultLocation={mapLocation}
+              />
               <div className="flex justify-between pt-4">
                 <Button variant="outline" onClick={() => router.push('/admin/requests')}>
                   Back
                 </Button>
                 <div className="flex gap-4">
-                  <Button type="submit" disabled={saving}>
-                    {saving ? "Saving..." : "Save Changes"}
+                  <Button type="submit">
+                    Save Changes
                   </Button>
                   <ClientOnly>
-                    {() => <CreateTokenButton id={id} status={status} formData={form.getValues()} />}
+                    {() => <CreateTokenButton id={id} status={form.watch('status')} formData={form.getValues()} />}
                   </ClientOnly>
-                  {status === 'funding' && (
+                  {form.watch('status') === 'funding' && (
                     <StakingInitButton
                       propertyTokenAddress={form.getValues().token_address || ''}
-                      status={status}
+                      status={form.watch('status')}
                     />
                   )}
                 </div>
