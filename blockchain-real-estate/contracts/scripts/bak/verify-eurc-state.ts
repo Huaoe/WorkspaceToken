@@ -6,7 +6,7 @@ async function main() {
   console.log("Verifying MockEURC state with account:", deployer.address);
 
   // MockEURC contract address from deployment
-  const mockEURCAddress = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS;
+  const mockEURCAddress = process.env.EURC_TOKEN_ADDRESS;
   console.log("MockEURC address:", mockEURCAddress);
 
   // Get the MockEURC contract instance

@@ -7,7 +7,7 @@ async function main() {
   console.log("Upgrading contract with the account:", deployer.address);
 
   try {
-    const proxyAddress = process.env.PROPERTY_TOKEN_PROXY_ADDRESS;
+    const proxyAddress = process.env.PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS;
     if (!proxyAddress) {
       throw new Error("PROPERTY_TOKEN_PROXY_ADDRESS not found in .env");
     }

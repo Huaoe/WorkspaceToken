@@ -39,7 +39,7 @@ const config: HardhatUserConfig = {
     },
   },
   paths: {
-    deploy: 'scripts',
+    // deploy: 'scripts',
     deployments: 'deployments',
     sources: "./contracts",
     tests: "./test",

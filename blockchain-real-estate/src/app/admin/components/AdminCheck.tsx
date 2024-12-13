@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
 
-const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
+const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
 
 export function AdminCheck({ children }: { children: React.ReactNode }) {
   const { address, isConnected } = useAccount();

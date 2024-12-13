@@ -139,6 +139,10 @@ describe("StakingFactory", function () {
             expect(await stakingRewards.rewardsToken()).to.equal(await mockEURC.getAddress());
             expect(await stakingRewards.duration()).to.equal(rewardsDuration);
             expect(await mockEURC.balanceOf(stakingAddress)).to.equal(rewardsAmount);
+            
+            // Verify reward rate
+            const expectedRewardRate = rewardsAmount / BigInt(rewardsDuration);
+            expect(await stakingRewards.rewardRate()).to.equal(expectedRewardRate);
         });
 
         it("Should not allow creating duplicate staking contracts", async function () {

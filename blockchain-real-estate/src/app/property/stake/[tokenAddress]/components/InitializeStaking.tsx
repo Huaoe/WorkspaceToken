@@ -31,12 +31,8 @@ export function InitializeStaking({ stakingAddress, tokenAddress }: InitializeSt
     try {
       setLoading(true);
 
-      // Get EURC token address from property token
-      const eurcTokenAddress = await publicClient.readContract({
-        address: tokenAddress,
-        abi: propertyTokenABI,
-        functionName: "getEURCToken",
-      });
+      // Get EURC token address from environment
+      const eurcTokenAddress = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`;
 
       console.log("EURC token address:", eurcTokenAddress);
 

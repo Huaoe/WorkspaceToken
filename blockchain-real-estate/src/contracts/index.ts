@@ -13,7 +13,7 @@ export const stakingRewardsABI = stakingRewardsJSON.abi;
 export const stakingFactoryABI = stakingFactoryJSON.abi;
 
 // Export contract addresses
-export const PROPERTY_FACTORY_ADDRESS = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS;
+export const PROPERTY_FACTORY_ADDRESS = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS;
 export const EURC_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS;
 export const STAKING_REWARDS_ADDRESS = process.env.NEXT_PUBLIC_STAKING_REWARDS_ADDRESS;
 export const STAKING_FACTORY_ADDRESS = process.env.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS;

@@ -1,6 +1,7 @@
 import { ethers, upgrades } from "hardhat";
 import fs from "fs";
 import path from "path";
+import { updateEnvFiles } from "../utils/env-management";
 
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -91,39 +92,16 @@ async function main() {
     console.log("StakingRewards created at:", stakingRewardsAddress);
 
     // Update .env.local with the new contract addresses
-    const envPath = path.join(__dirname, "../../.env.local");
-    const envLocalContent = fs.existsSync(envPath)
-      ? fs.readFileSync(envPath, "utf8")
-      : "";
-
-    const envPath2 = path.join(__dirname, "../.env");
-    const envContent = fs.existsSync(envPath2)
-      ? fs.readFileSync(envPath2, "utf8")
-      : "";
-
-    const updatedEnvLocalContent = updateEnvFile(
-      envLocalContent,
+    updateEnvFiles(
+      path.join(__dirname, "../.."),
       {
-        NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS: propertyFactoryAddress,
-        NEXT_PUBLIC_EURC_TOKEN_ADDRESS: eurcAddress,
-        NEXT_PUBLIC_STAKING_FACTORY_ADDRESS: stakingFactoryAddress,
-        NEXT_PUBLIC_TEST_PROPERTY_ADDRESS: testPropertyAddress,
-        NEXT_PUBLIC_TEST_STAKING_REWARDS_ADDRESS: stakingRewardsAddress,
+        PROPERTY_FACTORY_ADDRESS: propertyFactoryAddress,
+        EURC_TOKEN_ADDRESS: eurcAddress,
+        STAKING_FACTORY_ADDRESS: stakingFactoryAddress,
+        TEST_PROPERTY_ADDRESS: testPropertyAddress,
+        TEST_STAKING_REWARDS_ADDRESS: stakingRewardsAddress,
       }
     );
-
-    const updatedEnvContent = updateEnvFile(
-      envContent,
-      {
-        FACTORY_ADDRESS: propertyFactoryAddress,
-        NEXT_PUBLIC_EURC_TOKEN_ADDRESS: eurcAddress,
-        NEXT_PUBLIC_STAKING_FACTORY_ADDRESS: stakingFactoryAddress,
-        NEXT_PUBLIC_TEST_PROPERTY_ADDRESS: testPropertyAddress,
-      }
-    );
-
-    fs.writeFileSync(envPath, updatedEnvLocalContent);
-    fs.writeFileSync(envPath2, updatedEnvContent);
 
     console.log("\nUpdated .env and .env.local with new contract addresses");
 
@@ -176,20 +154,6 @@ async function main() {
     console.error("Error during deployment:", error);
     throw error;
   }
-}
-
-function updateEnvFile(envContent: string, newValues: { [key: string]: string }) {
-  const envLines = envContent.split("\n");
-  const updatedLines = envLines.filter((line) => {
-    const key = line.split("=")[0];
-    return !newValues.hasOwnProperty(key);
-  });
-
-  for (const [key, value] of Object.entries(newValues)) {
-    updatedLines.push(`${key}=${value}`);
-  }
-
-  return updatedLines.join("\n") + "\n";
 }
 
 main()

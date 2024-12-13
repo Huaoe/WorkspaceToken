@@ -1,4 +1,4 @@
-export const PROPERTY_FACTORY_ADDRESS = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS || "";
+export const PROPERTY_FACTORY_ADDRESS = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS || "";
 
 export const PROPERTY_FACTORY_ABI = [
   "function createProperty(string memory _title, string memory _description, string memory _location, string memory _imageUrl, uint256 _price) public returns (address)",

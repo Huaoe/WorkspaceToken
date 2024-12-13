@@ -139,7 +139,7 @@ export default function PropertyList() {
   const [mounted, setMounted] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
 
-  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
+  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
 
   // Read admin from contract
   const { data: contractAdmin } = useReadContract({

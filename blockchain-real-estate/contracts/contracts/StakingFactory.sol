@@ -71,7 +71,8 @@ contract StakingFactory is Ownable {
 
         // Initialize rewards parameters
         stakingRewards.setRewardsDuration(rewardsDuration);
-        stakingRewards.notifyRewardAmount(rewardsAmount);
+        uint256 rewardRate = rewardsAmount / rewardsDuration;
+        stakingRewards.setRewardRate(rewardRate);
 
         // Store the mapping
         propertyToStaking[propertyToken] = address(stakingRewards);

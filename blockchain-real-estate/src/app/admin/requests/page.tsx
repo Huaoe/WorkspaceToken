@@ -56,7 +56,7 @@ export default function AdminRequests() {
   };
 
   const { address, isConnected } = useAccount();
-  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as Address;
+  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as Address;
 
   // Read owner from the contract
   const { data: owner } = useContractRead({

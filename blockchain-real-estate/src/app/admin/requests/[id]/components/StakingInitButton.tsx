@@ -46,24 +46,9 @@ export function StakingInitButton({ propertyTokenAddress, status }: StakingInitB
     }
   });
 
-  // Get the EURC token address from the property token
-  const { data: propertyEURCToken, isError: propertyEURCTokenError,
-     error: propertyEURCTokenErrorDetails } = useReadContract({
-    address: propertyTokenAddress as `0x${string}`,
-    abi: propertyTokenABI,
-    functionName: 'getEURCToken',  
-    onSuccess(data) {
-      console.log('Successfully loaded Property EURC token:', data);
-    },
-    onError(error) {
-      console.error('Error fetching property EURC token. Details:', {
-        error,
-        propertyTokenAddress,
-        abi: propertyTokenABI,
-        functionName: 'getEURCToken'
-      });
-    }
-  });
+  // Get the EURC token address from environment
+  const propertyEURCToken = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`;
+  console.log('Property EURC token:', propertyEURCToken);
 
   // Check if staking already exists for this property
   const { data: hasStaking } = useReadContract({
@@ -83,15 +68,12 @@ export function StakingInitButton({ propertyTokenAddress, status }: StakingInitB
     if (propertyTokenAddress) {
       console.log('Property Token Contract State:', {
         address: propertyTokenAddress,
-        hasEURCToken: Boolean(propertyEURCToken),
-        isError: propertyEURCTokenError,
-        errorDetails: propertyEURCTokenErrorDetails,
         eurcToken: propertyEURCToken,
         factoryRewardsToken: rewardsToken,
         eurcTokensMatch: propertyEURCToken === rewardsToken
       });
     }
-  }, [propertyTokenAddress, propertyEURCToken, propertyEURCTokenError, propertyEURCTokenErrorDetails, rewardsToken]);
+  }, [propertyTokenAddress, propertyEURCToken, rewardsToken]);
 
   const handleInitializeStaking = async () => {
     console.log('=== Starting Staking Initialization ===');

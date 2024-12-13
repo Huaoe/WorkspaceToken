@@ -34,7 +34,7 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const { address, isConnected } = useAccount();
-  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
+  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
   const router = useRouter();

@@ -8,7 +8,7 @@ import { useAccount, useReadContract } from 'wagmi';
 import { useState, useEffect } from 'react';
 import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
 
-const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
+const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
 
 export function Navbar() {
   const pathname = usePathname();

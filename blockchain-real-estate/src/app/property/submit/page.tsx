@@ -50,7 +50,7 @@ export default function SubmitProperty() {
   const [previewError, setPreviewError] = useState(false);
   const locationPickerRef = useRef<{ updateMapLocation: (lat: number, lng: number) => void }>(null);
 
-  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
+  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),

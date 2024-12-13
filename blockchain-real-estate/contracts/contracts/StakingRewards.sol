@@ -130,26 +130,20 @@ contract StakingRewards {
         duration = _duration;
     }
 
-    /// @notice Notifies the contract of a new reward amount
-    /// @param _amount New reward amount
-    function notifyRewardAmount(uint256 _amount)
+    /// @notice Sets the reward rate directly
+    /// @param _rate New reward rate per second
+    function setRewardRate(uint256 _rate)
         external
         onlyOwner
         updateReward(address(0))
     {
-        if (block.timestamp >= finishAt) {
-            rewardRate = _amount / duration;
-        } else {
-            uint256 remainingRewards = (finishAt - block.timestamp) * rewardRate;
-            rewardRate = (_amount + remainingRewards) / duration;
-        }
-
-        require(rewardRate > 0, "reward rate = 0");
+        require(_rate > 0, "reward rate = 0");
         require(
-            rewardRate * duration <= rewardsToken.balanceOf(address(this)),
-            "reward amount > balance"
+            _rate * duration <= rewardsToken.balanceOf(address(this)),
+            "insufficient rewards"
         );
 
+        rewardRate = _rate;
         finishAt = block.timestamp + duration;
         updatedAt = block.timestamp;
     }

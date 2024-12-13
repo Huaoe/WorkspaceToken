@@ -10,7 +10,7 @@ import Image from "next/image";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 const contractAddress = process.env
-  .NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
+  .NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
 
 export default function Home() {
   const { address, isConnected } = useAccount();

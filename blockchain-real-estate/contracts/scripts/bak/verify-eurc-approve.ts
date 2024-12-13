@@ -15,7 +15,7 @@ async function main() {
 
   // The specific addresses and amount from the error
   const spenderAddress = "0x44BF2a9217A2970A1bCC7529Bf1d40828C594320";
-  const mockEURCAddress = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS;
+  const mockEURCAddress = process.env.EURC_TOKEN_ADDRESS;
   const approvalAmount = BigInt("1124000000"); // Exact amount from error
 
   if (!mockEURCAddress) {

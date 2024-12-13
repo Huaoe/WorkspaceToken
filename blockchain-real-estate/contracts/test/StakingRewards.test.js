@@ -28,14 +28,16 @@ describe("StakingRewards", function () {
       await rewardsToken.getAddress()
     );
 
-    // Mint tokens to users
-    await stakingToken.mint(addr1.address, ethers.parseEther("1000"));
-    await stakingToken.mint(addr2.address, ethers.parseEther("1000"));
-    await rewardsToken.mint(await stakingRewards.getAddress(), ethers.parseEther("10000")); // Rewards pool
+    // Mint tokens to users and contract
+    await stakingToken.mint(addr1.address, ethers.parseEther("1000")); // 18 decimals for staking token
+    await stakingToken.mint(addr2.address, ethers.parseEther("1000")); // 18 decimals for staking token
+    await rewardsToken.mint(owner.address, ethers.parseUnits("10000", 6)); // 6 decimals for rewards token
 
     // Approve staking contract to spend tokens
-    await stakingToken.connect(addr1).approve(await stakingRewards.getAddress(), ethers.parseEther("1000"));
-    await stakingToken.connect(addr2).approve(await stakingRewards.getAddress(), ethers.parseEther("1000"));
+    const stakingRewardsAddress = await stakingRewards.getAddress();
+    await stakingToken.connect(addr1).approve(stakingRewardsAddress, ethers.parseEther("1000"));
+    await stakingToken.connect(addr2).approve(stakingRewardsAddress, ethers.parseEther("1000"));
+    await rewardsToken.connect(owner).approve(stakingRewardsAddress, ethers.parseUnits("10000", 6));
   });
 
   describe("Constructor", function () {
@@ -94,8 +96,13 @@ describe("StakingRewards", function () {
     beforeEach(async function () {
       // Setup rewards
       await stakingRewards.connect(owner).setRewardsDuration(7 * 24 * 3600); // 1 week
-      const rewardAmount = ethers.parseEther("1000");
-      await stakingRewards.connect(owner).notifyRewardAmount(rewardAmount);
+      const rewardAmount = ethers.parseUnits("1000", 6); // 1000 EURC
+      const rewardRate = rewardAmount / BigInt(7 * 24 * 3600); // rewards per second
+      
+      // Transfer rewards to staking contract
+      const stakingRewardsAddress = await stakingRewards.getAddress();
+      await rewardsToken.connect(owner).transfer(stakingRewardsAddress, rewardAmount);
+      await stakingRewards.connect(owner).setRewardRate(rewardRate);
 
       // Stake tokens
       await stakingRewards.connect(addr1).stake(ethers.parseEther("100"));
@@ -123,7 +130,7 @@ describe("StakingRewards", function () {
       
       // Use closeTo for approximate comparison due to block timestamp variations
       const balanceDiff = balanceAfter - balanceBefore;
-      const tolerance = ethers.parseEther("0.01"); // 1% tolerance
+      const tolerance = ethers.parseUnits("0.01", 6); // 1% tolerance
       expect(balanceDiff).to.be.closeTo(earnedBefore, tolerance);
     });
 
@@ -136,7 +143,7 @@ describe("StakingRewards", function () {
       const earned1 = await stakingRewards.earned(addr1.address);
       const earned2 = await stakingRewards.earned(addr2.address);
 
-      // Convert BigNumber to number for comparison
+      // Convert BigInt to number for comparison
       const ratio = Number(earned2) / Number(earned1);
       // addr2 should earn approximately twice as much as addr1 (allow 5% deviation)
       expect(ratio).to.be.closeTo(2, 0.1);
@@ -150,18 +157,33 @@ describe("StakingRewards", function () {
         .to.be.revertedWith("not authorized");
     });
 
-    it("Should allow owner to notify reward amount", async function () {
-      await stakingRewards.connect(owner).setRewardsDuration(7 * 24 * 3600);
-      await stakingRewards.connect(owner).notifyRewardAmount(ethers.parseEther("1000"));
+    it("Should allow owner to set reward rate", async function () {
+      await stakingRewards.connect(owner).setRewardsDuration(7 * 24 * 3600); // 1 week
+      const rewardAmount = ethers.parseUnits("1000", 6); // 1000 EURC
+      const rewardRate = rewardAmount / BigInt(7 * 24 * 3600); // rewards per second
       
-      await expect(stakingRewards.connect(addr1).notifyRewardAmount(ethers.parseEther("1000")))
+      // Transfer rewards to staking contract
+      const stakingRewardsAddress = await stakingRewards.getAddress();
+      await rewardsToken.connect(owner).transfer(stakingRewardsAddress, rewardAmount);
+      await stakingRewards.connect(owner).setRewardRate(rewardRate);
+      
+      await expect(stakingRewards.connect(addr1).setRewardRate(rewardRate))
         .to.be.revertedWith("not authorized");
     });
 
-    it("Should fail if notifying reward amount with zero duration", async function () {
-      // Try to notify reward amount without setting duration (duration = 0)
-      await expect(stakingRewards.connect(owner).notifyRewardAmount(ethers.parseEther("1000")))
-        .to.be.reverted; // Will revert with division by zero
+    it("Should fail if setting zero reward rate", async function () {
+      await stakingRewards.connect(owner).setRewardsDuration(7 * 24 * 3600);
+      await expect(stakingRewards.connect(owner).setRewardRate(0))
+        .to.be.revertedWith("reward rate = 0");
+    });
+
+    it("Should fail if contract has insufficient rewards", async function () {
+      await stakingRewards.connect(owner).setRewardsDuration(7 * 24 * 3600); // 1 week
+      const rewardAmount = ethers.parseUnits("1000000", 6); // 1000000 EURC
+      const rewardRate = rewardAmount / BigInt(7 * 24 * 3600); // rewards per second
+      
+      await expect(stakingRewards.connect(owner).setRewardRate(rewardRate))
+        .to.be.revertedWith("insufficient rewards");
     });
   });
 });

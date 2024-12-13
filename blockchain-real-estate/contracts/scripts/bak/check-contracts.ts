@@ -1,7 +1,8 @@
 import { ethers } from "hardhat";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
 
-async function main() {
-  const [deployer] = await ethers.getSigners();
+async function main(hre: HardhatRuntimeEnvironment) {
+  const [deployer] = await hre.ethers.getSigners();
   console.log("Checking contracts with account:", deployer.address);
 
   const addresses = [
@@ -12,7 +13,7 @@ async function main() {
   for (const address of addresses) {
     console.log(`\nChecking contract at ${address}:`);
     try {
-      const factory = await ethers.getContractAt("PropertyFactory", address);
+      const factory = await hre.ethers.getContractAt("PropertyFactory", address);
       
       // Try to call some view functions
       const admin = await factory.admin();
@@ -28,9 +29,17 @@ async function main() {
   }
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+// Export for hardhat-deploy
+export default main;
+main.tags = ["check"];
+
+// Allow running directly
+if (require.main === module) {
+  const hre = require("hardhat");
+  main(hre)
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}
