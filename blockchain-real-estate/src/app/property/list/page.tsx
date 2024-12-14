@@ -16,7 +16,6 @@ import { PropertyRequest } from '@/types/property'
 import { PLACEHOLDER_IMAGE } from '@/lib/constants'
 import { supabase } from '@/lib/supabase/client'
 import { useReadContract } from 'wagmi'
-import propertyFactoryABI from "@contracts/abis/PropertyFactory.json"
 import { useAccount } from 'wagmi'
 import { useEffect, useState } from 'react'
 import { useToast } from "@/components/ui/use-toast"
@@ -28,6 +27,12 @@ import MarketInsights from '@/components/property/market-insights';
 import { Spinner } from "@/components/ui/spinner";
 import { useKYCStatus } from '@/hooks/useKYCStatus';
 import { useRouter } from 'next/navigation';
+import { Progress } from "@/components/ui/progress"
+import { usePublicClient } from 'wagmi'
+import { formatUnits, parseAbiItem } from "viem"
+import { cn } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { propertyTokenABI, mockEURCABI } from "@/lib/contracts"
 
 interface PropertyCardProps {
   property: PropertyRequest;
@@ -39,6 +44,163 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
   const { hasSubmittedKYC, isLoading: isKYCLoading } = useKYCStatus(address);
   const { toast } = useToast();
   const router = useRouter();
+  const publicClient = usePublicClient();
+  const [tokenProgress, setTokenProgress] = useState<number>(0);
+  const [isLoadingProgress, setIsLoadingProgress] = useState(true);
+  const [tokenStats, setTokenStats] = useState<{
+    total: string;
+    remaining: string;
+    sold: string;
+    holders: number;
+    price: string;
+    name: string;
+    symbol: string;
+  }>({
+    total: "0",
+    remaining: "0",
+    sold: "0",
+    holders: 0,
+    price: "0",
+    name: "",
+    symbol: ""
+  });
+
+  const getProgressColor = (progress: number) => {
+    if (progress >= 90) return "bg-red-500";
+    if (progress >= 70) return "bg-orange-500";
+    if (progress >= 30) return "bg-green-500";
+    return "bg-blue-500";
+  };
+
+  const formatTokenAmount = (amount: string) => {
+    const num = parseFloat(amount);
+    return num % 1 === 0 ? num.toFixed(0) : num.toFixed(2);
+  };
+
+  const formatPrice = (price: string) => {
+    return parseFloat(price).toFixed(2);
+  };
+
+  useEffect(() => {
+    const fetchTokenSupply = async () => {
+      if (!property.token_address) {
+        setIsLoadingProgress(false);
+        return;
+      }
+
+      try {
+        const propertyContract = {
+          address: property.token_address as `0x${string}`,
+          abi: propertyTokenABI,
+        };
+
+        // First get the owner address
+        const owner = await publicClient.readContract({
+          ...propertyContract,
+          functionName: "owner",
+        });
+
+        // Fetch all token data in parallel
+        const [
+          totalSupply,
+          ownerBalance,
+          price,
+          name,
+          symbol
+        ] = await Promise.all([
+          publicClient.readContract({
+            ...propertyContract,
+            functionName: "totalSupply",
+          }),
+          publicClient.readContract({
+            ...propertyContract,
+            functionName: "balanceOf",
+            args: [owner], // Use owner address instead of contract address
+          }),
+          publicClient.readContract({
+            ...propertyContract,
+            functionName: "getPrice",
+          }),
+          publicClient.readContract({
+            ...propertyContract,
+            functionName: "name",
+          }),
+          publicClient.readContract({
+            ...propertyContract,
+            functionName: "symbol",
+          })
+        ]);
+
+        // Calculate token metrics
+        const total = Number(formatUnits(totalSupply, 18));
+        const available = Number(formatUnits(ownerBalance, 18));
+        const sold = total - available;
+        const progress = Math.min((sold / total) * 100, 100);
+        const priceInEurc = Number(formatUnits(price, 6));
+
+        setTokenProgress(progress);
+        setTokenStats({
+          total: total.toString(),
+          remaining: available.toString(),
+          sold: sold.toString(),
+          holders: 0,
+          price: priceInEurc.toString(),
+          name,
+          symbol,
+        });
+
+        // Fetch token holders
+        try {
+          const filter = await publicClient.createEventFilter({
+            address: property.token_address as `0x${string}`,
+            event: parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)'),
+            fromBlock: 0n
+          });
+          
+          const logs = await publicClient.getFilterLogs({ filter });
+          
+          // Track current balances
+          const balances = new Map<string, bigint>();
+          
+          for (const log of logs) {
+            const { from, to, value } = log.args;
+            
+            // Skip if from/to is zero address or contract
+            if (from !== '0x0000000000000000000000000000000000000000' && 
+                from !== property.token_address) {
+              const fromBalance = balances.get(from) || 0n;
+              balances.set(from, fromBalance - value);
+            }
+            
+            if (to !== '0x0000000000000000000000000000000000000000' && 
+                to !== property.token_address) {
+              const toBalance = balances.get(to) || 0n;
+              balances.set(to, toBalance + value);
+            }
+          }
+          
+          // Count addresses with positive balance
+          const activeHolders = Array.from(balances.entries())
+            .filter(([_, balance]) => balance > 0n);
+
+          setTokenStats(prev => ({
+            ...prev,
+            holders: activeHolders.length
+          }));
+
+        } catch (error) {
+          console.error("Error fetching holders:", error);
+        }
+
+      } catch (error) {
+        console.error("Error fetching token data:", error);
+      } finally {
+        setIsLoadingProgress(false);
+      }
+    };
+
+    fetchTokenSupply();
+  }, [property.token_address, publicClient]);
 
   const getStatusColor = (status: PropertyStatus) => {
     switch (status) {
@@ -94,7 +256,77 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
           </Badge>
         </div>
         <p className="text-muted-foreground text-sm mb-2">{property.location}</p>
-        <p className="font-medium">€{property.expected_price}</p>
+        <div className="flex items-baseline gap-1 mb-4">
+          <span className="font-medium">€{formatPrice(tokenStats.price)}</span>
+          <span className="text-muted-foreground">/token</span>
+          <span className="text-xs text-muted-foreground ml-1">
+            (Total: €{(Number(tokenStats.price) * Number(tokenStats.total)).toLocaleString()})
+          </span>
+        </div>
+        
+        {property.token_address && (
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2 cursor-help">
+                      <span className="text-muted-foreground">Token Sales Progress</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="w-64 p-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Supply:</span>
+                        <span className="font-medium">{formatTokenAmount(tokenStats.total)} tokens</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tokens Sold:</span>
+                        <span className="font-medium">{formatTokenAmount(tokenStats.sold)} tokens</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Available:</span>
+                        <span className="font-medium">{formatTokenAmount(tokenStats.remaining)} tokens</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Holders:</span>
+                        <span className="font-medium">{tokenStats.holders}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Name:</span>
+                        <span className="font-medium">{tokenStats.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Symbol:</span>
+                        <span className="font-medium">{tokenStats.symbol}</span>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <span className="font-medium">{Math.round(tokenProgress)}%</span>
+            </div>
+            {isLoadingProgress ? (
+              <div className="h-2 w-full bg-primary/20 rounded-full animate-pulse" />
+            ) : (
+              <div className="space-y-1">
+                <Progress 
+                  value={tokenProgress} 
+                  className={cn(
+                    "h-2",
+                    getProgressColor(tokenProgress)
+                  )}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{formatTokenAmount(tokenStats.remaining)} available • {formatPrice(tokenStats.price)} EURC/token</span>
+                  <span className="text-xs text-muted-foreground">{tokenStats.holders} holders</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="mt-4">
           {property.token_address ? (
             isKYCLoading ? (
@@ -144,7 +376,7 @@ export default function PropertyList() {
   // Read admin from contract
   const { data: contractAdmin } = useReadContract({
     address: contractAddress,
-    abi: propertyFactoryABI.abi,
+    abi: mockEURCABI,
     functionName: 'admin',
   });
 
@@ -266,14 +498,14 @@ export default function PropertyList() {
             </Select>
             <div className="flex items-center space-x-1">
               <Button
-                variant={view === 'grid' ? 'default' : 'outline'}
+                variant={view === 'grid' ? 'default' : 'outline' }
                 size="icon"
                 onClick={() => setView('grid')}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" /><rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" /></svg>
               </Button>
               <Button
-                variant={view === 'list' ? 'default' : 'outline'}
+                variant={view === 'list' ? 'default' : 'outline' }
                 size="icon"
                 onClick={() => setView('list')}
               >
