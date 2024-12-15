@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { ChartBarIcon, ArrowTrendingUpIcon, BuildingOffice2Icon, CurrencyDollarIcon } from "@heroicons/react/24/outline";
@@ -9,50 +12,43 @@ interface MarketInsightsProps {
 
 export default function MarketInsights({ location }: MarketInsightsProps) {
   const [insights, setInsights] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchMarketInsights() {
-      if (!location) {
-        setInsights(null);
-        return;
-      }
+    if (!location) {
+      setLoading(false);
+      setInsights(null);
+      return;
+    }
 
-      setLoading(true);
-      setError(null);
-
+    const fetchInsights = async () => {
       try {
-        console.log('Fetching market insights for:', location);
-        const response = await fetch('/api/market-insights', {
-          method: 'POST',
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch(`/api/market-insights?location=${encodeURIComponent(location)}`, {
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ location }),
         });
 
-        console.log('Response status:', response.status);
-        const data = await response.json();
-        console.log('Response data:', data);
-
         if (!response.ok) {
-          if (response.status === 429) {
-            throw new Error('Service is busy. Please try again in a few minutes.');
-          }
-          throw new Error(data.error || 'Failed to fetch market insights');
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
 
+        const data = await response.json();
         setInsights(data.insights);
       } catch (err) {
-        console.error('Market insights error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch market insights');
+        console.error('Failed to fetch market insights:', err);
+        setError('Failed to load market insights. Please try again later.');
       } finally {
         setLoading(false);
       }
-    }
+    };
 
-    fetchMarketInsights();
+    fetchInsights();
   }, [location]);
 
   if (!location) {
@@ -69,159 +65,91 @@ export default function MarketInsights({ location }: MarketInsightsProps) {
     );
   }
 
-  const formatMarkdown = (text: string) => {
-    const sections = text.split('\n\n');
-    return sections.map((section, sectionIndex) => {
-      const lines = section.split('\n');
-      
-      // Handle section titles (##)
-      if (lines[0].startsWith('**') && lines[0].endsWith('**')) {
-        const title = lines[0].replace(/^\*\*|\*\*$/g, '');
-        const content = lines.slice(1);
-        return (
-          <div key={sectionIndex} className="mb-6 last:mb-0">
-            <h3 className="text-lg font-semibold mb-3 text-primary flex items-center gap-2">
-              {sectionIndex === 0 && <BuildingOffice2Icon className="w-5 h-5" />}
-              {sectionIndex === 1 && <CurrencyDollarIcon className="w-5 h-5" />}
-              {sectionIndex === 2 && <ArrowTrendingUpIcon className="w-5 h-5" />}
-              {title}
-            </h3>
-            <div className="space-y-2">
-              {content.map((line, lineIndex) => {
-                // Handle images
-                const imageMatch = line.match(/!\[(.*?)\]\((.*?)\)/);
-                if (imageMatch) {
-                  const [_, altText, imageUrl] = imageMatch;
-                  return (
-                    <div key={lineIndex} className="my-4">
-                      <div className="relative rounded-lg overflow-hidden border bg-muted/20">
-                        <img
-                          src={imageUrl}
-                          alt={altText}
-                          className="w-full h-auto object-cover"
-                          loading="lazy"
-                        />
-                        {altText && (
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white p-2 text-sm">
-                            {altText}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Handle numbered lists
-                if (line.match(/^\d+\./)) {
-                  return (
-                    <div key={lineIndex} className="flex gap-2 ml-4">
-                      <span className="text-primary font-medium">{line.match(/^\d+/)?.[0]}.</span>
-                      <span className="text-muted-foreground">{line.replace(/^\d+\.\s*/, '')}</span>
-                    </div>
-                  );
-                }
-                // Handle bold text within paragraphs
-                if (line.includes('**')) {
-                  const parts = line.split(/(\*\*.*?\*\*)/g);
-                  return (
-                    <p key={lineIndex} className="text-muted-foreground">
-                      {parts.map((part, i) => {
-                        if (part.startsWith('**') && part.endsWith('**')) {
-                          return (
-                            <span key={i} className="font-medium text-foreground">
-                              {part.slice(2, -2)}
-                            </span>
-                          );
-                        }
-                        return part;
-                      })}
-                    </p>
-                  );
-                }
-                // Regular paragraphs
-                if (line.trim()) {
-                  return (
-                    <p key={lineIndex} className="text-muted-foreground">
-                      {line}
-                    </p>
-                  );
-                }
-                return null;
-              })}
-            </div>
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ChartBarIcon className="w-5 h-5" />
+            Market Insights
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-4 w-full" />
           </div>
-        );
-      }
-      
-      // Handle regular paragraphs
-      return (
-        <div key={sectionIndex} className="mb-4">
-          {lines.map((line, lineIndex) => {
-            // Handle images in regular paragraphs
-            const imageMatch = line.match(/!\[(.*?)\]\((.*?)\)/);
-            if (imageMatch) {
-              const [_, altText, imageUrl] = imageMatch;
-              return (
-                <div key={lineIndex} className="my-4">
-                  <div className="relative rounded-lg overflow-hidden border bg-muted/20">
-                    <img
-                      src={imageUrl}
-                      alt={altText}
-                      className="w-full h-auto object-cover"
-                      loading="lazy"
-                    />
-                    {altText && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white p-2 text-sm">
-                        {altText}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            }
-            return (
-              <p key={lineIndex} className="text-muted-foreground mb-2">
-                {line}
-              </p>
-            );
-          })}
-        </div>
-      );
-    });
-  };
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ChartBarIcon className="w-5 h-5" />
+            Market Insights
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!insights) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ChartBarIcon className="w-5 h-5" />
+            Market Insights
+          </CardTitle>
+          <CardDescription>No insights available for this location</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="border-b bg-muted/40">
+    <Card>
+      <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <ChartBarIcon className="w-5 h-5" />
           Market Insights
         </CardTitle>
-        <CardDescription>Real estate market analysis for {location}</CardDescription>
+        <CardDescription>Market analysis for {location}</CardDescription>
       </CardHeader>
-      <CardContent className="p-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Spinner className="h-8 w-8 text-primary" />
-          </div>
-        ) : error ? (
-          <div className="p-4 text-sm border rounded-lg bg-destructive/10 text-destructive">
-            <p className="font-medium">Error loading market insights</p>
-            <p className="mt-1">{error}</p>
-            {error.includes('busy') && (
-              <p className="mt-2 text-xs">
-                The AI service is currently experiencing high demand. 
-                Please wait a moment and try selecting the property again.
-              </p>
-            )}
-          </div>
-        ) : insights ? (
-          <div className="text-sm divide-y">
-            {formatMarkdown(insights)}
-          </div>
-        ) : (
-          <div className="text-muted-foreground">No insights available for this location</div>
-        )}
+      <CardContent>
+        <div className="prose dark:prose-invert max-w-none">
+          {insights.split('\n\n').map((section, index) => {
+            const [title, ...content] = section.split('\n');
+            const titleText = title.replace(/^\*\*|\*\*$/g, '');
+            
+            return (
+              <div key={index} className="mb-6 last:mb-0">
+                <h3 className="text-lg font-semibold mb-3 text-primary flex items-center gap-2">
+                  {index === 0 && <BuildingOffice2Icon className="w-5 h-5" />}
+                  {index === 1 && <CurrencyDollarIcon className="w-5 h-5" />}
+                  {index === 2 && <ArrowTrendingUpIcon className="w-5 h-5" />}
+                  {titleText}
+                </h3>
+                <div className="space-y-2">
+                  {content.map((line, i) => (
+                    <p key={i} className="text-sm text-muted-foreground">{line}</p>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );

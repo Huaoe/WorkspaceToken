@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { useAccount, useReadContract } from 'wagmi';
 import { useState, useEffect } from 'react';
 import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
+import { useTheme } from 'next-themes';
+import { Moon, Sun } from 'lucide-react';
 
 const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
 
@@ -15,6 +17,7 @@ export function Navbar() {
   const { address } = useAccount();
   const [mounted, setMounted] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   // Read admin address from contract
   const { data: contractAdmin } = useReadContract({
@@ -64,6 +67,17 @@ export function Navbar() {
             )}
           </div>
           <div className="ml-auto flex items-center space-x-4">
+            <button
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Toggle theme"
+            >
+              {theme === 'light' ? (
+                <Moon className="h-5 w-5" />
+              ) : (
+                <Sun className="h-5 w-5" />
+              )}
+            </button>
             <CustomConnectButton />
           </div>
         </div>
@@ -121,6 +135,17 @@ export function Navbar() {
           )}
         </div>
         <div className="ml-auto flex items-center space-x-4">
+          <button
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            aria-label="Toggle theme"
+          >
+            {theme === 'light' ? (
+              <Moon className="h-5 w-5" />
+            ) : (
+              <Sun className="h-5 w-5" />
+            )}
+          </button>
           <CustomConnectButton />
         </div>
       </div>

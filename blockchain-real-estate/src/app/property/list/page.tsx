@@ -19,7 +19,7 @@ import { useReadContract } from 'wagmi'
 import { useAccount } from 'wagmi'
 import { useEffect, useState } from 'react'
 import { useToast } from "@/components/ui/use-toast"
-import Image from "next/image"
+import { MiniMap } from "@/components/property/mini-map";
 import Link from 'next/link'
 import { PropertyViewProvider } from '@/contexts/property-view-context';
 import AerialView from '@/components/property/aerial-view';
@@ -33,6 +33,7 @@ import { formatUnits, parseAbiItem } from "viem"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { propertyTokenABI, mockEURCABI } from "@/lib/contracts"
+import Image from "next/image";
 
 interface PropertyCardProps {
   property: PropertyRequest;
@@ -242,11 +243,15 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
           alt={property.title || 'Property'}
           fill
           className="object-cover"
+          priority
           onError={(e) => {
             const img = e.target as HTMLImageElement;
             img.src = PLACEHOLDER_IMAGE;
           }}
         />
+        <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-300">
+          <MiniMap location={property.location} height="100%" />
+        </div>
       </div>
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">

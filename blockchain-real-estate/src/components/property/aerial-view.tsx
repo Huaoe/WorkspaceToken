@@ -10,12 +10,13 @@ interface AerialViewProps {
 const AerialView: React.FC<AerialViewProps> = ({ location, className }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<google.maps.Map | null>(null);
+  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
 
   useEffect(() => {
     const loader = new Loader({
       apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
       version: "weekly",
-      libraries: ["places"]
+      libraries: ["places", "marker"]
     });
 
     const initializeAerialView = async () => {
@@ -58,10 +59,15 @@ const AerialView: React.FC<AerialViewProps> = ({ location, className }) => {
               mapInstance.current.setCenter(coordinates);
             }
 
-            // Add a marker
-            new google.maps.Marker({
-              position: coordinates,
+            // Remove existing marker if any
+            if (markerRef.current) {
+              markerRef.current.map = null;
+            }
+
+            // Add a new AdvancedMarkerElement
+            markerRef.current = new google.maps.marker.AdvancedMarkerElement({
               map: mapInstance.current,
+              position: coordinates,
               title: location
             });
           } else {
@@ -76,7 +82,10 @@ const AerialView: React.FC<AerialViewProps> = ({ location, className }) => {
     initializeAerialView();
 
     return () => {
-      // Cleanup if needed
+      // Cleanup marker on unmount
+      if (markerRef.current) {
+        markerRef.current.map = null;
+      }
     };
   }, [location]);
 

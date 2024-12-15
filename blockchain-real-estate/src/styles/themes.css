@@ -1,0 +1,13 @@
+:root {
+  --primary: #4A919E;
+  --background: #ffffff;
+  --foreground: #000000;
+}
+
+[data-theme='dark'] {
+  --primary: #4A919E;
+  --background: #212E53;
+  --foreground: #EBACA2;
+  --accent: #CE6A6B;
+  --secondary: #BED3C3;
+}

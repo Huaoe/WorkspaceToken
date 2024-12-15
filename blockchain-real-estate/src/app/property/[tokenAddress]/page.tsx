@@ -18,6 +18,7 @@ import { Loader2 } from "lucide-react";
 import { MiniMap } from "@/components/property/mini-map";
 import MarketInsights from "@/components/property/market-insights";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ContractDetails } from "@/components/property/contract-details";
 
 interface PropertyDetails {
   title: string;
@@ -48,14 +49,7 @@ export default function PropertyDetails() {
   const [imageError, setImageError] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [propertyRequest, setPropertyRequest] = useState<PropertyRequest | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const tokenAddress = params.tokenAddress as `0x${string}`;
-
-  useEffect(() => {
-    setMounted(true);
-    fetchPropertyRequest();
-  }, [tokenAddress]);
 
   const { data: contractData, isLoading: contractLoading } = useContractReads({
     contracts: [
@@ -78,6 +72,14 @@ export default function PropertyDetails() {
     watch: true,
   });
 
+  useEffect(() => {
+    console.log('[PropertyDetails] Component mounted');
+    console.log('[PropertyDetails] Token Address:', tokenAddress);
+    console.log('[PropertyDetails] Property Request:', propertyRequest);
+    setMounted(true);
+    fetchPropertyRequest();
+  }, [tokenAddress]);
+
   const fetchPropertyRequest = async () => {
     try {
       const { data, error } = await supabase
@@ -95,34 +97,29 @@ export default function PropertyDetails() {
         description: "Failed to fetch property details",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
+      setError('Failed to fetch property details');
     }
   };
 
-  useEffect(() => {
-    const fetchMistralData = async () => {
-      if (!propertyRequest?.id) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('market_insights_cache')
-          .select('market_analysis, price_prediction, risk_assessment')
-          .eq('id', propertyRequest.id)
-          .single();
-        
-        if (data && !error) {
-          setPropertyDetails(prev => prev ? {
-            ...prev,
-            mistral_data: {
-              market_analysis: data.market_analysis || '',
-              price_prediction: data.price_prediction || '',
-              risk_assessment: data.risk_assessment || '',
-            }
-          } : null);
-        }
-      } catch (err) {
-        console.error('Error fetching market insights:', err);
+  const propertyDetails = propertyRequest && contractData ? {
+    title: propertyRequest.title,
+    description: propertyRequest.description,
+    location: propertyRequest.location,
+    imageUrl: propertyRequest.image_url || '',
+    expected_price: BigInt(propertyRequest.expected_price * 10**6),
+    isActive: propertyRequest.status === 'approved',
+    status: propertyRequest.status,
+    payoutDuration: propertyRequest.payout_duration,
+    finishAt: propertyRequest.finish_at,
+    roi: propertyRequest.roi,
+    numberOfTokens: Number(formatUnits(contractData[0].result || BigInt(0), 18)),
+    ownerAddress: contractData[1].result as string,
+    documents_url: propertyRequest.documents_url,
+    ...(propertyRequest.insights && {
+      mistral_data: {
+        market_analysis: propertyRequest.insights.market_analysis || '',
+        price_prediction: propertyRequest.insights.price_prediction || '',
+        risk_assessment: propertyRequest.insights.risk_assessment || '',
       }
     };
 
@@ -174,28 +171,20 @@ export default function PropertyDetails() {
     );
   }
 
-  if (contractLoading || loading) {
+  if (contractLoading || !propertyRequest || !propertyDetails) {
     return (
-      <div className="container mx-auto p-8 flex justify-center items-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="container mx-auto py-8 flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-sm text-muted-foreground">Loading property details...</p>
+        </div>
       </div>
     );
   }
 
-  if (!propertyDetails || !propertyRequest) {
-    return (
-      <div className="container mx-auto p-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Property Not Found</CardTitle>
-            <CardDescription>
-              The requested property could not be found.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
+  const imageUrl = propertyDetails.imageUrl && propertyDetails.imageUrl.startsWith('http') 
+    ? propertyDetails.imageUrl 
+    : PLACEHOLDER_IMAGE;
 
   const formattedPrice = propertyDetails.expected_price ? formatUnits(propertyDetails.expected_price, 6) : '0';
   const formattedSupply = propertyDetails.numberOfTokens?.toString() || '0';
@@ -220,10 +209,6 @@ export default function PropertyDetails() {
     }
   };
 
-  const imageUrl = propertyDetails.imageUrl && propertyDetails.imageUrl.startsWith('http') 
-    ? propertyDetails.imageUrl 
-    : PLACEHOLDER_IMAGE;
-
   return (
     <div className="container mx-auto py-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -231,15 +216,17 @@ export default function PropertyDetails() {
         <div className="md:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>{propertyDetails?.title}</CardTitle>
-              <CardDescription>{propertyDetails?.location}</CardDescription>
+              <CardTitle>{propertyDetails.title}</CardTitle>
+              <CardDescription>{propertyDetails.location}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="relative aspect-video rounded-lg overflow-hidden mb-6">
                 <Image
-                  src={!imageError ? (propertyDetails?.imageUrl || PLACEHOLDER_IMAGE) : PLACEHOLDER_IMAGE}
-                  alt={propertyDetails?.title || "Property"}
+                  src={!imageError ? (propertyDetails.imageUrl || PLACEHOLDER_IMAGE) : PLACEHOLDER_IMAGE}
+                  alt={propertyDetails.title || "Property"}
                   fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw"
+                  priority
                   className="object-cover"
                   onError={() => setImageError(true)}
                 />
@@ -254,40 +241,38 @@ export default function PropertyDetails() {
                 
                 <TabsContent value="details">
                   <div className="prose max-w-none">
-                    <p>{propertyDetails?.description}</p>
+                    <p>{propertyDetails.description}</p>
                     {/* Other property details */}
                   </div>
                 </TabsContent>
                 
                 <TabsContent value="location">
-                  {propertyDetails?.location && (
-                    <MiniMap location={propertyDetails.location} className="mb-4" />
-                  )}
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {propertyDetails?.location}
-                  </p>
+                  <div className="space-y-4">
+                    <div style={{ height: '400px', width: '100%', position: 'relative' }}>
+                      <MiniMap location={propertyDetails.location} height="400px" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {propertyDetails.location}
+                    </p>
+                  </div>
                 </TabsContent>
                 
                 <TabsContent value="market">
-                  {propertyDetails?.mistral_data ? (
-                    <div className="space-y-4">
-                      <MarketInsights
-                        marketAnalysis={propertyDetails.mistral_data.market_analysis}
-                        pricePrediction={propertyDetails.mistral_data.price_prediction}
-                        riskAssessment={propertyDetails.mistral_data.risk_assessment}
-                      />
-                    </div>
+                  {propertyDetails.location ? (
+                    <MarketInsights location={propertyDetails.location} />
                   ) : (
-                    <p className="text-muted-foreground">Market analysis data not available.</p>
+                    <p className="text-muted-foreground">Location data not available for market analysis.</p>
                   )}
                 </TabsContent>
               </Tabs>
             </CardContent>
           </Card>
         </div>
+        
 
         {/* Sidebar - 1 column */}
         <div className="space-y-6">
+          <ContractDetails tokenAddress={tokenAddress} />
           <Card>
             <CardHeader>
               <CardTitle>Investment Details</CardTitle>
@@ -345,30 +330,6 @@ export default function PropertyDetails() {
                    'Not Available'}
                 </Button>
               )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Contract Details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 mt-2">
-                <div>
-                  <p className="text-sm text-muted-foreground">Contract Address</p>
-                  <p className="font-medium font-mono text-sm">{tokenAddress}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Owner Address</p>
-                  <p className="font-medium font-mono text-sm">{propertyDetails.ownerAddress}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Contract End Date</p>
-                  <p className="font-medium">
-                    {new Date(propertyRequest.finish_at).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
             </CardContent>
           </Card>
 
