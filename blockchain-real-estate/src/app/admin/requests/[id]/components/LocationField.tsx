@@ -8,6 +8,7 @@ import { UseFormReturn } from "react-hook-form";
 import { LocationPicker, geocodeAddress } from "@/components/LocationPicker";
 import { Search } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { useRef, useState, useEffect } from "react";
 
 interface LocationFieldProps {
   form: UseFormReturn<any>;
@@ -18,6 +19,27 @@ export function LocationField({ form, defaultLocation }: LocationFieldProps) {
   const { toast } = useToast();
   const [isSearching, setIsSearching] = useState(false);
   const locationPickerRef = useRef<{ updateMapLocation: (lat: number, lng: number) => void }>(null);
+
+  // Initialize map with current location when component mounts
+  useEffect(() => {
+    const initializeLocation = async () => {
+      const currentLocation = form.getValues('location');
+      if (currentLocation) {
+        setIsSearching(true);
+        try {
+          const result = await geocodeAddress(currentLocation);
+          if (result) {
+            locationPickerRef.current?.updateMapLocation(result.lat, result.lng);
+          }
+        } catch (error) {
+          console.error('Error initializing location:', error);
+        }
+        setIsSearching(false);
+      }
+    };
+
+    initializeLocation();
+  }, [form]);
 
   const handleAddressSearch = async () => {
     const address = form.getValues('location');

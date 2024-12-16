@@ -17,10 +17,9 @@ import { ClientOnly } from './components/ClientOnly';
 import { useAccount, usePublicClient, useWalletClient, useSwitchChain, useReadContract } from "wagmi";
 import propertyFactoryJSON from '@contracts/abis/PropertyFactory.json';
 import { type Abi } from 'viem';
-import { parseUnits, formatUnits } from 'viem';
 import { decodeEventLog } from 'viem';
 import { StakingInitButton } from './components/StakingInitButton';
-import { geocodeAddress } from "@/components/LocationPicker";
+import { MiniMap } from '@/components/property/mini-map';
 
 import { propertyFormSchema } from './components/PropertyDetailsFields';
 
@@ -65,18 +64,36 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
   }
 
   const convertPriceToTokens = (price: string | number): bigint => {
-    let numericPrice: number;
+    console.log('Converting price:', { price, type: typeof price });
+    let numericPrice: string;
     if (typeof price === 'string') {
-      numericPrice = parseFloat(price.replace(/,/g, ''));
+      // Remove any non-numeric characters except decimal point
+      numericPrice = price.replace(/[^0-9.]/g, '');
     } else {
-      numericPrice = price;
+      numericPrice = price.toString();
     }
 
-    if (isNaN(numericPrice) || numericPrice <= 0) {
+    console.log('Numeric price after conversion:', { numericPrice, type: typeof numericPrice });
+    
+    if (isNaN(parseFloat(numericPrice)) || parseFloat(numericPrice) <= 0) {
       throw new Error('Invalid price value');
     }
 
-    return parseUnits(numericPrice.toString(), 6);
+    try {
+      // Ensure we have a valid decimal string
+      const [whole, decimal = ''] = numericPrice.split('.');
+      // Pad with zeros to 6 decimal places if needed
+      const paddedDecimal = decimal.padEnd(6, '0').slice(0, 6);
+      // Combine whole and decimal parts
+      const fullNumber = `${whole}${paddedDecimal}`;
+      // Convert to BigInt
+      const result = BigInt(fullNumber);
+      console.log('Final price in units:', result.toString());
+      return result;
+    } catch (error) {
+      console.error('Error converting to BigInt:', error);
+      throw error;
+    }
   };
 
   const handleCreateToken = async () => {
@@ -137,18 +154,21 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
         ? formData.image_url.substring(0, 128) 
         : (formData.image_url || '');
 
-      // Convert and validate price
+      // Convert and validate price and total supply
+      console.log('Form data:', formData);
       const priceValue = convertPriceToTokens(formData.expected_price);
-      const totalSupply = parseUnits(formData.number_of_tokens.toString(), 18);
-      
+      const totalSupply = BigInt(formData.number_of_tokens || '100000');
+
       console.log('Starting token creation with:', {
         contractAddress,
         title: formData.title,
         description: formData.description,
         location,
         imageUrl,
-        price: priceValue.toString(),
-        totalSupply: formatUnits(totalSupply, 18),
+        price: priceValue,
+        totalSupply: totalSupply,
+        tokenName: formData.token_name,
+        tokenSymbol: formData.token_symbol,
         walletAddress: address,
         nonce,
       });
@@ -166,7 +186,8 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
           priceValue,
           totalSupply,
           formData.token_name,
-          formData.token_symbol
+          formData.token_symbol,
+          totalSupply
         ],
         account: address,
       });
@@ -434,6 +455,9 @@ export default function ReviewRequest() {
     },
   });
 
+  const status = form.watch('status');
+  const location = form.watch('location');
+  
   useEffect(() => {
     const fetchRequest = async () => {
       try {
@@ -563,13 +587,14 @@ export default function ReviewRequest() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <StatusField form={form} />
-              <PropertyDetailsFields form={form} />
-              <LocationField 
-                form={form} 
-                ref={locationPickerRef}
-                defaultLocation={mapLocation}
-              />
+              <div className="grid  gap-6">
+                <div className="space-y-6">
+                  <PropertyDetailsFields form={form} />
+                  <LocationField form={form} />
+                  <StatusField form={form} />
+                </div>
+              
+              </div>
               <div className="flex justify-between pt-4">
                 <Button variant="outline" onClick={() => router.push('/admin/requests')}>
                   Back
