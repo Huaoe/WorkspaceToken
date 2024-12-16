@@ -130,7 +130,11 @@ export function MiniMap({ location, height = '400px' }: MiniMapProps) {
         mapRef.current = map;
 
         // Create info window
-        infoWindowRef.current = new google.maps.InfoWindow();
+        infoWindowRef.current = new google.maps.InfoWindow({
+          content: "",
+          pixelOffset: new google.maps.Size(0, -10),
+          maxWidth: 250,
+        });
 
         // Add property marker
         const propertyPin = document.createElement('div');
@@ -140,7 +144,8 @@ export function MiniMap({ location, height = '400px' }: MiniMapProps) {
           position: data.center,
           map,
           content: propertyPin,
-          title: location
+          title: location,
+          collisionBehavior: google.maps.CollisionBehavior.OPTIONAL_AND_HIDES_LOWER_PRIORITY,
         });
         markersRef.current.push(propertyMarker);
 
@@ -153,7 +158,23 @@ export function MiniMap({ location, height = '400px' }: MiniMapProps) {
             position: place.geometry.location,
             map,
             content: placePin,
-            title: place.name
+            title: place.name,
+            collisionBehavior: google.maps.CollisionBehavior.OPTIONAL_AND_HIDES_LOWER_PRIORITY,
+          });
+
+          // Add click listener for info window
+          marker.addListener('click', () => {
+            if (infoWindowRef.current) {
+              const content = `
+                <div class="p-2 bg-white rounded shadow-md">
+                  <h3 class="font-semibold text-gray-900">${place.name}</h3>
+                  <p class="text-sm text-gray-600">${place.vicinity}</p>
+                  ${place.rating ? `<p class="text-sm text-gray-700 mt-1">Rating: ${place.rating} ⭐</p>` : ''}
+                </div>
+              `;
+              infoWindowRef.current.setContent(content);
+              infoWindowRef.current.open(map, marker);
+            }
           });
 
           markersRef.current.push(marker);

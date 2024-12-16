@@ -3,14 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { PropertyRequest } from '@/types/property'
 import { PLACEHOLDER_IMAGE } from '@/lib/constants'
@@ -249,9 +242,6 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
             img.src = PLACEHOLDER_IMAGE;
           }}
         />
-        <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-300">
-          <MiniMap location={property.location} height="100%" />
-        </div>
       </div>
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">

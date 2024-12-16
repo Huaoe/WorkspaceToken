@@ -7,8 +7,7 @@ import { cn } from '@/lib/utils';
 import { useAccount, useReadContract } from 'wagmi';
 import { useState, useEffect } from 'react';
 import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
-import { useTheme } from 'next-themes';
-import { Moon, Sun } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 
 const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
 
@@ -17,7 +16,6 @@ export function Navbar() {
   const { address } = useAccount();
   const [mounted, setMounted] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const { theme, setTheme } = useTheme();
 
   // Read admin address from contract
   const { data: contractAdmin } = useReadContract({
@@ -67,17 +65,6 @@ export function Navbar() {
             )}
           </div>
           <div className="ml-auto flex items-center space-x-4">
-            <button
-              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              aria-label="Toggle theme"
-            >
-              {theme === 'light' ? (
-                <Moon className="h-5 w-5" />
-              ) : (
-                <Sun className="h-5 w-5" />
-              )}
-            </button>
             <CustomConnectButton />
           </div>
         </div>
@@ -86,67 +73,61 @@ export function Navbar() {
   }
 
   return (
-    <nav className="border-b">
-      <div className="container flex h-16 items-center px-4">
-        <div className="flex items-center space-x-4 lg:space-x-6">
-          <Link
-            href="/"
-            className={cn(
-              "text-sm font-medium transition-colors hover:text-primary",
-              pathname === "/" ? "text-foreground" : "text-muted-foreground"
-            )}
-          >
-            Work Space Token
-          </Link>
-          <Link
-            href="/property/list"
-            className={cn(
-              "text-sm font-medium transition-colors hover:text-primary",
-              pathname === "/property/list" ? "text-foreground" : "text-muted-foreground"
-            )}
-          >
-            Properties
-          </Link>
-          {isAdmin && (
-            <>
+    <nav className="border-b border-gray-200 dark:border-gray-800">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 justify-between items-center">
+          <div className="flex items-center">
+            <Link
+              href="/"
+              className={cn(
+                "text-sm font-medium transition-colors hover:text-primary",
+                pathname === "/" ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              Work Space Token
+            </Link>
+            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link
-                href="/property/request"
+                href="/property/list"
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-primary",
-                  pathname === "/property/request"
-                    ? "text-foreground"
-                    : "text-muted-foreground"
+                  pathname === "/property/list" ? "text-foreground" : "text-muted-foreground"
                 )}
               >
-                Submit Property
+                Properties
               </Link>
-              <Link
-                href="/admin/requests"
-                className={cn(
-                  "text-sm font-medium transition-colors hover:text-primary",
-                  pathname.startsWith("/admin")
-                    ? "text-foreground"
-                    : "text-muted-foreground"
-                )}
-              >
-                Admin
-              </Link>
-            </>
-          )}
-        </div>
-        <div className="ml-auto flex items-center space-x-4">
-          <button
-            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            aria-label="Toggle theme"
-          >
-            {theme === 'light' ? (
-              <Moon className="h-5 w-5" />
-            ) : (
-              <Sun className="h-5 w-5" />
-            )}
-          </button>
-          <CustomConnectButton />
+              {isAdmin && (
+                <>
+                  <Link
+                    href="/property/request"
+                    className={cn(
+                      "text-sm font-medium transition-colors hover:text-primary",
+                      pathname === "/property/request"
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    Submit Property
+                  </Link>
+                  <Link
+                    href="/admin/requests"
+                    className={cn(
+                      "text-sm font-medium transition-colors hover:text-primary",
+                      pathname.startsWith("/admin")
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    Admin
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <ThemeToggle />
+            <CustomConnectButton />
+          </div>
         </div>
       </div>
     </nav>

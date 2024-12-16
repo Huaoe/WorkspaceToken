@@ -216,8 +216,8 @@ export default function PropertyDetails() {
         <div className="md:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>{propertyDetails.title}</CardTitle>
-              <CardDescription>{propertyDetails.location}</CardDescription>
+              <CardTitle className="text-[#212E53] dark:text-white">{propertyDetails.title}</CardTitle>
+              <CardDescription className="text-[#4A919E] dark:text-gray-300">{propertyDetails.location}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="relative aspect-video rounded-lg overflow-hidden mb-6">
@@ -233,16 +233,30 @@ export default function PropertyDetails() {
               </div>
               
               <Tabs defaultValue="details" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="details">Details</TabsTrigger>
-                  <TabsTrigger value="location">Location</TabsTrigger>
-                  <TabsTrigger value="market">Market Analysis</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3 bg-gray-100 dark:bg-gray-800">
+                  <TabsTrigger 
+                    value="details" 
+                    className="text-[#212E53] dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700"
+                  >
+                    Details
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="location"
+                    className="text-[#212E53] dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700"
+                  >
+                    Location
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="market"
+                    className="text-[#212E53] dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700"
+                  >
+                    Market Analysis
+                  </TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="details">
                   <div className="prose max-w-none">
-                    <p>{propertyDetails.description}</p>
-                    {/* Other property details */}
+                    <p className="text-[#4A919E] dark:text-gray-300">{propertyDetails.description}</p>
                   </div>
                 </TabsContent>
                 
@@ -251,7 +265,7 @@ export default function PropertyDetails() {
                     <div style={{ height: '400px', width: '100%', position: 'relative' }}>
                       <MiniMap location={propertyDetails.location} height="400px" />
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-[#4A919E] dark:text-gray-300">
                       {propertyDetails.location}
                     </p>
                   </div>
@@ -261,7 +275,7 @@ export default function PropertyDetails() {
                   {propertyDetails.location ? (
                     <MarketInsights location={propertyDetails.location} />
                   ) : (
-                    <p className="text-muted-foreground">Location data not available for market analysis.</p>
+                    <p className="text-[#4A919E] dark:text-gray-300">Location data not available for market analysis.</p>
                   )}
                 </TabsContent>
               </Tabs>

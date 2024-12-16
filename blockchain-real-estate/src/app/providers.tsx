@@ -7,6 +7,7 @@ import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { Toaster } from '@/components/ui/toaster';
 import '@rainbow-me/rainbowkit/styles.css';
 import { WalletEventsProvider } from './wallet-events-provider';
+import { ThemeProvider } from '@/components/theme/theme-provider';
 
 // Create a client
 const queryClient = new QueryClient();
