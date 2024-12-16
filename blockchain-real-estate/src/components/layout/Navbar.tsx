@@ -96,6 +96,15 @@ export function Navbar() {
               >
                 Properties
               </Link>
+              <Link
+                href="/how-it-works"
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-primary",
+                  pathname === "/how-it-works" ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                Comment ça marche ?
+              </Link>
               {isAdmin && (
                 <>
                   <Link
