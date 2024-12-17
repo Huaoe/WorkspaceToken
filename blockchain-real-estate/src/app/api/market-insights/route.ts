@@ -20,7 +20,7 @@ interface MarketInsightsCache {
   created_at: string;
 }
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
     console.log('Starting market insights request...');
     
@@ -32,8 +32,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const location = searchParams.get('location');
+    const { location } = await request.json();
     console.log('Location:', location);
 
     if (!location) {

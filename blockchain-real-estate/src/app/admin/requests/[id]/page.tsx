@@ -17,9 +17,10 @@ import { ClientOnly } from './components/ClientOnly';
 import { useAccount, usePublicClient, useWalletClient, useSwitchChain, useReadContract } from "wagmi";
 import propertyFactoryJSON from '@contracts/abis/PropertyFactory.json';
 import { type Abi } from 'viem';
-import { parseUnits } from 'viem';
+import { parseUnits, formatUnits } from 'viem';
 import { decodeEventLog } from 'viem';
 import { StakingInitButton } from './components/StakingInitButton';
+import { geocodeAddress } from "@/components/LocationPicker";
 
 import { propertyFormSchema } from './components/PropertyDetailsFields';
 
@@ -138,6 +139,7 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
 
       // Convert and validate price
       const priceValue = convertPriceToTokens(formData.expected_price);
+      const totalSupply = parseUnits(formData.number_of_tokens.toString(), 18);
       
       console.log('Starting token creation with:', {
         contractAddress,
@@ -146,9 +148,9 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
         location,
         imageUrl,
         price: priceValue.toString(),
+        totalSupply: formatUnits(totalSupply, 18),
         walletAddress: address,
         nonce,
-        
       });
 
       // First simulate the transaction
@@ -432,8 +434,6 @@ export default function ReviewRequest() {
     },
   });
 
-  const status = form.watch('status');
-  
   useEffect(() => {
     const fetchRequest = async () => {
       try {
@@ -565,8 +565,11 @@ export default function ReviewRequest() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <StatusField form={form} />
               <PropertyDetailsFields form={form} />
-              <LocationField form={form} />
-              
+              <LocationField 
+                form={form} 
+                ref={locationPickerRef}
+                defaultLocation={mapLocation}
+              />
               <div className="flex justify-between pt-4">
                 <Button variant="outline" onClick={() => router.push('/admin/requests')}>
                   Back
