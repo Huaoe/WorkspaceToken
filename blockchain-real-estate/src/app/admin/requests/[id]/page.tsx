@@ -17,9 +17,9 @@ import { ClientOnly } from './components/ClientOnly';
 import { useAccount, usePublicClient, useWalletClient, useSwitchChain, useReadContract } from "wagmi";
 import propertyFactoryJSON from '@contracts/abis/PropertyFactory.json';
 import { type Abi } from 'viem';
+import { parseUnits } from 'viem';
 import { decodeEventLog } from 'viem';
 import { StakingInitButton } from './components/StakingInitButton';
-import { MiniMap } from '@/components/property/mini-map';
 
 import { propertyFormSchema } from './components/PropertyDetailsFields';
 
@@ -64,36 +64,18 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
   }
 
   const convertPriceToTokens = (price: string | number): bigint => {
-    console.log('Converting price:', { price, type: typeof price });
-    let numericPrice: string;
+    let numericPrice: number;
     if (typeof price === 'string') {
-      // Remove any non-numeric characters except decimal point
-      numericPrice = price.replace(/[^0-9.]/g, '');
+      numericPrice = parseFloat(price.replace(/,/g, ''));
     } else {
-      numericPrice = price.toString();
+      numericPrice = price;
     }
 
-    console.log('Numeric price after conversion:', { numericPrice, type: typeof numericPrice });
-    
-    if (isNaN(parseFloat(numericPrice)) || parseFloat(numericPrice) <= 0) {
+    if (isNaN(numericPrice) || numericPrice <= 0) {
       throw new Error('Invalid price value');
     }
 
-    try {
-      // Ensure we have a valid decimal string
-      const [whole, decimal = ''] = numericPrice.split('.');
-      // Pad with zeros to 6 decimal places if needed
-      const paddedDecimal = decimal.padEnd(6, '0').slice(0, 6);
-      // Combine whole and decimal parts
-      const fullNumber = `${whole}${paddedDecimal}`;
-      // Convert to BigInt
-      const result = BigInt(fullNumber);
-      console.log('Final price in units:', result.toString());
-      return result;
-    } catch (error) {
-      console.error('Error converting to BigInt:', error);
-      throw error;
-    }
+    return parseUnits(numericPrice.toString(), 6);
   };
 
   const handleCreateToken = async () => {
@@ -154,58 +136,19 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
         ? formData.image_url.substring(0, 128) 
         : (formData.image_url || '');
 
-      // Convert and validate price and total supply
-      console.log('Form data:', formData);
-      
+      // Convert and validate price
       const priceValue = convertPriceToTokens(formData.expected_price);
-      console.log('Price value after conversion:', {
-        original: formData.expected_price,
-        converted: priceValue,
-        type: typeof priceValue,
-        toString: priceValue.toString()
-      });
-
-      // Convert total supply to BigInt, ensuring it's a valid number first
-      const rawTotalSupply = formData.number_of_tokens?.toString().replace(/[^0-9]/g, '') || '100000';
-      console.log('Total supply before conversion:', {
-        raw: rawTotalSupply,
-        type: typeof rawTotalSupply
-      });
       
-      const totalSupply = BigInt(rawTotalSupply);
-      console.log('Total supply after conversion:', {
-        value: totalSupply,
-        type: typeof totalSupply,
-        toString: totalSupply.toString()
-      });
-
-      console.log('Contract parameters:', {
-        title: {
-          value: formData.title,
-          length: formData.title.length
-        },
-        description: {
-          value: formData.description,
-          length: formData.description.length
-        },
-        location: {
-          value: location,
-          length: location.length
-        },
-        imageUrl: {
-          value: imageUrl,
-          length: imageUrl.length
-        },
-        price: {
-          value: priceValue.toString(),
-          type: typeof priceValue
-        },
-        totalSupply: {
-          value: totalSupply.toString(),
-          type: typeof totalSupply
-        },
-        tokenName: formData.token_name,
-        tokenSymbol: formData.token_symbol
+      console.log('Starting token creation with:', {
+        contractAddress,
+        title: formData.title,
+        description: formData.description,
+        location,
+        imageUrl,
+        price: priceValue.toString(),
+        walletAddress: address,
+        nonce,
+        
       });
 
       // First simulate the transaction
@@ -221,8 +164,7 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
           priceValue,
           totalSupply,
           formData.token_name,
-          formData.token_symbol,
-          totalSupply
+          formData.token_symbol
         ],
         account: address,
       });
@@ -491,7 +433,6 @@ export default function ReviewRequest() {
   });
 
   const status = form.watch('status');
-  const location = form.watch('location');
   
   useEffect(() => {
     const fetchRequest = async () => {
@@ -622,14 +563,10 @@ export default function ReviewRequest() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <div className="grid  gap-6">
-                <div className="space-y-6">
-                  <PropertyDetailsFields form={form} />
-                  <LocationField form={form} />
-                  <StatusField form={form} />
-                </div>
+              <StatusField form={form} />
+              <PropertyDetailsFields form={form} />
+              <LocationField form={form} />
               
-              </div>
               <div className="flex justify-between pt-4">
                 <Button variant="outline" onClick={() => router.push('/admin/requests')}>
                   Back
