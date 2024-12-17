@@ -1,10 +1,17 @@
-'use client';
+"use client";
 
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useContractReads } from "wagmi";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { propertyTokenABI } from "@/lib/contracts";
@@ -48,7 +55,8 @@ export default function PropertyDetails() {
   const [error, setError] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [propertyRequest, setPropertyRequest] = useState<PropertyRequest | null>(null);
+  const [propertyRequest, setPropertyRequest] =
+    useState<PropertyRequest | null>(null);
   const tokenAddress = params.tokenAddress as `0x${string}`;
 
   const { data: contractData, isLoading: contractLoading } = useContractReads({
@@ -56,26 +64,31 @@ export default function PropertyDetails() {
       {
         address: tokenAddress,
         abi: propertyTokenABI,
-        functionName: 'totalSupply',
+        functionName: "totalSupply",
       },
       {
         address: tokenAddress,
         abi: propertyTokenABI,
-        functionName: 'owner',
+        functionName: "owner",
       },
       {
         address: tokenAddress,
         abi: propertyTokenABI,
+<<<<<<< HEAD
         functionName: 'propertyDetails',
       }
+=======
+        functionName: "getPrice",
+      },
+>>>>>>> d35d686 (css)
     ],
     watch: true,
   });
 
   useEffect(() => {
-    console.log('[PropertyDetails] Component mounted');
-    console.log('[PropertyDetails] Token Address:', tokenAddress);
-    console.log('[PropertyDetails] Property Request:', propertyRequest);
+    console.log("[PropertyDetails] Component mounted");
+    console.log("[PropertyDetails] Token Address:", tokenAddress);
+    console.log("[PropertyDetails] Property Request:", propertyRequest);
     setMounted(true);
     fetchPropertyRequest();
   }, [tokenAddress]);
@@ -83,21 +96,21 @@ export default function PropertyDetails() {
   const fetchPropertyRequest = async () => {
     try {
       const { data, error } = await supabase
-        .from('property_requests')
-        .select('*')
-        .eq('token_address', tokenAddress)
+        .from("property_requests")
+        .select("*")
+        .eq("token_address", tokenAddress)
         .single();
 
       if (error) throw error;
       setPropertyRequest(data);
     } catch (err) {
-      console.error('Error fetching property request:', err);
+      console.error("Error fetching property request:", err);
       toast({
         title: "Error",
         description: "Failed to fetch property details",
         variant: "destructive",
       });
-      setError('Failed to fetch property details');
+      setError("Failed to fetch property details");
     }
   };
 
@@ -176,189 +189,299 @@ export default function PropertyDetails() {
       <div className="container mx-auto py-8 flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-8 w-8 animate-spin" />
-          <p className="text-sm text-muted-foreground">Loading property details...</p>
+          <p className="text-sm text-muted-foreground">
+            Loading property details...
+          </p>
         </div>
       </div>
     );
   }
 
-  const imageUrl = propertyDetails.imageUrl && propertyDetails.imageUrl.startsWith('http') 
-    ? propertyDetails.imageUrl 
-    : PLACEHOLDER_IMAGE;
+  const imageUrl =
+    propertyDetails.imageUrl && propertyDetails.imageUrl.startsWith("http")
+      ? propertyDetails.imageUrl
+      : PLACEHOLDER_IMAGE;
 
-  const formattedPrice = propertyDetails.expected_price ? formatUnits(propertyDetails.expected_price, 6) : '0';
-  const formattedSupply = propertyDetails.numberOfTokens?.toString() || '0';
+  const formattedPrice = propertyDetails.expected_price
+    ? formatUnits(propertyDetails.expected_price, 6)
+    : "0";
+  const formattedSupply = propertyDetails.numberOfTokens?.toString() || "0";
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case 'funding':
+      case "funding":
         return {
-          label: 'Funding',
-          color: 'bg-purple-100 text-purple-800'
+          label: "Funding",
+          color: "bg-purple-100 text-purple-800",
         };
-      case 'staking':
-        return 'bg-blue-500 hover:bg-blue-600';
-      case 'onchain':
-        return 'bg-yellow-500 hover:bg-yellow-600';
-      case 'paused':
-        return 'bg-orange-500 hover:bg-orange-600';
-      case 'closed':
-        return 'bg-gray-500 hover:bg-gray-600';
+      case "staking":
+        return "bg-blue-500 hover:bg-blue-600";
+      case "onchain":
+        return "bg-yellow-500 hover:bg-yellow-600";
+      case "paused":
+        return "bg-orange-500 hover:bg-orange-600";
+      case "closed":
+        return "bg-gray-500 hover:bg-gray-600";
       default:
-        return '';
+        return "";
     }
   };
 
+  const places = [
+  ];
+
+  const handlePlaceClick = (place: any, index: number) => {
+    console.log("Place clicked:", place, index);
+  };
+
+  const price = BigInt(propertyRequest.expected_price);
+  const totalSupply = BigInt(propertyRequest.number_of_tokens);
+
+  const contractParameters = propertyRequest
+    ? {
+        title: propertyRequest.title,
+        description: propertyRequest.description,
+        location: propertyRequest.location,
+        imageUrl: propertyRequest.image_url,
+        price: price, // Using BigInt value directly
+        totalSupply: totalSupply, // Using BigInt value directly
+        tokenName: propertyRequest.token_name,
+        tokenSymbol: propertyRequest.token_symbol,
+      }
+    : null;
+
   return (
-    <div className="container mx-auto py-8">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Main content - 2 columns */}
-        <div className="md:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-[#212E53] dark:text-white">{propertyDetails.title}</CardTitle>
-              <CardDescription className="text-[#4A919E] dark:text-gray-300">{propertyDetails.location}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="relative aspect-video rounded-lg overflow-hidden mb-6">
+    <div className="min-h-screen flex flex-col">
+      <div className="flex-1 pb-16">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+          {/* Main content - 2 columns */}
+          <div className="lg:col-span-2 flex flex-col flex-1 min-h-0">
+            <Card className="flex-1 flex flex-col min-h-0">
+              <CardHeader className="flex-shrink-0">
+                <CardTitle className="text-[#212E53] dark:text-white">
+                  {propertyDetails.title}
+                </CardTitle>
+                <CardDescription>
+                  {propertyDetails.description}
+                </CardDescription>
+              </CardHeader>
+
+              <div className="relative aspect-video w-full">
                 <Image
-                  src={!imageError ? (propertyDetails.imageUrl || PLACEHOLDER_IMAGE) : PLACEHOLDER_IMAGE}
-                  alt={propertyDetails.title || "Property"}
+                  src={propertyDetails.imageUrl}
+                  alt={propertyDetails.title}
                   fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw"
-                  priority
-                  className="object-cover"
-                  onError={() => setImageError(true)}
+                  className="object-cover rounded-md"
                 />
               </div>
-              
-              <Tabs defaultValue="details" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 bg-gray-100 dark:bg-gray-800">
-                  <TabsTrigger 
-                    value="details" 
-                    className="text-[#212E53] dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700"
-                  >
-                    Details
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="location"
-                    className="text-[#212E53] dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700"
-                  >
-                    Location
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="market"
-                    className="text-[#212E53] dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700"
-                  >
-                    Market Analysis
-                  </TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="details">
-                  <div className="prose max-w-none">
-                    <p className="text-[#4A919E] dark:text-gray-300">{propertyDetails.description}</p>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="location">
-                  <div className="space-y-4">
-                    <div style={{ height: '400px', width: '100%', position: 'relative' }}>
-                      <MiniMap location={propertyDetails.location} height="400px" />
+
+              <div className="flex-1 flex flex-col min-h-0">
+                <Tabs defaultValue="details" className="w-full h-full flex flex-col">
+                  <TabsList className="grid w-full grid-cols-3 bg-gray-100 dark:bg-gray-800">
+                    <TabsTrigger
+                      value="details"
+                      className="text-[#212E53] dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700"
+                    >
+                      Details
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="location"
+                      className="text-[#212E53] dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700"
+                    >
+                      Location
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="market"
+                      className="text-[#212E53] dark:text-white data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700"
+                    >
+                      Market Analysis
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="details">
+                    <div className="prose max-w-none">
+                      <p className="text-[#4A919E] dark:text-gray-300">
+                        {propertyDetails.description}
+                      </p>
                     </div>
-                    <p className="text-[#4A919E] dark:text-gray-300">
-                      {propertyDetails.location}
+                  </TabsContent>
+
+                  <TabsContent value="location" className="h-full flex flex-col">
+                    <div className="space-y-6 flex flex-col flex-1 min-h-0">
+                      <div>
+                        <h3 className="text-lg font-semibold">Location</h3>
+                        <p className="text-[#4A919E] dark:text-gray-300">
+                          {propertyDetails.location}
+                        </p>
+                      </div>
+                      <div
+                        style={{
+                          height: "400px",
+                          width: "100%",
+                          position: "relative",
+                        }}
+                      >
+                        <MiniMap
+                          location={propertyDetails.location}
+                          height="400px"
+                        />
+                      </div>
+                      <div className="flex-1 min-h-0">
+                        <Card className="h-full flex flex-col">
+                          <CardHeader className="flex-shrink-0">
+                            <CardTitle>Nearby Places</CardTitle>
+                          </CardHeader>
+                          <CardContent className="flex-1 min-h-0 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                            <div className="grid grid-cols-1 gap-3">
+                              {places.map((place, index) => (
+                                <div
+                                  key={place.name}
+                                  className="flex items-start space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                                  onClick={() => handlePlaceClick(place, index)}
+                                >
+                                  <div className="flex-shrink-0 mt-1">
+                                    <div className="w-6 h-6 flex items-center justify-center rounded-full bg-red-100">
+                                      <svg
+                                        className="w-4 h-4 text-red-500"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                                        />
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                                        />
+                                      </svg>
+                                    </div>
+                                  </div>
+                                  <div className="flex-1">
+                                    <h4 className="font-medium text-gray-900 dark:text-white">
+                                      {place.name}
+                                    </h4>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                                      {place.vicinity}
+                                    </p>
+                                    {place.rating && (
+                                      <div className="mt-1 flex items-center">
+                                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                                          Rating: {place.rating}
+                                        </span>
+                                        <span className="ml-1 text-yellow-400">⭐</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="market">
+                    {propertyDetails.location ? (
+                      <MarketInsights location={propertyDetails.location} />
+                    ) : (
+                      <p className="text-[#4A919E] dark:text-gray-300">
+                        Location data not available for market analysis.
+                      </p>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </Card>
+          </div>
+
+          {/* Sidebar - 1 column */}
+          <div className="space-y-6">
+            <ContractDetails tokenAddress={tokenAddress} />
+            <Card>
+              <CardHeader>
+                <CardTitle>Investment Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Price per Token
+                    </p>
+                    <p className="font-medium text-xl text-green-600">
+                      {formattedPrice} EURC
                     </p>
                   </div>
-                </TabsContent>
-                
-                <TabsContent value="market">
-                  {propertyDetails.location ? (
-                    <MarketInsights location={propertyDetails.location} />
-                  ) : (
-                    <p className="text-[#4A919E] dark:text-gray-300">Location data not available for market analysis.</p>
-                  )}
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-        
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Supply</p>
+                    <p className="font-medium">{formattedSupply} Tokens</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">ROI</p>
+                    <p className="font-medium">{propertyDetails.roi}%</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Duration</p>
+                    <p className="font-medium">
+                      {propertyDetails.payoutDuration} months
+                    </p>
+                  </div>
+                </div>
 
-        {/* Sidebar - 1 column */}
-        <div className="space-y-6">
-          <ContractDetails tokenAddress={tokenAddress} />
-          <Card>
-            <CardHeader>
-              <CardTitle>Investment Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Price per Token</p>
-                  <p className="font-medium text-xl text-green-600">
-                    {formattedPrice} EURC
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Supply</p>
-                  <p className="font-medium">
-                    {formattedSupply} Tokens
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">ROI</p>
-                  <p className="font-medium">{propertyDetails.roi}%</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Duration</p>
-                  <p className="font-medium">{propertyDetails.payoutDuration} months</p>
-                </div>
+                {propertyRequest.status === "funding" && (
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={() =>
+                      router.push(`/property/purchase/${tokenAddress}`)
+                    }
+                  >
+                    Invest Now
+                  </Button>
+                )}
+                {propertyRequest.status === "staking" && (
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={() => router.push(`/property/stake/${tokenAddress}`)}
+                  >
+                    Stake Tokens
+                  </Button>
+                )}
+                {!["funding", "staking"].includes(propertyRequest.status) && (
+                  <Button className="w-full" size="lg" disabled>
+                    {propertyRequest.status === "paused"
+                      ? "Temporarily Unavailable"
+                      : propertyRequest.status === "closed"
+                      ? "Investment Closed"
+                      : "Not Available"}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+
+            {propertyRequest.documents_url && (
+              <div>
+                <h3 className="text-lg font-semibold">Documents</h3>
+                <Button
+                  variant="outline"
+                  className="mt-2"
+                  onClick={() =>
+                    window.open(propertyRequest.documents_url!, "_blank")
+                  }
+                >
+                  View Documents
+                </Button>
               </div>
-
-              {propertyRequest.status === 'funding' && (
-                <Button 
-                  className="w-full"
-                  size="lg"
-                  onClick={() => router.push(`/property/purchase/${tokenAddress}`)}
-                >
-                  Invest Now
-                </Button>
-              )}
-              {propertyRequest.status === 'staking' && (
-                <Button 
-                  className="w-full"
-                  size="lg"
-                  onClick={() => router.push(`/property/stake/${tokenAddress}`)}
-                >
-                  Stake Tokens
-                </Button>
-              )}
-              {!['funding', 'staking'].includes(propertyRequest.status) && (
-                <Button 
-                  className="w-full"
-                  size="lg"
-                  disabled
-                >
-                  {propertyRequest.status === 'paused' ? 'Temporarily Unavailable' :
-                   propertyRequest.status === 'closed' ? 'Investment Closed' :
-                   'Not Available'}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {propertyRequest.documents_url && (
-            <div>
-              <h3 className="text-lg font-semibold">Documents</h3>
-              <Button
-                variant="outline"
-                className="mt-2"
-                onClick={() => window.open(propertyRequest.documents_url!, '_blank')}
-              >
-                View Documents
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

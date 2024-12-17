@@ -156,21 +156,56 @@ function CreateTokenButton({ id, status, formData }: { id: string, status: strin
 
       // Convert and validate price and total supply
       console.log('Form data:', formData);
+      
       const priceValue = convertPriceToTokens(formData.expected_price);
-      const totalSupply = BigInt(formData.number_of_tokens || '100000');
+      console.log('Price value after conversion:', {
+        original: formData.expected_price,
+        converted: priceValue,
+        type: typeof priceValue,
+        toString: priceValue.toString()
+      });
 
-      console.log('Starting token creation with:', {
-        contractAddress,
-        title: formData.title,
-        description: formData.description,
-        location,
-        imageUrl,
-        price: priceValue,
-        totalSupply: totalSupply,
+      // Convert total supply to BigInt, ensuring it's a valid number first
+      const rawTotalSupply = formData.number_of_tokens?.toString().replace(/[^0-9]/g, '') || '100000';
+      console.log('Total supply before conversion:', {
+        raw: rawTotalSupply,
+        type: typeof rawTotalSupply
+      });
+      
+      const totalSupply = BigInt(rawTotalSupply);
+      console.log('Total supply after conversion:', {
+        value: totalSupply,
+        type: typeof totalSupply,
+        toString: totalSupply.toString()
+      });
+
+      console.log('Contract parameters:', {
+        title: {
+          value: formData.title,
+          length: formData.title.length
+        },
+        description: {
+          value: formData.description,
+          length: formData.description.length
+        },
+        location: {
+          value: location,
+          length: location.length
+        },
+        imageUrl: {
+          value: imageUrl,
+          length: imageUrl.length
+        },
+        price: {
+          value: priceValue.toString(),
+          type: typeof priceValue
+        },
+        totalSupply: {
+          value: totalSupply.toString(),
+          type: typeof totalSupply
+        },
         tokenName: formData.token_name,
-        tokenSymbol: formData.token_symbol,
-        walletAddress: address,
-        nonce,
+        tokenSymbol: formData.token_symbol
       });
 
       // First simulate the transaction

@@ -95,7 +95,7 @@ export default function Home() {
   return (
     <div className="space-y-12">
       {/* Hero Section */}
-      <div className="bg-[#4A919E] text-white p-8 md:p-16 rounded-lg">
+      <div className="bg-[#93d2d9] text-white p-8 md:p-16 rounded-lg">
         <div className="flex flex-col md:flex-row gap-8 items-center">
           <div className="flex-shrink-0 order-2 md:order-1">
             <Image
@@ -129,7 +129,7 @@ export default function Home() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
         <div className="relative h-[400px] w-full">
           <Image
-            src="/images/city-blocks.jpg"
+            src="/images/about/city-blocks.jpg"
             alt="Future of Real Estate"
             fill
             className="object-cover rounded-lg"
@@ -166,7 +166,7 @@ export default function Home() {
         </div>
         <div className="relative h-[400px] w-full order-1 md:order-2">
           <Image
-            src="/images/modern-building.jpg"
+            src="/images/about/modern-building.jpg"
             alt="Modern Commercial Building"
             fill
             className="object-cover rounded-lg"
