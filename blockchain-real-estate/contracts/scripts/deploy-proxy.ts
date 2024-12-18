@@ -2,7 +2,66 @@ import { ethers, upgrades } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
 import dotenv from "dotenv";
-import { updateEnvFiles } from "../utils/env-management";
+
+function updateEnvLocalFile(envPath: string, newValues: { [key: string]: string }) {
+  let content = fs.readFileSync(envPath, 'utf8');
+  const lines = content.split('\n');
+  let newContent: string[] = [];
+  let inContractSection = false;
+  let contractSectionFound = false;
+
+  // Keep everything before Smart Contract Addresses section
+  for (const line of lines) {
+    if (line.trim() === '# Smart Contract Addresses') {
+      inContractSection = true;
+      contractSectionFound = true;
+      newContent.push('\n# Smart Contract Addresses\n');
+      
+      // Add Whitelist Contract section
+      newContent.push('# Whitelist Contract');
+      newContent.push(`NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS}`);
+      newContent.push(`NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS}`);
+      newContent.push(`NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS}\n`);
+      
+      // Add Property Token Contract section
+      newContent.push('# Property Token Contract');
+      newContent.push(`NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS}\n`);
+      
+      // Add Property Factory Contract section
+      newContent.push('# Property Factory Contract');
+      newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS}`);
+      newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS}`);
+      newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS}\n`);
+      
+      // Add EURC Token Contract section
+      newContent.push('# EURC Token Contract');
+      newContent.push(`NEXT_PUBLIC_EURC_TOKEN_ADDRESS=${newValues.NEXT_PUBLIC_EURC_TOKEN_ADDRESS}\n`);
+      break;
+    }
+    newContent.push(line);
+  }
+
+  if (!contractSectionFound) {
+    // If Smart Contract Addresses section doesn't exist, add it at the end
+    newContent.push('\n# Smart Contract Addresses\n');
+    // Add all contract sections as above...
+    newContent.push('# Whitelist Contract');
+    newContent.push(`NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS}`);
+    newContent.push(`NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS}`);
+    newContent.push(`NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS}\n`);
+    newContent.push('# Property Token Contract');
+    newContent.push(`NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS}\n`);
+    newContent.push('# Property Factory Contract');
+    newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS}`);
+    newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS}`);
+    newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS}\n`);
+    newContent.push('# EURC Token Contract');
+    newContent.push(`NEXT_PUBLIC_EURC_TOKEN_ADDRESS=${newValues.NEXT_PUBLIC_EURC_TOKEN_ADDRESS}\n`);
+  }
+
+  // Write the updated content back to the file
+  fs.writeFileSync(envPath, newContent.join('\n'));
+}
 
 async function main() {
   // Load environment variables
@@ -48,14 +107,6 @@ async function main() {
   const eurcAddress = await mockEURC.getAddress();
   console.log("MockEURC deployed to:", eurcAddress);
 
-  // Update .env files with new addresses
-  updateEnvFiles(process.cwd(), {
-    WHITELIST_PROXY_ADDRESS: whitelistAddress,
-    WHITELIST_IMPLEMENTATION_ADDRESS: whitelistImplAddress,
-    WHITELIST_ADMIN_ADDRESS: whitelistAdminAddress,
-    EURC_TOKEN_ADDRESS: eurcAddress,
-  });
-
   // Deploy PropertyToken implementation
   console.log("\nDeploying PropertyToken implementation...");
   const PropertyToken = await ethers.getContractFactory("PropertyToken");
@@ -95,31 +146,24 @@ async function main() {
   console.log("- Implementation:", propertyFactoryImplAddress);
   console.log("- Admin:", propertyFactoryAdminAddress);
 
-  // Update .env files with new addresses
-  updateEnvFiles(process.cwd(), {
-    PROPERTY_FACTORY_PROXY_ADDRESS: propertyFactoryAddress,
-    PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS: propertyFactoryImplAddress,
-    PROPERTY_FACTORY_ADMIN_ADDRESS: propertyFactoryAdminAddress
-  });
-
-  // Update environment variables
-  const envValues = {
-    WHITELIST_PROXY_ADDRESS: whitelistAddress,
-    WHITELIST_IMPLEMENTATION_ADDRESS: whitelistImplAddress,
-    WHITELIST_ADMIN_ADDRESS: whitelistAdminAddress,
-    PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS: propertyTokenImplAddress,
-    PROPERTY_FACTORY_PROXY_ADDRESS: propertyFactoryAddress,
-    PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS: propertyFactoryImplAddress,
-    PROPERTY_FACTORY_ADMIN_ADDRESS: propertyFactoryAdminAddress,
-    EURC_TOKEN_ADDRESS: eurcAddress,
+  // Update frontend .env.local with NEXT_PUBLIC_ values
+  const frontendAddresses = {
+    NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS: whitelistAddress,
+    NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS: whitelistImplAddress,
+    NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS: whitelistAdminAddress,
+    NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS: propertyTokenImplAddress,
+    NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS: propertyFactoryAddress,
+    NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS: propertyFactoryImplAddress,
+    NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS: propertyFactoryAdminAddress,
+    NEXT_PUBLIC_EURC_TOKEN_ADDRESS: eurcAddress,
   };
 
-  // Update .env and .env.local files
-  console.log("\nUpdating environment files with new values");
-  const projectRoot = path.resolve(__dirname, '../..');
-  updateEnvFiles(projectRoot, envValues);
+  // Update frontend .env.local
+  console.log("\nUpdating frontend .env.local with NEXT_PUBLIC_ values");
+  const envLocalPath = path.resolve(__dirname, '../../.env.local');
+  updateEnvLocalFile(envLocalPath, frontendAddresses);
 
-  console.log("\nDeployment complete! Environment variables have been updated in .env and .env.local");
+  console.log("\nDeployment complete! Environment variables have been updated in .env.local");
 
   console.log("\nContract Addresses:");
   console.log("Whitelist Proxy:", whitelistAddress);
