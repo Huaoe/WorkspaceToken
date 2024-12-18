@@ -1,21 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAccount, useReadContract, usePublicClient } from 'wagmi';
+import { useAccount, useContractRead, usePublicClient } from 'wagmi';
+import { Address } from 'viem';
 import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
 import { PropertyCard } from './property-card';
 
-const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_ADDRESS as `0x${string}`;
+const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as Address;
 
 export function PropertyList() {
   const [properties, setProperties] = useState<any[]>([]);
   const { isConnected } = useAccount();
   const publicClient = usePublicClient();
 
-  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as Address;
-
-  // Read owner from the contract
-  const { data: owner } = useContractRead({
+  // Read property count from the contract
+  const { data: propertyCount } = useContractRead({
     address: contractAddress,
     abi: propertyFactoryABI,
     functionName: 'getPropertyCount',
