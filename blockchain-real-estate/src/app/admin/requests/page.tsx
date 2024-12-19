@@ -41,19 +41,7 @@ export default function AdminRequests() {
   // Setup contract write for whitelist
   const { writeContract } = useWriteContract()
 
-  const addToWhitelist = async (address: `0x${string}`) => {
-    try {
-      await writeContract({
-        address: whitelistContract.address,
-        abi: whitelistContract.abi,
-        functionName: 'addToWhitelist',
-        args: [address],
-      })
-    } catch (error) {
-      console.error('Error adding to whitelist:', error)
-      throw error
-    }
-  }
+
 
   // Calculate pagination values
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -182,47 +170,41 @@ export default function AdminRequests() {
           console.log('Adding to whitelist:', kycData.wallet_address);
           
           // Add to whitelist
-          tx = await addToWhitelist({
+          const hash = await writeContract({
+            address: process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS as `0x${string}`,
+            abi: whitelistABI.abi,
+            functionName: 'addToWhitelist',
             args: [kycData.wallet_address as `0x${string}`],
           });
-  
-          // Wait for transaction to be mined
-          await tx.wait();
-  
-          console.log('Successfully added to whitelist:', kycData.wallet_address);
+      
+          console.log('Transaction hash:', hash);
           
+          // Update database with hash
+          const { error } = await supabase
+            .from('kyc_submissions')
+            .update({ 
+              status: status, 
+              validated_at: new Date().toISOString(),
+              whitelist_tx_hash: hash,
+            })
+            .eq('id', kycId);
+      
+          if (error) throw error;
+      
           toast({
-            title: "Success",
-            description: "Address successfully added to whitelist",
+            title: "✨ Success! ✨",
+            description: "Address successfully added to whitelist 🎉",
           });
-        } catch (contractError) {
-          console.error('Error adding to whitelist:', contractError);
+        } 
+        catch (error) {
+          console.error('Error:', error);
           toast({
-            title: "Whitelist Error",
-            description: "Failed to add address to whitelist. Please try again.",
+            title: "❌ Error",
+            description: "Failed to add to whitelist",
             variant: "destructive",
           });
-          return;
         }
       }
-  
-      // Update database status
-      const { error } = await supabase
-        .from('kyc_submissions')
-        .update({ 
-          status: status, 
-          validated_at: new Date().toISOString(),
-          whitelist_tx_hash: status === 'approved' ? tx?.hash : null,
-        })
-        .eq('id', kycId);
-  
-      if (error) throw error;
-  
-      toast({
-        title: "Success",
-        description: `KYC submission ${status} successfully`,
-      });
-  
       // Update local state and close modal
       await fetchRequests();
       setSelectedKYC(null);

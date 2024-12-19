@@ -37,10 +37,16 @@ contract StakingRewards {
     /// @notice Creates a new StakingRewards contract
     /// @param _stakingToken Address of the token that can be staked
     /// @param _rewardToken Address of the token given as rewards
-    constructor(address _stakingToken, address _rewardToken) {
-        owner = msg.sender;
+    /// @param _rewardRate Reward rate per second
+    constructor(
+        address _stakingToken,
+        address _rewardToken,
+        uint256 _rewardRate
+    ) {
         stakingToken = IERC20(_stakingToken);
         rewardsToken = IERC20(_rewardToken);
+        rewardRate = _rewardRate;
+        owner = msg.sender;
     }
 
     /// @notice Restricts function access to contract owner

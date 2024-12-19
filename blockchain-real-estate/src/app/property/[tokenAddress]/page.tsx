@@ -190,42 +190,50 @@ export default function PropertyDetails() {
   }, [propertyRequest]);
 
   useEffect(() => {
-    if (contractData?.[0].error || contractData?.[1].error || contractData?.[2].error) {
-      setError('Failed to load contract details');
-      console.error('Contract read error:', contractData?.[0].error || contractData?.[1].error || contractData?.[2].error);
-      return;
-    }
+    const fetchPropertyDetails = async () => {
+      try {
+        const { data: propertyData, error } = await supabase
+          .from("property_requests")
+          .select("*")
+          .eq("token_address", tokenAddress)
+          .single();
 
-    if (contractData && propertyRequest) {
-      console.log('Contract data:', contractData);
-      const [totalSupply, ownerAddress, details] = contractData;
-      console.log('Property details from contract:', details.result);
-      
-      setPropertyDetails({
-        title: propertyRequest.title,
-        description: propertyRequest.description,
-        location: propertyRequest.location,
-        imageUrl: propertyRequest.image_url || PLACEHOLDER_IMAGE,
-        expected_price: details.result.price,
-        isActive: details.result.isActive,
-        status: propertyRequest.status,
-        payoutDuration: propertyRequest.payout_duration || 0,
-        finishAt: propertyRequest.finish_at || '',
-        roi: propertyRequest.roi || 0,
-        numberOfTokens: Number(formatUnits(totalSupply.result || 0n, 18)),
-        ownerAddress: ownerAddress.result,
-        documents_url: propertyRequest.documents_url,
-        ...(propertyRequest.market_analysis && {
-          mistral_data: {
-            market_analysis: propertyRequest.market_analysis,
-            price_prediction: propertyRequest.price_prediction,
-            risk_assessment: propertyRequest.risk_assessment,
-          }
-        })
-      });
-      setError(null);
+        if (error) throw error;
+
+        const [totalSupply, owner, details] = contractData || [];
+        console.log('Property details from contract:', details?.result);
+
+        // Get price from array index 4 and isActive from index 5
+        const price = details?.result?.[4] || 0n;
+        const isActive = Boolean(details?.result?.[5]);
+
+        setPropertyDetails({
+          title: propertyData.title,
+          description: propertyData.description,
+          location: propertyData.location,
+          imageUrl: propertyData.image_url || PLACEHOLDER_IMAGE,
+          expected_price: price, // Use price from array
+          isActive: isActive, // Use isActive from array
+          status: propertyData.status,
+          payoutDuration: propertyData.payout_duration || 0,
+          finishAt: propertyData.finish_at || '',
+          roi: propertyData.roi || 0,
+          numberOfTokens: Number(formatUnits(totalSupply?.result || 0n, 18)),
+          ownerAddress: owner?.result || '',
+          documents_url: propertyData.documents_url,
+          mistral_data: propertyData.mistral_data
+        });
+
+      } catch (error) {
+        console.error('Error fetching property details:', error);
+        setError('Failed to load property details');
+      }
+    };
+
+    if (contractData) {
+      fetchPropertyDetails();
     }
-  }, [contractData, propertyRequest]);
+  }, [contractData, tokenAddress]);
 
   if (!mounted) return null;
 
@@ -262,25 +270,24 @@ export default function PropertyDetails() {
       ? propertyDetails.imageUrl
       : PLACEHOLDER_IMAGE;
 
-  // Format price and supply with proper decimals
-  const formattedPrice = propertyDetails?.expected_price 
-    ? Number(formatUnits(propertyDetails.expected_price, 6)).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
-    : '0.00';
-
-  const formattedSupply = propertyDetails?.numberOfTokens.toLocaleString('en-US') || '0';
-
-  // Calculate price per token
-  const pricePerToken = propertyDetails?.expected_price && propertyDetails?.numberOfTokens
-    ? Number(formatUnits(propertyDetails.expected_price, 6)) / propertyDetails.numberOfTokens
+  // Get the price directly from propertyDetails (should be 56 EURC)
+  const pricePerToken = propertyDetails?.expected_price 
+    ? Number(formatUnits(propertyDetails.expected_price, 6))
     : 0;
 
-  const formattedPricePerToken = pricePerToken.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+  console.log('Price per token calculation:', {
+    expected_price: propertyDetails?.expected_price?.toString(),
+    pricePerToken
   });
+
+  const formattedPricePerToken = pricePerToken.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+  console.log('Formatted price per token:', formattedPricePerToken);
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -309,17 +316,14 @@ export default function PropertyDetails() {
     console.log("Place clicked:", place, index);
   };
 
-  const price = BigInt(propertyRequest.expected_price);
-  const totalSupply = BigInt(propertyRequest.number_of_tokens);
-
   const contractParameters = propertyRequest
     ? {
         title: propertyRequest.title,
         description: propertyRequest.description,
         location: propertyRequest.location,
         imageUrl: propertyRequest.image_url,
-        price: price, // Using BigInt value directly
-        totalSupply: totalSupply, // Using BigInt value directly
+        price: propertyRequest.expected_price, 
+        totalSupply: propertyRequest.number_of_tokens, 
         tokenName: propertyRequest.token_name,
         tokenSymbol: propertyRequest.token_symbol,
       }
@@ -501,7 +505,7 @@ export default function PropertyDetails() {
                     <p className="text-sm text-muted-foreground">Total Supply</p>
                     <div className="flex items-baseline gap-1">
                       <p className="font-medium text-xl">
-                        {formattedSupply}
+                        {propertyDetails.numberOfTokens.toLocaleString('en-US')}
                       </p>
                       <span className="text-sm font-medium text-muted-foreground">Tokens</span>
                     </div>
