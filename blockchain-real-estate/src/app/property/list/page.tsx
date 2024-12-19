@@ -112,30 +112,6 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
           abi: propertyTokenABI,
         };
 
-        // First, try to get propertyDetails separately to debug
-        try {
-          console.log('Fetching property details...');
-          const details = await publicClient.readContract({
-            ...propertyContract,
-            functionName: "propertyDetails",
-          });
-          console.log('Property Details Response:', details);
-        } catch (error) {
-          console.error('Failed to fetch property details:', error);
-        }
-
-        // Try getPrice function separately if it exists
-        try {
-          console.log('Trying getPrice function...');
-          const price = await publicClient.readContract({
-            ...propertyContract,
-            functionName: "getPrice",
-          });
-          console.log('Price from getPrice:', price?.toString());
-        } catch (error) {
-          console.error('Failed to fetch price:', error);
-        }
-
         // Fetch all token data in parallel
         const [
           totalSupply,
@@ -173,19 +149,16 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
           })
         ]);
 
-        console.log('Raw contract data:', {
-          totalSupply: totalSupply.toString(),
-          propertyDetails: propertyDetailsResult,
-          name,
-          symbol
-        });
+        console.log('Property details:', propertyDetailsResult);
+        const price = propertyDetailsResult[4]; // price is the 5th field in the struct
+        console.log('Price from propertyDetails:', price?.toString());
 
         // Calculate token metrics
         const total = Number(formatUnits(totalSupply, 18));
         console.log('Formatted total supply:', total);
 
         // Price is in EURC (6 decimals)
-        const rawPrice = propertyDetailsResult?.price || 0n;
+        const rawPrice = price;
         console.log('Raw price from contract:', rawPrice.toString());
         
         const priceInEurc = formatUnits(rawPrice, 6);
