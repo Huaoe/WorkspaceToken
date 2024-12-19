@@ -118,11 +118,25 @@ export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
                 {...field} 
                 onChange={(e) => {
                   const value = e.target.value.replace(/[^0-9]/g, '');
-                  field.onChange(value);
+                  console.log("Number of tokens input change:", {
+                    rawValue: e.target.value,
+                    cleanedValue: value,
+                    fieldValue: field.value,
+                  });
+                  if (value === '' || (Number(value) > 0 && Number(value) <= 1000000000)) {
+                    field.onChange(value);
+                  }
+                }}
+                onBlur={(e) => {
+                  console.log("Number of tokens input blur:", {
+                    value: e.target.value,
+                    fieldValue: field.value,
+                  });
+                  field.onBlur();
                 }}
               />
             </FormControl>
-            <FormDescription>Total number of tokens to create</FormDescription>
+            <FormDescription>Total number of tokens to create (between 1 and 1,000,000,000)</FormDescription>
             <FormMessage />
           </FormItem>
         )}

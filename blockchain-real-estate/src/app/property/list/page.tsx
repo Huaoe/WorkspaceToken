@@ -98,7 +98,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
         const [
           totalSupply,
           ownerBalance,
-          price,
+          propertyDetailsResult,
           name,
           symbol
         ] = await Promise.all([
@@ -113,7 +113,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
           }),
           publicClient.readContract({
             ...propertyContract,
-            functionName: "getPrice",
+            functionName: "propertyDetails",
           }),
           publicClient.readContract({
             ...propertyContract,
@@ -130,7 +130,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
         const available = Number(formatUnits(ownerBalance, 18));
         const sold = total - available;
         const progress = Math.min((sold / total) * 100, 100);
-        const priceInEurc = Number(formatUnits(price, 6));
+        const priceInEurc = Number(formatUnits(propertyDetailsResult.price, 6));
 
         setTokenProgress(progress);
         setTokenStats({

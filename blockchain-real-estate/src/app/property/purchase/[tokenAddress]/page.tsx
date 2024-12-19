@@ -19,8 +19,11 @@ import { Database } from "@/lib/database.types";
 import { PropertyRequest } from "@/types/property";
 import propertyTokenABI from "@contracts/abis/PropertyToken";
 import mockEURCABI from "@contracts/abis/MockEURC";
+import whitelistJSON from "@contracts/abis/Whitelist.json";
 import Image from "next/image";
 import { Loader2, MapPinIcon } from "lucide-react";
+
+const whitelistABI = whitelistJSON.abi;
 
 export default function PurchaseProperty() {
   const { tokenAddress } = useParams();
@@ -279,117 +282,61 @@ export default function PurchaseProperty() {
     }
   };
 
-  const approveEurc = async () => {
-    if (!walletClient || !address || !tokenAmount || !onChainDetails?.price) {
+  const handlePurchaseTokens = async () => {
+    if (!walletClient || !address || !tokenAmount) {
       toast({
         title: "Error",
-        description: "Missing required information for approval",
+        description: "Please connect your wallet and enter a token amount",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      // Calculate EURC amount needed (considering 6 decimals for EURC)
-      const tokenAmountBigInt = parseUnits(tokenAmount, 18);
-      const priceInEurc = BigInt(onChainDetails.price); // price already includes 6 decimals
-      // Calculate EURC amount: (tokenAmount * price)
-      const calculatedEurcAmount = (tokenAmountBigInt * priceInEurc) / BigInt(10 ** 18);
-
-      console.log("Debug - Approval calculation:", {
-        tokenAmount,
-        tokenAmountInWei: tokenAmountBigInt.toString(),
-        pricePerToken: formatUnits(priceInEurc, 6),
-        priceInWei: priceInEurc.toString(),
-        calculatedEurcAmount: calculatedEurcAmount.toString(),
-        calculatedEurcFormatted: formatUnits(calculatedEurcAmount, 6),
-      });
-
-      // Check EURC balance before approval
-      const eurcBalance = await publicClient.readContract({
-        address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
-        abi: mockEURCABI,
-        functionName: "balanceOf",
+      // Check whitelist status first
+      const isWhitelisted = await publicClient.readContract({
+        address: process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS as `0x${string}`,
+        abi: whitelistABI,
+        functionName: "isWhitelisted",
         args: [address],
       });
 
-      console.log("EURC Balance Check:", {
-        balance: eurcBalance.toString(),
-        formattedBalance: formatUnits(eurcBalance, 6),
-        requiredAmount: formatUnits(calculatedEurcAmount, 6),
-        hasEnough: eurcBalance >= calculatedEurcAmount,
+      console.log("Whitelist check:", {
+        address,
+        isWhitelisted,
+        whitelistContract: process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS,
       });
 
-      if (eurcBalance < calculatedEurcAmount) {
-        throw new Error(`Insufficient EURC balance. You have ${formatUnits(eurcBalance, 6)} EURC but need ${formatUnits(calculatedEurcAmount, 6)} EURC`);
+      if (!isWhitelisted) {
+        toast({
+          title: "Error",
+          description: "Your address is not whitelisted. Please contact the administrator to get whitelisted.",
+          variant: "destructive",
+        });
+        return;
       }
 
-      // First approve EURC transfer
-      const { request } = await publicClient.simulateContract({
-        address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
-        abi: mockEURCABI,
-        functionName: "approve",
-        args: [tokenAddress as `0x${string}`, calculatedEurcAmount],
-        account: address,
+      // Get the current nonce
+      let nonce = await publicClient.getTransactionCount({
+        address: address,
       });
 
-      // Execute the transaction
-      const hash = await walletClient.writeContract(request);
-      await publicClient.waitForTransactionReceipt({ hash });
+      console.log("Current nonce for purchase:", nonce);
 
-      await fetchTokenHolders();
-      toast({
-        title: "Success",
-        description: "EURC approved successfully",
-      });
-    } catch (error: any) {
-      console.error("Error approving EURC:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to approve EURC",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handlePurchaseTokens = async () => {
-    console.log("\n=== Starting purchaseTokens ===");
-    console.log("Input validation:", {
-      walletClient: !!walletClient,
-      address,
-      tokenAmount,
-      price: onChainDetails?.price?.toString()
-    });
-
-    if (!walletClient || !address || !tokenAmount || !onChainDetails?.price) {
-      console.log("Missing required information:", {
-        hasWalletClient: !!walletClient,
-        hasAddress: !!address,
-        hasTokenAmount: !!tokenAmount,
-        hasPrice: !!onChainDetails?.price
-      });
-      return;
-    }
-
-    try {
-      setPurchaseLoading(true);
-      // Calculate token amount in wei (18 decimals)
-      const tokenAmountBigInt = parseUnits(tokenAmount, 18);
-      
-      // Calculate EURC amount needed (price is in EURC with 6 decimals)
-      const pricePerToken = onChainDetails.price;
-      const eurcAmount = (tokenAmountBigInt * pricePerToken) / BigInt(10 ** 18);
+      // Convert token amount to string before parsing
+      const tokenAmountBigInt = parseUnits(tokenAmount.toString(), 18);
+      const priceInEurc = BigInt(onChainDetails.price);
+      const calculatedEurcAmount = (tokenAmountBigInt * priceInEurc) / BigInt(10 ** 18);
 
       console.log("Purchase calculations:", {
         tokenAmount,
         tokenAmountInWei: tokenAmountBigInt.toString(),
-        pricePerToken: formatUnits(pricePerToken, 6),
-        pricePerTokenRaw: pricePerToken.toString(),
-        eurcAmount: eurcAmount.toString(),
-        eurcAmountFormatted: formatUnits(eurcAmount, 6)
+        pricePerToken: formatUnits(priceInEurc, 6),
+        calculatedEurcAmount: calculatedEurcAmount.toString(),
+        calculatedEurcFormatted: formatUnits(calculatedEurcAmount, 6),
       });
 
-      // Check EURC balance before approval
+      // Check EURC balance
       const eurcBalance = await publicClient.readContract({
         address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
         abi: mockEURCABI,
@@ -397,32 +344,72 @@ export default function PurchaseProperty() {
         args: [address],
       });
 
-      console.log("EURC Balance Check:", {
+      console.log("EURC Balance:", {
         balance: eurcBalance.toString(),
-        formattedBalance: formatUnits(eurcBalance, 6),
-        requiredAmount: formatUnits(eurcAmount, 6),
-        hasEnough: eurcBalance >= eurcAmount,
+        formattedBalance: formatUnits(eurcBalance as bigint, 6),
+        needed: formatUnits(calculatedEurcAmount, 6),
       });
 
-      if (eurcBalance < eurcAmount) {
-        throw new Error(`Insufficient EURC balance. You have ${formatUnits(eurcBalance, 6)} EURC but need ${formatUnits(eurcAmount, 6)} EURC`);
+      if (eurcBalance < calculatedEurcAmount) {
+        throw new Error(`Insufficient EURC balance. You have ${formatUnits(eurcBalance as bigint, 6)} EURC but need ${formatUnits(calculatedEurcAmount, 6)} EURC`);
       }
 
-      // First approve EURC transfer
-      const { request } = await publicClient.simulateContract({
+      // Check EURC allowance for the property token contract
+      const allowance = await publicClient.readContract({
         address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
         abi: mockEURCABI,
-        functionName: "approve",
-        args: [process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`, eurcAmount],
-        account: address,
+        functionName: "allowance",
+        args: [address, tokenAddress as `0x${string}`],
       });
 
-      // Execute the transaction
-      const hash = await walletClient.writeContract(request);
-      await publicClient.waitForTransactionReceipt({ hash });
+      console.log("EURC Allowance:", {
+        allowance: allowance.toString(),
+        formattedAllowance: formatUnits(allowance as bigint, 6),
+        needed: formatUnits(calculatedEurcAmount, 6),
+      });
 
-      // Then purchase tokens
-      const { request: purchaseRequest } = await publicClient.simulateContract({
+      // If allowance is insufficient, request approval
+      if (allowance < calculatedEurcAmount) {
+        console.log("Insufficient allowance, requesting approval...");
+        const { request: approvalRequest } = await publicClient.simulateContract({
+          address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
+          abi: mockEURCABI,
+          functionName: "approve",
+          args: [tokenAddress as `0x${string}`, calculatedEurcAmount],
+          account: address,
+        });
+
+        const approvalHash = await walletClient.writeContract({
+          ...approvalRequest,
+          nonce,
+        });
+
+        console.log("Approval transaction hash:", approvalHash);
+
+        await publicClient.waitForTransactionReceipt({
+          hash: approvalHash,
+          timeout: 60_000,
+        });
+
+        // Increment nonce for the next transaction
+        nonce++;
+      }
+
+      // Check if property is active
+      const propertyDetails = await publicClient.readContract({
+        address: tokenAddress as `0x${string}`,
+        abi: propertyTokenABI,
+        functionName: "propertyDetails",
+      });
+
+      console.log("Property details:", propertyDetails);
+
+      if (!propertyDetails[5]) { // isActive is the 6th field in the struct
+        throw new Error("Property is not active for trading");
+      }
+
+      // Now purchase tokens
+      const { request } = await publicClient.simulateContract({
         address: tokenAddress as `0x${string}`,
         abi: propertyTokenABI,
         functionName: "purchaseTokens",
@@ -430,22 +417,80 @@ export default function PurchaseProperty() {
         account: address,
       });
 
-      const purchaseHash = await walletClient.writeContract(purchaseRequest);
-      console.log("Purchase transaction hash:", purchaseHash);
+      // Execute the transaction with updated nonce
+      const hash = await walletClient.writeContract({
+        ...request,
+        nonce,
+      });
 
+      console.log("Purchase transaction hash:", hash);
+
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash,
+        timeout: 60_000,
+      });
+
+      console.log("Purchase transaction receipt:", receipt);
+
+      // Update UI
+      await fetchTokenHolders();
       toast({
         title: "Success",
-        description: "Purchase transaction submitted",
+        description: "Tokens purchased successfully",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error purchasing tokens:", error);
+
+      // Handle specific error cases based on error signatures
+      const errorSignature = error.message?.match(/0x[0-9a-fA-F]{8}/)?.[0];
+      if (errorSignature) {
+        switch (errorSignature) {
+          case "0x584a7938": // NotWhitelisted
+            toast({
+              title: "Error",
+              description: "Your address is not whitelisted. Please contact the administrator to get whitelisted.",
+              variant: "destructive",
+            });
+            return;
+          case "0x0c75b613": // InsufficientBalance
+            toast({
+              title: "Error",
+              description: "Insufficient balance to complete the purchase.",
+              variant: "destructive",
+            });
+            return;
+          case "0x8c0b5e22": // PropertyInactive
+            toast({
+              title: "Error",
+              description: "This property is not active for trading.",
+              variant: "destructive",
+            });
+            return;
+          case "0x13be252b": // InsufficientAllowance
+            toast({
+              title: "Error",
+              description: "Insufficient EURC allowance. Please approve the required amount.",
+              variant: "destructive",
+            });
+            return;
+          case "0x90b8ec18": // TransferFailed
+            toast({
+              title: "Error",
+              description: "Token transfer failed. Please try again.",
+              variant: "destructive",
+            });
+            return;
+          default:
+            break;
+        }
+      }
+
+      // Handle other errors
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to purchase tokens",
+        description: error.message || "Failed to purchase tokens",
         variant: "destructive",
       });
-    } finally {
-      setPurchaseLoading(false);
     }
   };
 

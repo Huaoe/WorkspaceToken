@@ -167,8 +167,7 @@ function CreateTokenButton({
       const priceValue = convertPriceToTokens(formData.expected_price);
 
       // Convert number of tokens to total supply with 18 decimals
-      const totalSupply =
-        BigInt(Number(formData.number_of_tokens)) * BigInt(10 ** 18);
+      const totalSupply = parseUnits(formData.number_of_tokens, 18);
 
       console.log("Starting token creation with:", {
         contractAddress,
@@ -472,7 +471,7 @@ export default function ReviewRequest() {
       description: "",
       location: "",
       expected_price: "",
-      number_of_tokens: 0,
+      number_of_tokens: "",
       token_name: "",
       token_symbol: "",
       image_url: "",
@@ -501,7 +500,7 @@ export default function ReviewRequest() {
             description: data.description || "",
             location: data.location || "",
             expected_price: data.expected_price?.toString() || "",
-            number_of_tokens: data.number_of_tokens || 0,
+            number_of_tokens: data.number_of_tokens?.toString() || "",
             token_name: data.token_name || "",
             token_symbol: data.token_symbol || "",
             image_url: data.image_url || "",
@@ -545,49 +544,68 @@ export default function ReviewRequest() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
+      console.log("Form submission started with values:", {
+        ...values,
+        number_of_tokens_type: typeof values.number_of_tokens,
+        number_of_tokens_value: values.number_of_tokens,
+      });
+
       const now = new Date().toISOString();
       const updates = {
         title: values.title,
         description: values.description,
         location: values.location,
-        expected_price: Number(values.expected_price),
-        image_url: values.image_url || null,
-        documents_url: values.documents_url || null,
-        number_of_tokens: Number(values.number_of_tokens),
-        status: values.status,
+        expected_price: values.expected_price,
+        number_of_tokens: values.number_of_tokens,
         token_name: values.token_name,
         token_symbol: values.token_symbol,
+        image_url: values.image_url,
+        status: values.status,
         token_address: values.token_address,
+        updated_at: now,
       };
 
-      if (values.status === "approved") {
-        updates["approved_at"] = now;
-      } else if (values.status === "rejected") {
-        updates["rejected_at"] = now;
-      } else if (values.status === "onchain") {
-        updates["tokenized_at"] = now;
-      } else if (values.status === "funding") {
-        updates["funding_at"] = now;
-      }
+      console.log("Preparing database update with:", updates);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("property_requests")
         .update(updates)
-        .match({ id });
+        .eq("id", id)
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Database update error:", error);
+        throw error;
+      }
+
+      console.log("Database update successful:", data);
 
       toast({
         title: "Success",
         description: "Property request updated successfully",
       });
 
-      router.refresh();
-    } catch (error) {
-      console.error("Error saving request:", error);
+      // Refresh the data
+      const { data: refreshedData, error: refreshError } = await supabase
+        .from("property_requests")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (refreshError) {
+        console.error("Error refreshing data:", refreshError);
+        throw refreshError;
+      }
+
+      console.log("Refreshed data:", refreshedData);
+      setRequest(refreshedData);
+
+    } catch (error: any) {
+      console.error("Form submission error:", error);
       toast({
         title: "Error",
-        description: "Failed to save property request",
+        description: error.message || "Failed to update property request",
         variant: "destructive",
       });
     }

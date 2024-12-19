@@ -188,7 +188,10 @@ export default function PropertyDetails() {
     }
 
     if (contractData && propertyRequest) {
+      console.log('Contract data:', contractData);
       const [totalSupply, ownerAddress, details] = contractData;
+      console.log('Property details from contract:', details.result);
+      
       setPropertyDetails({
         title: propertyRequest.title,
         description: propertyRequest.description,
@@ -250,6 +253,7 @@ export default function PropertyDetails() {
       ? propertyDetails.imageUrl
       : PLACEHOLDER_IMAGE;
 
+  // Format price and supply with proper decimals
   const formattedPrice = propertyDetails?.expected_price 
     ? Number(formatUnits(propertyDetails.expected_price, 6)).toLocaleString('en-US', {
         minimumFractionDigits: 2,
@@ -258,6 +262,14 @@ export default function PropertyDetails() {
     : '0.00';
 
   const formattedSupply = propertyDetails?.numberOfTokens.toLocaleString('en-US') || '0';
+
+  // Calculate price per token
+  const pricePerToken = propertyDetails?.expected_price && propertyDetails?.numberOfTokens
+    ? Number(formatUnits(propertyDetails.expected_price / BigInt(propertyDetails.numberOfTokens), 6)).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    : '0.00';
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -469,7 +481,7 @@ export default function PropertyDetails() {
                     </p>
                     <div className="flex items-baseline gap-1">
                       <p className="font-medium text-xl text-green-600">
-                        {formattedPrice}
+                        {pricePerToken}
                       </p>
                       <span className="text-sm font-medium text-muted-foreground">EURC</span>
                     </div>
