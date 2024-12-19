@@ -25,7 +25,8 @@ describe("StakingRewards", function () {
     StakingRewards = await ethers.getContractFactory("StakingRewards");
     stakingRewards = await StakingRewards.deploy(
       await stakingToken.getAddress(),
-      await rewardsToken.getAddress()
+      await rewardsToken.getAddress(),
+      ethers.parseUnits("1", 0)  // Initial reward rate of 1 token per second
     );
 
     // Mint tokens to users and contract

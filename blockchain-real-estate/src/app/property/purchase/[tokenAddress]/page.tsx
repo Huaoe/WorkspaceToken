@@ -336,6 +336,22 @@ export default function PurchaseProperty() {
         calculatedEurcFormatted: formatUnits(calculatedEurcAmount, 6),
       });
 
+      // Check property active status first
+      const propertyDetails = await publicClient.readContract({
+        address: tokenAddress as `0x${string}`,
+        abi: propertyTokenABI,
+        functionName: "propertyDetails",
+      });
+
+      console.log("Property details:", {
+        isActive: propertyDetails[5],
+        price: propertyDetails[4].toString(),
+      });
+
+      if (!propertyDetails[5]) {
+        throw new Error("Property is not active for trading");
+      }
+
       // Check EURC balance
       const eurcBalance = await publicClient.readContract({
         address: process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS as `0x${string}`,
@@ -393,19 +409,6 @@ export default function PurchaseProperty() {
 
         // Increment nonce for the next transaction
         nonce++;
-      }
-
-      // Check if property is active
-      const propertyDetails = await publicClient.readContract({
-        address: tokenAddress as `0x${string}`,
-        abi: propertyTokenABI,
-        functionName: "propertyDetails",
-      });
-
-      console.log("Property details:", propertyDetails);
-
-      if (!propertyDetails[5]) { // isActive is the 6th field in the struct
-        throw new Error("Property is not active for trading");
       }
 
       // Now purchase tokens

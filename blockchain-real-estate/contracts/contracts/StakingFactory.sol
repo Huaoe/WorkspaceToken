@@ -37,24 +37,17 @@ contract StakingFactory is Ownable {
     /// @notice Creates a new StakingRewards contract for a PropertyToken
     /// @param _stakingToken Address of the PropertyToken contract
     /// @param _duration Duration of the staking period
-    /// @param _rewardAmount Total reward amount
+    /// @param _rewardRate Reward rate per second
     /// @return Address of the created StakingRewards contract
     function createStakingRewards(
         address _stakingToken,
         uint256 _duration,
-        uint256 _rewardAmount
+        uint256 _rewardRate
     ) external onlyOwner returns (address) {
         require(_stakingToken != address(0), "Invalid property token");
         require(_duration > 0, "Duration must be greater than 0");
-        require(_rewardAmount > 0, "Reward amount must be > 0");
-        require(propertyToStaking[_stakingToken] == address(0), "Staking already exists");
-
-        // Calculate reward rate per second
-        uint256 _rewardRate = _rewardAmount / _duration;
         require(_rewardRate > 0, "Reward rate = 0");
-
-        // Check rewards balance
-        require(rewardsToken.balanceOf(address(this)) >= _rewardAmount, "Insufficient rewards balance");
+        require(propertyToStaking[_stakingToken] == address(0), "Staking already exists");
 
         // Verify it's a valid PropertyToken
         try PropertyToken(_stakingToken).eurcToken() returns (IERC20 eurcToken) {
@@ -62,6 +55,10 @@ contract StakingFactory is Ownable {
         } catch {
             revert("Invalid property token");
         }
+
+        // Calculate total rewards needed and check balance
+        uint256 totalRewards = _rewardRate * _duration;
+        require(rewardsToken.balanceOf(address(this)) >= totalRewards, "Insufficient rewards balance");
 
         // Create new StakingRewards contract
         StakingRewards stakingRewards = new StakingRewards(
@@ -74,7 +71,7 @@ contract StakingFactory is Ownable {
         stakingRewards.setRewardsDuration(_duration);
 
         // Transfer rewards to the staking contract
-        require(rewardsToken.transfer(address(stakingRewards), _rewardAmount), "Rewards transfer failed");
+        require(rewardsToken.transfer(address(stakingRewards), totalRewards), "Rewards transfer failed");
 
         // Store the mapping
         propertyToStaking[_stakingToken] = address(stakingRewards);

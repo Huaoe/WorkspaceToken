@@ -23,7 +23,8 @@ describe("StakingFactory", function () {
     let addr2: SignerWithAddress;
 
     const rewardsDuration = 365 * 24 * 60 * 60; // 1 year in seconds
-    const rewardsAmount = ethers.parseUnits("1000", 6); // 1000 EURC
+    const rewardRate = 1000000000n; // 1 billion units per second
+    const rewardsAmount = rewardRate * BigInt(rewardsDuration); // Total rewards needed
 
     const propertyDetails = {
         name: "Test Property Token",
@@ -43,7 +44,7 @@ describe("StakingFactory", function () {
         mockEURC = await MockEURC.deploy(owner.address);
         
         // Mint initial tokens to owner for staking rewards
-        await mockEURC.mint(owner.address, ethers.parseUnits("10000", 6));
+        await mockEURC.mint(owner.address, rewardsAmount);
 
         // Deploy Whitelist
         const Whitelist = await ethers.getContractFactory("Whitelist");
@@ -113,7 +114,7 @@ describe("StakingFactory", function () {
             const tx = await stakingFactory.createStakingRewards(
                 await propertyToken.getAddress(),
                 rewardsDuration,
-                rewardsAmount
+                rewardRate
             );
             const receipt = await tx.wait();
 
@@ -141,8 +142,7 @@ describe("StakingFactory", function () {
             expect(await mockEURC.balanceOf(stakingAddress)).to.equal(rewardsAmount);
             
             // Verify reward rate
-            const expectedRewardRate = rewardsAmount / BigInt(rewardsDuration);
-            expect(await stakingRewards.rewardRate()).to.equal(expectedRewardRate);
+            expect(await stakingRewards.rewardRate()).to.equal(rewardRate);
         });
 
         it("Should not allow creating duplicate staking contracts", async function () {
@@ -153,7 +153,7 @@ describe("StakingFactory", function () {
             await stakingFactory.createStakingRewards(
                 await propertyToken.getAddress(),
                 rewardsDuration,
-                rewardsAmount
+                1000000000n
             );
 
             // Second creation should fail
@@ -161,7 +161,7 @@ describe("StakingFactory", function () {
                 stakingFactory.createStakingRewards(
                     await propertyToken.getAddress(),
                     rewardsDuration,
-                    rewardsAmount
+                    1000000000n
                 )
             ).to.be.revertedWith("Staking already exists");
         });
@@ -172,7 +172,7 @@ describe("StakingFactory", function () {
                 stakingFactory.createStakingRewards(
                     await propertyToken.getAddress(),
                     0,
-                    rewardsAmount
+                    1000000000n
                 )
             ).to.be.revertedWith("Duration must be greater than 0");
         });
@@ -182,9 +182,9 @@ describe("StakingFactory", function () {
                 stakingFactory.createStakingRewards(
                     await propertyToken.getAddress(),
                     rewardsDuration,
-                    0
+                    0  // Zero reward rate
                 )
-            ).to.be.rejectedWith("reward rate = 0");
+            ).to.be.revertedWith("Reward rate = 0");
         });
 
         it("Should not allow creating staking with insufficient rewards balance", async function () {
@@ -192,7 +192,7 @@ describe("StakingFactory", function () {
                 stakingFactory.createStakingRewards(
                     await propertyToken.getAddress(),
                     rewardsDuration,
-                    rewardsAmount
+                    1000000000n
                 )
             ).to.be.revertedWith("Insufficient rewards balance");
         });
@@ -203,7 +203,7 @@ describe("StakingFactory", function () {
                 stakingFactory.connect(addr1).createStakingRewards(
                     await propertyToken.getAddress(),
                     rewardsDuration,
-                    rewardsAmount
+                    1000000000n
                 )
             ).to.be.revertedWithCustomError(stakingFactory, "OwnableUnauthorizedAccount")
              .withArgs(addr1.address);
@@ -218,7 +218,7 @@ describe("StakingFactory", function () {
             await stakingFactory.createStakingRewards(
                 await propertyToken.getAddress(),
                 rewardsDuration,
-                rewardsAmount
+                1000000000n
             );
         });
 
