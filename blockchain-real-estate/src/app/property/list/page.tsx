@@ -87,10 +87,11 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
     }
     const numPrice = parseFloat(price);
     console.log('Parsed price:', numPrice);
-    const formatted = numPrice.toLocaleString('en-US', {
+    // Format with thousands separator and 2 decimal places
+    const formatted = new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    });
+    }).format(numPrice);
     console.log('Formatted price:', formatted);
     return formatted;
   };
@@ -110,8 +111,6 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
           address: property.token_address as `0x${string}`,
           abi: propertyTokenABI,
         };
-
-        console.log('Property Contract Config:', propertyContract);
 
         // First, try to get propertyDetails separately to debug
         try {
@@ -189,22 +188,19 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
         const rawPrice = propertyDetailsResult?.price || 0n;
         console.log('Raw price from contract:', rawPrice.toString());
         
-        const priceInEurc = Number(formatUnits(rawPrice, 6));
+        const priceInEurc = formatUnits(rawPrice, 6);
         console.log('Formatted price in EURC:', priceInEurc);
 
-        const tokenStatsUpdate = {
+        // Update token stats with properly formatted price
+        setTokenStats({
           total: total.toString(),
           remaining: total.toString(),
           sold: "0",
           holders: 0,
-          price: priceInEurc.toString(),
+          price: priceInEurc,
           name: name || "",
-          symbol: symbol || "",
-        };
-
-        console.log('Updating token stats with:', tokenStatsUpdate);
-        setTokenProgress(0);
-        setTokenStats(tokenStatsUpdate);
+          symbol: symbol || ""
+        });
 
         // Fetch token holders
         try {
@@ -370,7 +366,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
                   )}
                 />
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{formatTokenAmount(tokenStats.remaining)} available • {formatPrice(tokenStats.price)} EURC/token</span>
+                  <span>{formatTokenAmount(tokenStats.remaining)} available • €{formatPrice(tokenStats.price)} EURC/token</span>
                   <span className="text-xs text-muted-foreground">{tokenStats.holders} holders</span>
                 </div>
               </div>

@@ -15,7 +15,9 @@
     "verifyMockEURC": "npx hardhat run scripts/verify-eurc-approve.ts --network localhost",
     "test:pt": "npx hardhat test test/PropertyToken.test.ts",
     "test:pf": "npx hardhat test test/PropertyFactory.test.ts",
-    "whitelist": "npx hardhat run scripts/whitelist-address.ts --network localhost"
+    "whitelist": "npx hardhat whitelist-address --network localhost",
+    "show-addresses": "npx hardhat run scripts/show-addresses.ts --network localhost",
+    "fund:factory": "npx hardhat run scripts/fund-staking-factory.ts --network localhost"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
@@ -35,6 +37,7 @@
     "@types/mocha": "^10.0.9",
     "@types/node": "^22.9.0",
     "chai": "^4.2.0",
+    "cross-env": "^7.0.3",
     "ethers": "^6.13.4",
     "hardhat": "^2.22.17",
     "hardhat-gas-reporter": "^1.0.8",

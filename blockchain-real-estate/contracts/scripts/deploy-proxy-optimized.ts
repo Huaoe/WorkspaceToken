@@ -8,7 +8,7 @@ import { Contract } from "ethers";
 dotenv.config();
 
 async function getExistingAddresses() {
-  const envLocalPath = path.join(process.cwd(), '..', '.env.local');
+  const envLocalPath = "C:/Users/thoma/Desktop/WorkspacesToken/blockchain-real-estate/.env.local";
   if (!fs.existsSync(envLocalPath)) {
     return {};
   }
@@ -43,58 +43,106 @@ async function hasCodeChanged(contractName: string, existingAddress: string) {
 }
 
 function updateEnvLocalFile(envPath: string, newValues: { [key: string]: string }) {
+  // Read existing content before Smart Contract Addresses section
   let content = '';
   if (fs.existsSync(envPath)) {
     content = fs.readFileSync(envPath, 'utf8');
   }
-  
-  const lines = content.split('\n');
-  let newContent: string[] = [];
-  let inContractSection = false;
-  let contractSectionFound = false;
 
-  // Keep everything before Smart Contract Addresses section
+  // Split content into lines and find where contract addresses start
+  const lines = content.split('\n');
+  const newContent: string[] = [];
+  let foundContractSection = false;
+
+  // Keep all lines until we find the first contract address section
   for (const line of lines) {
-    if (line.trim() === '# Smart Contract Addresses') {
-      inContractSection = true;
-      contractSectionFound = true;
-      newContent.push('\n# Smart Contract Addresses\n');
-      
-      // Add Whitelist Contract section
-      newContent.push('# Whitelist Contract');
-      newContent.push(`NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS}`);
-      newContent.push(`NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS}`);
-      newContent.push(`NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS}\n`);
-      
-      // Add Property Token Contract section
-      newContent.push('# Property Token Contract');
-      newContent.push(`NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS}\n`);
-      
-      // Add Property Factory Contract section
-      newContent.push('# Property Factory Contract');
-      newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS}`);
-      newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS}`);
-      newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS}\n`);
-      
-      // Add EURC Token Contract section
-      newContent.push('# EURC Token Contract');
-      newContent.push(`NEXT_PUBLIC_EURC_TOKEN_ADDRESS=${newValues.NEXT_PUBLIC_EURC_TOKEN_ADDRESS}\n`);
-      
-      // Add Staking Factory Contract section
-      newContent.push('# Staking Factory Contract');
-      newContent.push(`NEXT_PUBLIC_STAKING_FACTORY_ADDRESS=${newValues.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS}\n`);
+    if (line.includes('_ADDRESS') || line.includes('# Smart Contract Addresses')) {
+      foundContractSection = true;
       break;
     }
-    if (!inContractSection) {
-      newContent.push(line);
+    newContent.push(line);
+  }
+
+  // Add new contract addresses section
+  newContent.push('\n# Smart Contract Addresses\n');
+  
+  // Add Whitelist Contract section
+  newContent.push('# Whitelist Contract');
+  newContent.push(`NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS}`);
+  newContent.push(`NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS}`);
+  newContent.push(`NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS}\n`);
+  
+  // Add Property Token Contract section
+  newContent.push('# Property Token Contract');
+  newContent.push(`NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS}\n`);
+  
+  // Add Property Factory Contract section
+  newContent.push('# Property Factory Contract');
+  newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS}`);
+  newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS}`);
+  newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS}\n`);
+  
+  // Add EURC Token Contract section
+  newContent.push('# EURC Token Contract');
+  newContent.push(`NEXT_PUBLIC_EURC_TOKEN_ADDRESS=${newValues.NEXT_PUBLIC_EURC_TOKEN_ADDRESS}\n`);
+  
+  // Add Staking Factory Contract section
+  newContent.push('# Staking Factory Contract');
+  newContent.push(`NEXT_PUBLIC_STAKING_FACTORY_ADDRESS=${newValues.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS}\n`);
+
+  // Write the updated content back to the file
+  fs.writeFileSync(envPath, newContent.join('\n'));
+}
+
+function updateEnvFile(envPath: string, newValues: { [key: string]: string }) {
+  // Read existing content before Smart Contract Addresses section
+  let content = '';
+  if (fs.existsSync(envPath)) {
+    content = fs.readFileSync(envPath, 'utf8');
+  }
+
+  // Split content into lines and find where contract addresses start
+  const lines = content.split('\n');
+  const newContent: string[] = [];
+  let foundContractSection = false;
+
+  // Keep all lines until we find the first contract address section
+  for (const line of lines) {
+    if (line.includes('_ADDRESS') || line.includes('# Smart Contract Addresses')) {
+      foundContractSection = true;
+      break;
     }
+    newContent.push(line);
   }
 
-  if (!contractSectionFound) {
-    // If Smart Contract Addresses section doesn't exist, add it at the end
-    newContent = [...newContent, ...Object.entries(newValues).map(([key, value]) => `${key}=${value}`)];
-  }
+  // Add new contract addresses section
+  newContent.push('\n# Smart Contract Addresses\n');
+  
+  // Add Whitelist Contract section
+  newContent.push('# Whitelist Contract');
+  newContent.push(`WHITELIST_PROXY_ADDRESS=${newValues.WHITELIST_PROXY_ADDRESS}`);
+  newContent.push(`WHITELIST_IMPLEMENTATION_ADDRESS=${newValues.WHITELIST_IMPLEMENTATION_ADDRESS}`);
+  newContent.push(`WHITELIST_ADMIN_ADDRESS=${newValues.WHITELIST_ADMIN_ADDRESS}\n`);
+  
+  // Add Property Token Contract section
+  newContent.push('# Property Token Contract');
+  newContent.push(`PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS=${newValues.PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS}\n`);
+  
+  // Add Property Factory Contract section
+  newContent.push('# Property Factory Contract');
+  newContent.push(`PROPERTY_FACTORY_PROXY_ADDRESS=${newValues.PROPERTY_FACTORY_PROXY_ADDRESS}`);
+  newContent.push(`PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS=${newValues.PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS}`);
+  newContent.push(`PROPERTY_FACTORY_ADMIN_ADDRESS=${newValues.PROPERTY_FACTORY_ADMIN_ADDRESS}\n`);
+  
+  // Add EURC Token Contract section
+  newContent.push('# EURC Token Contract');
+  newContent.push(`EURC_TOKEN_ADDRESS=${newValues.EURC_TOKEN_ADDRESS}\n`);
+  
+  // Add Staking Factory Contract section
+  newContent.push('# Staking Factory Contract');
+  newContent.push(`STAKING_FACTORY_ADDRESS=${newValues.STAKING_FACTORY_ADDRESS}\n`);
 
+  // Write the updated content back to the file
   fs.writeFileSync(envPath, newContent.join('\n'));
 }
 
@@ -241,9 +289,11 @@ async function main() {
     console.log("\nUsing existing StakingFactory at:", stakingFactoryAddress);
   }
 
-  // Update frontend .env.local
-  const frontendEnvPath = path.join(process.cwd(), '..', '.env.local');
-  const frontendAddresses = {
+  // Update both .env and .env.local files
+  const frontendEnvPath = "C:/Users/thoma/Desktop/WorkspacesToken/blockchain-real-estate/.env.local";
+  const contractsEnvPath = path.join(process.cwd(), '.env');
+  
+  const addresses = {
     NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS: whitelistAddress,
     NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS: whitelistImplAddress,
     NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS: whitelistAdminAddress,
@@ -255,8 +305,25 @@ async function main() {
     NEXT_PUBLIC_STAKING_FACTORY_ADDRESS: stakingFactoryAddress
   };
 
-  updateEnvLocalFile(frontendEnvPath, frontendAddresses);
+  // Update .env.local in frontend
+  updateEnvLocalFile(frontendEnvPath, addresses);
   console.log("\nUpdated frontend environment variables in .env.local");
+
+  // Update .env in contracts directory
+  const contractAddresses = {
+    WHITELIST_PROXY_ADDRESS: whitelistAddress,
+    WHITELIST_IMPLEMENTATION_ADDRESS: whitelistImplAddress,
+    WHITELIST_ADMIN_ADDRESS: whitelistAdminAddress,
+    PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS: propertyTokenImplAddress,
+    PROPERTY_FACTORY_PROXY_ADDRESS: propertyFactoryAddress,
+    PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS: propertyFactoryImplAddress,
+    PROPERTY_FACTORY_ADMIN_ADDRESS: propertyFactoryAdminAddress,
+    EURC_TOKEN_ADDRESS: eurcAddress,
+    STAKING_FACTORY_ADDRESS: stakingFactoryAddress
+  };
+
+  updateEnvFile(contractsEnvPath, contractAddresses);
+  console.log("Updated contract environment variables in .env");
 
   console.log("\nContract Addresses:");
   console.log("\nWhitelist Addresses:");

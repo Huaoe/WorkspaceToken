@@ -5,24 +5,39 @@ import * as path from "path";
 import * as fs from "fs";
 
 async function getEURCAddress(): Promise<string> {
-  // Try to get address from parent directory's .env.local first
+  // First try .env.local with NEXT_PUBLIC prefix
   const envLocalPath = path.join(process.cwd(), '..', '.env.local');
+  console.log("Looking for .env.local at:", envLocalPath);
   if (fs.existsSync(envLocalPath)) {
+    console.log(".env.local exists");
     const envContent = fs.readFileSync(envLocalPath, 'utf8');
+    console.log("ENV Local Content:", envContent);
     const match = envContent.match(/NEXT_PUBLIC_EURC_TOKEN_ADDRESS=(.+)/);
+    console.log("Local Match result:", match);
     if (match && match[1]) {
       return match[1];
     }
+  } else {
+    console.log(".env.local not found");
   }
 
-  // Fallback to local .env if not found in .env.local
-  dotenv.config();
-  const localAddress = process.env.EURC_TOKEN_ADDRESS;
-  if (localAddress) {
-    return localAddress;
+  // Then try local .env without prefix
+  const envPath = path.join(process.cwd(), '.env');
+  console.log("Looking for .env at:", envPath);
+  if (fs.existsSync(envPath)) {
+    console.log(".env exists");
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    console.log("ENV Content:", envContent);
+    const match = envContent.match(/EURC_TOKEN_ADDRESS=(.+)/);
+    console.log("ENV Match result:", match);
+    if (match && match[1]) {
+      return match[1];
+    }
+  } else {
+    console.log(".env not found");
   }
 
-  throw new Error("EURC token address not found in either .env.local or .env");
+  throw new Error("EURC Token address not found in either .env or .env.local");
 }
 
 async function main() {
@@ -51,11 +66,11 @@ async function main() {
   const accounts = await ethers.getSigners();
   const testAccounts = accounts.slice(1, 5); // Get 4 test accounts
 
-  // Amount to distribute to each account (100000 EURC)
-  const distributionAmount = ethers.parseUnits("100000", 6);
+  // Amount to distribute to each account (1,000,000 EURC for admin operations)
+  const distributionAmount = ethers.parseUnits("10000", 6);
 
   console.log("\nStarting token distribution...");
-  console.log(`Distribution amount per address: 100000 EURC`);
+  console.log(`Distribution amount per address: 10,000 EURC`);
 
   // Check deployer balance first
   const deployerBalance = await mockEURC.balanceOf(deployer.address);

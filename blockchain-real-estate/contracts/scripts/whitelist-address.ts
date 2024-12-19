@@ -1,55 +1,64 @@
-import { task } from "hardhat/config";
 import { ethers } from "hardhat";
-import dotenv from "dotenv";
-import path from "path";
+import * as dotenv from "dotenv";
+import * as path from "path";
+import * as fs from "fs";
 
-task("whitelist", "Whitelist one or more addresses")
-  .addVariadicPositionalParam("addresses", "The addresses to whitelist")
-  .setAction(async (taskArgs, hre) => {
-    // Load environment variables from parent directory
-    const envPath = path.join(process.cwd(), '..', '.env.local');
-    dotenv.config({ path: envPath });
+export async function main(addressToWhitelist: string) {
+  // Load environment variables from the correct .env.local file
+  const envLocalPath = path.join(process.cwd(), '../..', '.env.local');
+  if (fs.existsSync(envLocalPath)) {
+    dotenv.config({ path: envLocalPath });
+  } else {
+    throw new Error(".env.local file not found");
+  }
 
-    // Get the Whitelist contract address from environment variables
-    const whitelistAddress = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS;
-    if (!whitelistAddress) {
-      throw new Error("Whitelist address not found in environment variables");
+  // Get the Whitelist contract address from environment variables
+  const whitelistAddress = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS;
+  if (!whitelistAddress) {
+    throw new Error("Whitelist address not found in environment variables");
+  }
+
+  const [deployer] = await ethers.getSigners();
+  console.log("Whitelisting address with account:", deployer.address);
+
+  // Get the Whitelist contract instance
+  const whitelist = await ethers.getContractAt("Whitelist", whitelistAddress);
+
+  // Validate the address
+  if (!ethers.isAddress(addressToWhitelist)) {
+    throw new Error(`Invalid address: ${addressToWhitelist}`);
+  }
+
+  try {
+    // Check if address is already whitelisted
+    const isWhitelisted = await whitelist.isAddressWhitelisted(addressToWhitelist);
+    if (isWhitelisted) {
+      console.log(`Address ${addressToWhitelist} is already whitelisted`);
+      return;
     }
 
-    const [deployer] = await hre.ethers.getSigners();
-    console.log("Whitelisting addresses with account:", deployer.address);
+    // Add to whitelist
+    console.log(`Adding ${addressToWhitelist} to whitelist...`);
+    const tx = await whitelist.addToWhitelist(addressToWhitelist);
+    await tx.wait();
+    
+    console.log(`Successfully whitelisted address: ${addressToWhitelist}`);
+    
+    // Verify the address was whitelisted
+    const verifyWhitelisted = await whitelist.isAddressWhitelisted(addressToWhitelist);
+    console.log(`Verification - Address whitelisted: ${verifyWhitelisted}`);
+  } catch (error) {
+    console.error(`Error whitelisting address ${addressToWhitelist}:`, error);
+    throw error;
+  }
+}
 
-    // Get the Whitelist contract instance
-    const whitelist = await hre.ethers.getContractAt("Whitelist", whitelistAddress);
-
-    // Process each address
-    for (const address of taskArgs.addresses) {
-      // Validate the address
-      if (!hre.ethers.isAddress(address)) {
-        console.log(`Skipping invalid address: ${address}`);
-        continue;
-      }
-
-      try {
-        // Check if address is already whitelisted
-        const isWhitelisted = await whitelist.isAddressWhitelisted(address);
-        if (isWhitelisted) {
-          console.log(`Address ${address} is already whitelisted`);
-          continue;
-        }
-
-        // Add to whitelist
-        console.log(`Adding ${address} to whitelist...`);
-        const tx = await whitelist.addToWhitelist(address);
-        await tx.wait();
-        
-        console.log(`Successfully whitelisted address: ${address}`);
-        
-        // Verify the address was whitelisted
-        const verifyWhitelisted = await whitelist.isAddressWhitelisted(address);
-        console.log(`Verification - Address whitelisted: ${verifyWhitelisted}`);
-      } catch (error) {
-        console.error(`Error whitelisting address ${address}:`, error.message);
-      }
-    }
-  });
+// Allow running directly from command line
+if (require.main === module) {
+  main(process.argv[2])
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}

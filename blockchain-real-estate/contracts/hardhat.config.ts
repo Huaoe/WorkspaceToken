@@ -1,10 +1,18 @@
-import { HardhatUserConfig } from "hardhat/config";
+import { HardhatUserConfig, task } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
 import "@nomicfoundation/hardhat-chai-matchers";
 import "hardhat-deploy";
 import "dotenv/config";
-import "./scripts/whitelist-address.ts";  // Import the whitelist task
+
+// Task to whitelist an address
+task("whitelist-address", "Whitelist an address")
+  .addParam("address", "The address to whitelist")
+  .setAction(async (taskArgs, hre) => {
+    const { address } = taskArgs;
+    const script = require("./scripts/whitelist-address");
+    await script.main(address);
+  });
 
 const config: HardhatUserConfig = {
   solidity: {

@@ -61,7 +61,12 @@ export function InitializeStaking({ stakingAddress, tokenAddress }: InitializeSt
         timeout: 60_000,
       });
 
-      if (approveReceipt.status !== 'success') {
+      if (approveReceipt.status === 'success') {
+        toast({
+          title: "✨ EURC Approved! ✨",
+          description: "Successfully approved EURC tokens for staking rewards 🎉",
+        });
+      } else {
         throw new Error('EURC approval failed');
       }
 
@@ -82,7 +87,12 @@ export function InitializeStaking({ stakingAddress, tokenAddress }: InitializeSt
         timeout: 60_000,
       });
 
-      if (durationReceipt.status !== 'success') {
+      if (durationReceipt.status === 'success') {
+        toast({
+          title: "⏳ Duration Set! ⌛",
+          description: "Successfully configured staking duration 🎯",
+        });
+      } else {
         throw new Error('Failed to set rewards duration');
       }
 
@@ -103,13 +113,21 @@ export function InitializeStaking({ stakingAddress, tokenAddress }: InitializeSt
         timeout: 60_000,
       });
 
-      if (notifyReceipt.status !== 'success') {
+      if (notifyReceipt.status === 'success') {
+        toast({
+          title: "💎 Rewards Ready! 💎",
+          description: "Successfully configured staking rewards 🌟",
+        });
+      } else {
         throw new Error('Failed to notify reward amount');
       }
 
       toast({
-        title: "Success",
-        description: "Successfully initialized staking rewards",
+        title: "🎊 Staking Initialized! 🎊",
+        description: `
+          ✨ Your property is ready for staking! ✨
+          💫 Start staking to earn rewards! 💫
+        `,
       });
 
       setLoading(false);
