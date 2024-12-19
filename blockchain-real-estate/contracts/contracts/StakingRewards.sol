@@ -43,10 +43,11 @@ contract StakingRewards {
         address _rewardToken,
         uint256 _rewardRate
     ) {
+        owner = msg.sender;
         stakingToken = IERC20(_stakingToken);
         rewardsToken = IERC20(_rewardToken);
         rewardRate = _rewardRate;
-        owner = msg.sender;
+        duration = 0; // Will be set via setRewardsDuration
     }
 
     /// @notice Restricts function access to contract owner

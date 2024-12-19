@@ -4,21 +4,17 @@ import * as path from "path";
 import * as fs from "fs";
 
 export async function main(addressToWhitelist: string) {
-  // Load environment variables from the correct .env.local file
-  const envLocalPath = path.join(process.cwd(), '../..', '.env.local');
-  if (fs.existsSync(envLocalPath)) {
-    dotenv.config({ path: envLocalPath });
-  } else {
-    throw new Error(".env.local file not found");
-  }
+  // Load environment variables from .env file
+  dotenv.config();
 
   // Get the Whitelist contract address from environment variables
-  const whitelistAddress = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS;
+  const whitelistAddress = process.env.WHITELIST_PROXY_ADDRESS;
   if (!whitelistAddress) {
-    throw new Error("Whitelist address not found in environment variables");
+    throw new Error("WHITELIST_PROXY_ADDRESS not found in environment variables");
   }
 
   const [deployer] = await ethers.getSigners();
+  console.log("Using Whitelist Proxy at:", whitelistAddress);
   console.log("Whitelisting address with account:", deployer.address);
 
   // Get the Whitelist contract instance
