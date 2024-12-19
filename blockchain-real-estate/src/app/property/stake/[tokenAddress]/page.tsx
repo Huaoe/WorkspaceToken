@@ -52,7 +52,7 @@ export default function StakeProperty() {
         console.error("Error getting staking address:", error);
         toast({
           title: "Error",
-          description: "Failed to get staking contract address",
+          description: "Failed to get staking contract. Please contact admin to create one.",
         });
       }
     };
@@ -511,7 +511,7 @@ export default function StakeProperty() {
     );
   }
 
-  if (!isInitialized) {
+  if (!isInitialized && stakingAddress) {
     return <InitializeStaking stakingAddress={stakingAddress} />;
   }
 

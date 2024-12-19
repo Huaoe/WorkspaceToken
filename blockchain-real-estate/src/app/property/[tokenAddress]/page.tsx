@@ -118,6 +118,22 @@ export default function PropertyDetails() {
     }
     
     try {
+      // First check if we have cached insights
+      const { data: cachedInsights, error: cacheError } = await supabase
+        .from('market_insights_cache')
+        .select('*')
+        .eq('location', propertyRequest.location)
+        .single();
+
+      if (cachedInsights) {
+        console.log('Found cached market insights:', cachedInsights);
+        setPropertyRequest(prev => prev ? {
+          ...prev,
+          market_analysis: cachedInsights.insights,
+        } : null);
+        return;
+      }
+
       console.log('Fetching market insights for location:', propertyRequest.location);
       const response = await fetch('/api/mistral', {
         method: 'POST',
@@ -136,32 +152,25 @@ export default function PropertyDetails() {
 
       const data = await response.json();
       console.log('Received market insights:', data);
-      
-      // Update property request with insights
-      const { error: updateError } = await supabase
-        .from('property_requests')
-        .update({
-          insights: {
-            market_analysis: data.market_analysis,
-            price_prediction: data.price_prediction,
-            risk_assessment: data.risk_assessment,
-          }
-        })
-        .eq('token_address', tokenAddress);
 
-      if (updateError) {
-        console.error('Error updating property request:', updateError);
-        throw updateError;
+      // Cache the insights
+      const { error: insertError } = await supabase
+        .from('market_insights_cache')
+        .insert({
+          location: propertyRequest.location,
+          insights: data.market_analysis,
+        });
+
+      if (insertError) {
+        console.error('Error caching market insights:', insertError);
       }
 
       // Update local state
       setPropertyRequest(prev => prev ? {
         ...prev,
-        insights: {
-          market_analysis: data.market_analysis,
-          price_prediction: data.price_prediction,
-          risk_assessment: data.risk_assessment,
-        }
+        market_analysis: data.market_analysis,
+        price_prediction: data.price_prediction,
+        risk_assessment: data.risk_assessment,
       } : null);
 
     } catch (err) {
@@ -175,7 +184,7 @@ export default function PropertyDetails() {
   };
 
   useEffect(() => {
-    if (propertyRequest && !propertyRequest.insights) {
+    if (propertyRequest && !propertyRequest.market_analysis) {
       fetchMistralData();
     }
   }, [propertyRequest]);
@@ -206,11 +215,11 @@ export default function PropertyDetails() {
         numberOfTokens: Number(formatUnits(totalSupply.result || 0n, 18)),
         ownerAddress: ownerAddress.result,
         documents_url: propertyRequest.documents_url,
-        ...(propertyRequest.insights && {
+        ...(propertyRequest.market_analysis && {
           mistral_data: {
-            market_analysis: propertyRequest.insights.market_analysis || '',
-            price_prediction: propertyRequest.insights.price_prediction || '',
-            risk_assessment: propertyRequest.insights.risk_assessment || '',
+            market_analysis: propertyRequest.market_analysis,
+            price_prediction: propertyRequest.price_prediction,
+            risk_assessment: propertyRequest.risk_assessment,
           }
         })
       });
@@ -265,11 +274,13 @@ export default function PropertyDetails() {
 
   // Calculate price per token
   const pricePerToken = propertyDetails?.expected_price && propertyDetails?.numberOfTokens
-    ? Number(formatUnits(propertyDetails.expected_price / BigInt(propertyDetails.numberOfTokens), 6)).toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
-    : '0.00';
+    ? Number(formatUnits(propertyDetails.expected_price, 6)) / propertyDetails.numberOfTokens
+    : 0;
+
+  const formattedPricePerToken = pricePerToken.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -481,7 +492,7 @@ export default function PropertyDetails() {
                     </p>
                     <div className="flex items-baseline gap-1">
                       <p className="font-medium text-xl text-green-600">
-                        {pricePerToken}
+                        {formattedPricePerToken}
                       </p>
                       <span className="text-sm font-medium text-muted-foreground">EURC</span>
                     </div>

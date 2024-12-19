@@ -79,6 +79,10 @@ function updateEnvLocalFile(envPath: string, newValues: { [key: string]: string 
       // Add EURC Token Contract section
       newContent.push('# EURC Token Contract');
       newContent.push(`NEXT_PUBLIC_EURC_TOKEN_ADDRESS=${newValues.NEXT_PUBLIC_EURC_TOKEN_ADDRESS}\n`);
+      
+      // Add Staking Factory Contract section
+      newContent.push('# Staking Factory Contract');
+      newContent.push(`NEXT_PUBLIC_STAKING_FACTORY_ADDRESS=${newValues.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS}\n`);
       break;
     }
     if (!inContractSection) {
@@ -221,6 +225,22 @@ async function main() {
   console.log("- Implementation:", propertyFactoryImplAddress);
   console.log("- Admin:", propertyFactoryAdminAddress);
 
+  // Deploy or update StakingFactory
+  let stakingFactoryAddress = existingAddresses.STAKING_FACTORY_ADDRESS;
+  if (!stakingFactoryAddress || await hasCodeChanged("StakingFactory", stakingFactoryAddress)) {
+    console.log("\nDeploying new StakingFactory...");
+    const StakingFactory = await ethers.getContractFactory("StakingFactory");
+    const stakingFactory = await StakingFactory.deploy(
+      eurcAddress,      // rewardsToken (EURC)
+      deployer.address  // initialOwner
+    );
+    await stakingFactory.waitForDeployment();
+    stakingFactoryAddress = await stakingFactory.getAddress();
+    console.log("StakingFactory deployed to:", stakingFactoryAddress);
+  } else {
+    console.log("\nUsing existing StakingFactory at:", stakingFactoryAddress);
+  }
+
   // Update frontend .env.local
   const frontendEnvPath = path.join(process.cwd(), '..', '.env.local');
   const frontendAddresses = {
@@ -232,10 +252,22 @@ async function main() {
     NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS: propertyFactoryImplAddress,
     NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS: propertyFactoryAdminAddress,
     NEXT_PUBLIC_EURC_TOKEN_ADDRESS: eurcAddress,
+    NEXT_PUBLIC_STAKING_FACTORY_ADDRESS: stakingFactoryAddress
   };
 
   updateEnvLocalFile(frontendEnvPath, frontendAddresses);
   console.log("\nUpdated frontend environment variables in .env.local");
+
+  console.log("\nContract Addresses:");
+  console.log("\nWhitelist Addresses:");
+  console.log("- Proxy:", whitelistAddress);
+  console.log("- Implementation:", whitelistImplAddress);
+  console.log("- Admin:", whitelistAdminAddress);
+  console.log("\nPropertyFactory Addresses:");
+  console.log("- Proxy:", propertyFactoryAddress);
+  console.log("- Implementation:", propertyFactoryImplAddress);
+  console.log("- Admin:", propertyFactoryAdminAddress);
+  console.log("\nStakingFactory:", stakingFactoryAddress);
 }
 
 main()
