@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,6 @@ import { UseFormReturn } from "react-hook-form";
 import { LocationPicker, geocodeAddress } from "@/components/LocationPicker";
 import { Search } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { useRef, useState, useEffect } from "react";
 
 interface LocationFieldProps {
   form: UseFormReturn<any>;

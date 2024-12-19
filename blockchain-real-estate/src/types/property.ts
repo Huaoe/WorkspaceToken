@@ -27,6 +27,7 @@ export interface OnChainPropertyRequest extends BasePropertyRequest {
 }
 
 export interface PropertyRequest {
+  documents_url: string | null;
   id?: string;
   title: string;
   description: string;

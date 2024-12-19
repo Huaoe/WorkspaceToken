@@ -12,7 +12,9 @@ export const propertyFormSchema = z.object({
   expected_price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0),
   image_url: z.string().url().max(100).optional(),
   documents_url: z.string().url().optional(),
-  number_of_tokens: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0),
+  number_of_tokens: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0 && Number(val) <= 1000000000, {
+    message: "Number of tokens must be between 1 and 1,000,000,000",
+  }),
   token_name: z.string().min(1).max(50),
   token_symbol: z.string().min(1).max(10),
   status: z.enum(['pending', 'approved', 'rejected', 'onchain', 'staking', 'closed', 'paused', 'funding']),
@@ -109,7 +111,16 @@ export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
           <FormItem>
             <FormLabel>Number of Tokens</FormLabel>
             <FormControl>
-              <Input type="number" placeholder="1000" {...field} />
+              <Input 
+                type="text" 
+                pattern="[0-9]*"
+                placeholder="1000" 
+                {...field} 
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  field.onChange(value);
+                }}
+              />
             </FormControl>
             <FormDescription>Total number of tokens to create</FormDescription>
             <FormMessage />

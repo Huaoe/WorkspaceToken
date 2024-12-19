@@ -15,7 +15,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { propertyTokenABI } from "@/lib/contracts";
-import { PLACEHOLDER_IMAGE } from "@/lib/constants";
+import {
+  PLACEHOLDER_IMAGE
+} from "@/lib/constants";
 import { formatUnits } from "viem";
 import { supabase } from "@/lib/supabase/client";
 import { Separator } from "@/components/ui/separator";
@@ -55,8 +57,8 @@ export default function PropertyDetails() {
   const [error, setError] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [propertyRequest, setPropertyRequest] =
-    useState<PropertyRequest | null>(null);
+  const [propertyRequest, setPropertyRequest] = useState<PropertyRequest | null>(null);
+  const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const tokenAddress = params.tokenAddress as `0x${string}`;
 
   const { data: contractData, isLoading: contractLoading } = useContractReads({
@@ -74,13 +76,8 @@ export default function PropertyDetails() {
       {
         address: tokenAddress,
         abi: propertyTokenABI,
-<<<<<<< HEAD
-        functionName: 'propertyDetails',
-      }
-=======
-        functionName: "getPrice",
+        functionName: "propertyDetails",
       },
->>>>>>> d35d686 (css)
     ],
     watch: true,
   });
@@ -114,29 +111,71 @@ export default function PropertyDetails() {
     }
   };
 
-  const propertyDetails = propertyRequest && contractData ? {
-    title: propertyRequest.title,
-    description: propertyRequest.description,
-    location: propertyRequest.location,
-    imageUrl: propertyRequest.image_url || '',
-    expected_price: BigInt(propertyRequest.expected_price * 10**6),
-    isActive: propertyRequest.status === 'approved',
-    status: propertyRequest.status,
-    payoutDuration: propertyRequest.payout_duration,
-    finishAt: propertyRequest.finish_at,
-    roi: propertyRequest.roi,
-    numberOfTokens: Number(formatUnits(contractData[0].result || BigInt(0), 18)),
-    ownerAddress: contractData[1].result as string,
-    documents_url: propertyRequest.documents_url,
-    ...(propertyRequest.insights && {
-      mistral_data: {
-        market_analysis: propertyRequest.insights.market_analysis || '',
-        price_prediction: propertyRequest.insights.price_prediction || '',
-        risk_assessment: propertyRequest.insights.risk_assessment || '',
-      }
-    };
+  const fetchMistralData = async () => {
+    if (!propertyRequest?.location) {
+      console.log('No location data available for market analysis');
+      return;
+    }
+    
+    try {
+      console.log('Fetching market insights for location:', propertyRequest.location);
+      const response = await fetch('/api/mistral', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          location: propertyRequest.location,
+        }),
+      });
 
-    if (propertyRequest) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch market insights');
+      }
+
+      const data = await response.json();
+      console.log('Received market insights:', data);
+      
+      // Update property request with insights
+      const { error: updateError } = await supabase
+        .from('property_requests')
+        .update({
+          insights: {
+            market_analysis: data.market_analysis,
+            price_prediction: data.price_prediction,
+            risk_assessment: data.risk_assessment,
+          }
+        })
+        .eq('token_address', tokenAddress);
+
+      if (updateError) {
+        console.error('Error updating property request:', updateError);
+        throw updateError;
+      }
+
+      // Update local state
+      setPropertyRequest(prev => prev ? {
+        ...prev,
+        insights: {
+          market_analysis: data.market_analysis,
+          price_prediction: data.price_prediction,
+          risk_assessment: data.risk_assessment,
+        }
+      } : null);
+
+    } catch (err) {
+      console.error('Error fetching market insights:', err);
+      toast({
+        title: 'Market Analysis',
+        description: 'Market insights are temporarily unavailable. Please try again later.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (propertyRequest && !propertyRequest.insights) {
       fetchMistralData();
     }
   }, [propertyRequest]);
@@ -145,14 +184,17 @@ export default function PropertyDetails() {
     if (contractData?.[0].error || contractData?.[1].error || contractData?.[2].error) {
       setError('Failed to load contract details');
       console.error('Contract read error:', contractData?.[0].error || contractData?.[1].error || contractData?.[2].error);
-    } else if (contractData && propertyRequest) {
+      return;
+    }
+
+    if (contractData && propertyRequest) {
       const [totalSupply, ownerAddress, details] = contractData;
-      const propertyDetails: PropertyDetails = {
+      setPropertyDetails({
         title: propertyRequest.title,
         description: propertyRequest.description,
         location: propertyRequest.location,
         imageUrl: propertyRequest.image_url || PLACEHOLDER_IMAGE,
-        expected_price: details.result.price, // Getting price from the struct
+        expected_price: details.result.price,
         isActive: details.result.isActive,
         status: propertyRequest.status,
         payoutDuration: propertyRequest.payout_duration || 0,
@@ -161,8 +203,14 @@ export default function PropertyDetails() {
         numberOfTokens: Number(formatUnits(totalSupply.result || 0n, 18)),
         ownerAddress: ownerAddress.result,
         documents_url: propertyRequest.documents_url,
-      };
-      setPropertyDetails(propertyDetails);
+        ...(propertyRequest.insights && {
+          mistral_data: {
+            market_analysis: propertyRequest.insights.market_analysis || '',
+            price_prediction: propertyRequest.insights.price_prediction || '',
+            risk_assessment: propertyRequest.insights.risk_assessment || '',
+          }
+        })
+      });
       setError(null);
     }
   }, [contractData, propertyRequest]);
@@ -202,10 +250,14 @@ export default function PropertyDetails() {
       ? propertyDetails.imageUrl
       : PLACEHOLDER_IMAGE;
 
-  const formattedPrice = propertyDetails.expected_price
-    ? formatUnits(propertyDetails.expected_price, 6)
-    : "0";
-  const formattedSupply = propertyDetails.numberOfTokens?.toString() || "0";
+  const formattedPrice = propertyDetails?.expected_price 
+    ? Number(formatUnits(propertyDetails.expected_price, 6)).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    : '0.00';
+
+  const formattedSupply = propertyDetails?.numberOfTokens.toLocaleString('en-US') || '0';
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -415,13 +467,21 @@ export default function PropertyDetails() {
                     <p className="text-sm text-muted-foreground">
                       Price per Token
                     </p>
-                    <p className="font-medium text-xl text-green-600">
-                      {formattedPrice} EURC
-                    </p>
+                    <div className="flex items-baseline gap-1">
+                      <p className="font-medium text-xl text-green-600">
+                        {formattedPrice}
+                      </p>
+                      <span className="text-sm font-medium text-muted-foreground">EURC</span>
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Supply</p>
-                    <p className="font-medium">{formattedSupply} Tokens</p>
+                    <div className="flex items-baseline gap-1">
+                      <p className="font-medium text-xl">
+                        {formattedSupply}
+                      </p>
+                      <span className="text-sm font-medium text-muted-foreground">Tokens</span>
+                    </div>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">ROI</p>
