@@ -4,6 +4,7 @@ import "@openzeppelin/hardhat-upgrades";
 import "@nomicfoundation/hardhat-chai-matchers";
 import "hardhat-deploy";
 import "dotenv/config";
+import "./scripts/whitelist-address.ts";  // Import the whitelist task
 
 const config: HardhatUserConfig = {
   solidity: {

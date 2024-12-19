@@ -67,20 +67,43 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
   };
 
   const formatTokenAmount = (amount: string) => {
+    console.log('formatTokenAmount input:', amount);
+    if (!amount || isNaN(Number(amount))) {
+      console.log('Invalid amount, returning 0');
+      return "0";
+    }
     const num = parseFloat(amount);
-    return num % 1 === 0 ? num.toFixed(0) : num.toFixed(2);
+    console.log('Parsed amount:', num);
+    const formatted = num % 1 === 0 ? num.toLocaleString() : num.toFixed(2);
+    console.log('Formatted amount:', formatted);
+    return formatted;
   };
 
   const formatPrice = (price: string) => {
-    return parseFloat(price).toFixed(2);
+    console.log('formatPrice input:', price);
+    if (!price || isNaN(Number(price))) {
+      console.log('Invalid price, returning 0.00');
+      return "0.00";
+    }
+    const numPrice = parseFloat(price);
+    console.log('Parsed price:', numPrice);
+    const formatted = numPrice.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    console.log('Formatted price:', formatted);
+    return formatted;
   };
 
   useEffect(() => {
     const fetchTokenSupply = async () => {
       if (!property.token_address) {
+        console.log('No token address provided');
         setIsLoadingProgress(false);
         return;
       }
+
+      console.log('Fetching token data for address:', property.token_address);
 
       try {
         const propertyContract = {
@@ -88,16 +111,35 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
           abi: propertyTokenABI,
         };
 
-        // First get the owner address
-        const owner = await publicClient.readContract({
-          ...propertyContract,
-          functionName: "owner",
-        });
+        console.log('Property Contract Config:', propertyContract);
+
+        // First, try to get propertyDetails separately to debug
+        try {
+          console.log('Fetching property details...');
+          const details = await publicClient.readContract({
+            ...propertyContract,
+            functionName: "propertyDetails",
+          });
+          console.log('Property Details Response:', details);
+        } catch (error) {
+          console.error('Failed to fetch property details:', error);
+        }
+
+        // Try getPrice function separately if it exists
+        try {
+          console.log('Trying getPrice function...');
+          const price = await publicClient.readContract({
+            ...propertyContract,
+            functionName: "getPrice",
+          });
+          console.log('Price from getPrice:', price?.toString());
+        } catch (error) {
+          console.error('Failed to fetch price:', error);
+        }
 
         // Fetch all token data in parallel
         const [
           totalSupply,
-          ownerBalance,
           propertyDetailsResult,
           name,
           symbol
@@ -105,43 +147,64 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
           publicClient.readContract({
             ...propertyContract,
             functionName: "totalSupply",
-          }),
-          publicClient.readContract({
-            ...propertyContract,
-            functionName: "balanceOf",
-            args: [owner], // Use owner address instead of contract address
+          }).catch((error) => {
+            console.error('Error fetching totalSupply:', error);
+            return 0n;
           }),
           publicClient.readContract({
             ...propertyContract,
             functionName: "propertyDetails",
+          }).catch((error) => {
+            console.error('Error fetching propertyDetails:', error);
+            return { price: 0n };
           }),
           publicClient.readContract({
             ...propertyContract,
             functionName: "name",
+          }).catch((error) => {
+            console.error('Error fetching name:', error);
+            return "";
           }),
           publicClient.readContract({
             ...propertyContract,
             functionName: "symbol",
+          }).catch((error) => {
+            console.error('Error fetching symbol:', error);
+            return "";
           })
         ]);
 
+        console.log('Raw contract data:', {
+          totalSupply: totalSupply.toString(),
+          propertyDetails: propertyDetailsResult,
+          name,
+          symbol
+        });
+
         // Calculate token metrics
         const total = Number(formatUnits(totalSupply, 18));
-        const available = Number(formatUnits(ownerBalance, 18));
-        const sold = total - available;
-        const progress = Math.min((sold / total) * 100, 100);
-        const priceInEurc = Number(formatUnits(propertyDetailsResult.price, 6));
+        console.log('Formatted total supply:', total);
 
-        setTokenProgress(progress);
-        setTokenStats({
+        // Price is in EURC (6 decimals)
+        const rawPrice = propertyDetailsResult?.price || 0n;
+        console.log('Raw price from contract:', rawPrice.toString());
+        
+        const priceInEurc = Number(formatUnits(rawPrice, 6));
+        console.log('Formatted price in EURC:', priceInEurc);
+
+        const tokenStatsUpdate = {
           total: total.toString(),
-          remaining: available.toString(),
-          sold: sold.toString(),
+          remaining: total.toString(),
+          sold: "0",
           holders: 0,
           price: priceInEurc.toString(),
-          name,
-          symbol,
-        });
+          name: name || "",
+          symbol: symbol || "",
+        };
+
+        console.log('Updating token stats with:', tokenStatsUpdate);
+        setTokenProgress(0);
+        setTokenStats(tokenStatsUpdate);
 
         // Fetch token holders
         try {
@@ -150,47 +213,40 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
             event: parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)'),
             fromBlock: 0n
           });
-          
-          const logs = await publicClient.getFilterLogs({ filter });
-          
-          // Track current balances
-          const balances = new Map<string, bigint>();
-          
-          for (const log of logs) {
-            const { from, to, value } = log.args;
-            
-            // Skip if from/to is zero address or contract
-            if (from !== '0x0000000000000000000000000000000000000000' && 
-                from !== property.token_address) {
-              const fromBalance = balances.get(from) || 0n;
-              balances.set(from, fromBalance - value);
-            }
-            
-            if (to !== '0x0000000000000000000000000000000000000000' && 
-                to !== property.token_address) {
-              const toBalance = balances.get(to) || 0n;
-              balances.set(to, toBalance + value);
-            }
-          }
-          
-          // Count addresses with positive balance
-          const activeHolders = Array.from(balances.entries())
-            .filter(([_, balance]) => balance > 0n);
 
+          const logs = await publicClient.getFilterLogs({ filter });
+          const uniqueAddresses = new Set<string>();
+          
+          logs.forEach(log => {
+            if (log.args.from) uniqueAddresses.add(log.args.from);
+            if (log.args.to) uniqueAddresses.add(log.args.to);
+          });
+
+          console.log('Number of unique holders:', uniqueAddresses.size);
+
+          // Update token stats with holder count
           setTokenStats(prev => ({
             ...prev,
-            holders: activeHolders.length
+            holders: uniqueAddresses.size
           }));
-
         } catch (error) {
-          console.error("Error fetching holders:", error);
+          console.error('Error fetching token holders:', error);
         }
 
       } catch (error) {
-        console.error("Error fetching token data:", error);
-      } finally {
-        setIsLoadingProgress(false);
+        console.error('Error in fetchTokenSupply:', error);
+        setTokenStats({
+          total: "0",
+          remaining: "0",
+          sold: "0",
+          holders: 0,
+          price: "0",
+          name: "",
+          symbol: ""
+        });
       }
+
+      setIsLoadingProgress(false);
     };
 
     fetchTokenSupply();

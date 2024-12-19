@@ -8,6 +8,7 @@ import { useAccount, useReadContract } from 'wagmi';
 import { useState, useEffect } from 'react';
 import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
+import { Home } from 'lucide-react';
 
 const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
 
@@ -134,6 +135,17 @@ export function Navbar() {
             </div>
           </div>
           <div className="flex items-center space-x-4">
+            <Link
+              href="/dashboard"
+              className={cn(
+                "flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary",
+                pathname === "/dashboard" ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              <div className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <Home className="h-5 w-5" />
+              </div>
+            </Link>
             <ThemeToggle />
             <CustomConnectButton />
           </div>

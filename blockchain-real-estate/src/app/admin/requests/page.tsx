@@ -1,5 +1,5 @@
 'use client';
-
+import { useWriteContract } from 'wagmi'
 import { useEffect, useState } from 'react';
 import { useAccount, useContractRead, useContractWrite } from 'wagmi';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,10 +39,21 @@ export default function AdminRequests() {
   };
 
   // Setup contract write for whitelist
-  const { write: addToWhitelist } = useContractWrite({
-    ...whitelistContract,
-    functionName: 'addToWhitelist',
-  });
+  const { writeContract } = useWriteContract()
+
+  const addToWhitelist = async (address: `0x${string}`) => {
+    try {
+      await writeContract({
+        address: whitelistContract.address,
+        abi: whitelistContract.abi,
+        functionName: 'addToWhitelist',
+        args: [address],
+      })
+    } catch (error) {
+      console.error('Error adding to whitelist:', error)
+      throw error
+    }
+  }
 
   // Calculate pagination values
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -154,58 +165,74 @@ export default function AdminRequests() {
   async function handleKYCValidation(kycId: string, status: 'approved' | 'rejected') {
     try {
       setLoading(true);
-      const { error } = await supabase
-        .from('kyc_submissions')
-        .update({ status: status, validated_at: new Date().toISOString() })
-        .eq('id', kycId);
-
-      if (error) throw error;
-
+  
       // Get the KYC submission to get the wallet address
       const { data: kycData, error: kycError } = await supabase
         .from('kyc_submissions')
         .select('wallet_address')
         .eq('id', kycId)
         .single();
-
+  
       if (kycError) throw kycError;
-
+  
+      let tx;
       // If approving, add the address to the whitelist
-      if (status === 'approved' && kycData?.wallet_address && addToWhitelist) {
+      if (status === 'approved' && kycData?.wallet_address) {
         try {
-          addToWhitelist({
+          console.log('Adding to whitelist:', kycData.wallet_address);
+          
+          // Add to whitelist
+          tx = await addToWhitelist({
             args: [kycData.wallet_address as `0x${string}`],
           });
-
-          console.log('Added to whitelist:', kycData.wallet_address);
+  
+          // Wait for transaction to be mined
+          await tx.wait();
+  
+          console.log('Successfully added to whitelist:', kycData.wallet_address);
+          
+          toast({
+            title: "Success",
+            description: "Address successfully added to whitelist",
+          });
         } catch (contractError) {
           console.error('Error adding to whitelist:', contractError);
           toast({
             title: "Whitelist Error",
-            description: "Failed to add address to whitelist",
+            description: "Failed to add address to whitelist. Please try again.",
             variant: "destructive",
           });
           return;
         }
       }
-
-      // Update local state
-      setKYCSubmissions(prev => 
-        prev.map(kyc => 
-          kyc.id === kycId ? { ...kyc, status: status, validated_at: new Date().toISOString() } : kyc
-        )
-      );
-
-      // Close the modal if open
-      setSelectedKYC(null);
-
+  
+      // Update database status
+      const { error } = await supabase
+        .from('kyc_submissions')
+        .update({ 
+          status: status, 
+          validated_at: new Date().toISOString(),
+          whitelist_tx_hash: status === 'approved' ? tx?.hash : null,
+        })
+        .eq('id', kycId);
+  
+      if (error) throw error;
+  
       toast({
         title: "Success",
-        description: `KYC ${status} successfully${status === 'approved' ? ' and added to whitelist' : ''}`,
+        description: `KYC submission ${status} successfully`,
       });
-    } catch (err) {
-      console.error('Error updating KYC status:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update KYC status');
+  
+      // Update local state and close modal
+      await fetchRequests();
+      setSelectedKYC(null);
+    } catch (error) {
+      console.error('Error handling KYC validation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to process KYC submission",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
