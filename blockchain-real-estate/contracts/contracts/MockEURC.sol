@@ -16,7 +16,7 @@ contract MockEURC is ERC20, Ownable {
     /// @dev Mints 1 million EURC to the initial owner
     constructor(address initialOwner) ERC20("Mock EURC", "EURC") Ownable(initialOwner) {
         // Mint 1 million EURC to the deployer
-        _mint(initialOwner, 1_000_000 * 10**_decimals);
+        _mint(initialOwner, 1_000_000_000_000 * 10**_decimals);
     }
 
     /// @notice Returns the number of decimals used for token amounts
