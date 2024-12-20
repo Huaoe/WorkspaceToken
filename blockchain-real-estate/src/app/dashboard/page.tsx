@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAccount } from "wagmi";
-import { usePublicClient } from "wagmi";
-import { useReadContract } from "wagmi";
 import {
   Card,
   CardContent,
@@ -14,15 +11,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { Database } from "@/lib/database.types";
-import { formatUnits } from "viem";
-import stakingRewardsJSON from '@contracts/abis/StakingRewards.json';
-import propertyTokenJSON from '@contracts/abis/PropertyToken.json';
+import { formatUnits } from "ethers";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { PLACEHOLDER_IMAGE } from "@/lib/constants";
+import { useWalletEvents } from "@/app/wallet-events-provider";
+import { getPropertyTokenContract, getStakingFactoryContract, getStakingRewardsContract } from "@/lib/ethereum";
 
 interface PropertyToken {
   address: string;
@@ -33,15 +30,12 @@ interface PropertyToken {
 }
 
 export default function Dashboard() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useWalletEvents();
   const [properties, setProperties] = useState<PropertyToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
-  const publicClient = usePublicClient();
   const { toast } = useToast();
   const supabase = createClientComponentClient<Database>();
-  const stakingFactoryAddress = process.env
-    .NEXT_PUBLIC_STAKING_FACTORY_ADDRESS as `0x${string}`;
 
   useEffect(() => {
     setMounted(true);
@@ -69,12 +63,8 @@ export default function Dashboard() {
 
           try {
             // Get token balance
-            const balance = await publicClient.readContract({
-              address: property.token_address as `0x${string}`,
-              abi: propertyTokenJSON.abi,
-              functionName: "balanceOf",
-              args: [address],
-            });
+            const propertyToken = getPropertyTokenContract(property.token_address);
+            const balance = await propertyToken.balanceOf(address);
 
             // If user has any tokens, get staking info
             if (balance > 0n) {
@@ -84,28 +74,15 @@ export default function Dashboard() {
               // Get staking contract address if status is staking
               if (property.status === "staking") {
                 try {
-                  const stakingAddress = await publicClient.readContract({
-                    address: stakingFactoryAddress,
-                    abi: stakingRewardsJSON.abi,
-                    functionName: "getStakingRewards",
-                    args: [property.token_address as `0x${string}`],
-                  });
+                  const stakingFactory = getStakingFactoryContract();
+                  const stakingAddress = await stakingFactory.getStakingRewards(property.token_address);
 
                   if (stakingAddress) {
+                    const stakingContract = getStakingRewardsContract(stakingAddress);
                     // Get staked balance and earned rewards
                     const [staked, earned] = await Promise.all([
-                      publicClient.readContract({
-                        address: stakingAddress,
-                        abi: stakingRewardsJSON.abi,
-                        functionName: "balanceOf",
-                        args: [address],
-                      }),
-                      publicClient.readContract({
-                        address: stakingAddress,
-                        abi: stakingRewardsJSON.abi,
-                        functionName: "earned",
-                        args: [address],
-                      }),
+                      stakingContract.balanceOf(address),
+                      stakingContract.earned(address),
                     ]);
 
                     stakedBalance = staked;
@@ -148,14 +125,7 @@ export default function Dashboard() {
     if (isConnected && address) {
       fetchUserProperties();
     }
-  }, [
-    address,
-    isConnected,
-    publicClient,
-    supabase,
-    toast,
-    stakingFactoryAddress,
-  ]);
+  }, [address, isConnected, supabase, toast]);
 
   if (!mounted) return null;
 

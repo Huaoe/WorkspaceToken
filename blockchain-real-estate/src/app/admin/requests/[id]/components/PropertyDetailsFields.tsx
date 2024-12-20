@@ -5,19 +5,30 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { UseFormReturn } from "react-hook-form";
 import { z } from "zod";
+import { PropertyStatus, STATUS_OPTIONS } from "@/lib/constants";
 
 export const propertyFormSchema = z.object({
   title: z.string().min(3).max(20),
   description: z.string().min(10).max(50),
-  expected_price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0),
-  image_url: z.string().url().max(100).optional(),
-  documents_url: z.string().url().optional(),
-  number_of_tokens: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0 && Number(val) <= 1000000000, {
+  expected_price: z.coerce.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
+    message: "Expected price must be a positive number"
+  }),
+  image_url: z.string().url({
+    message: "Please enter a valid URL"
+  }).max(100).optional(),
+  documents_url: z.string().url({
+    message: "Please enter a valid URL"
+  }).optional(),
+  number_of_tokens: z.coerce.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0 && Number(val) <= 1000000000, {
     message: "Number of tokens must be between 1 and 1,000,000,000",
   }),
   token_name: z.string().min(1).max(50),
   token_symbol: z.string().min(1).max(10),
-  status: z.enum(['pending', 'approved', 'rejected', 'onchain', 'staking', 'closed', 'paused', 'funding']),
+  status: z.enum(STATUS_OPTIONS),
+  location: z.string().min(1).max(100),
+  token_address: z.string().optional(),
+  roi: z.coerce.number().min(0).max(100),
+  payout_duration: z.coerce.number().min(1).max(120),
 });
 
 type PropertyFormValues = z.infer<typeof propertyFormSchema>;
@@ -96,9 +107,9 @@ export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
           <FormItem>
             <FormLabel>Documents URL</FormLabel>
             <FormControl>
-              <Input placeholder="https://..." {...field} />
+              <Input placeholder="https://..." {...field} maxLength={100} />
             </FormControl>
-            <FormDescription>URL to property documents (optional)</FormDescription>
+            <FormDescription>URL to property documents (max 100 characters)</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -167,6 +178,81 @@ export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
               <Input placeholder="e.g., LVT" {...field} maxLength={10} />
             </FormControl>
             <FormDescription>The symbol for the property token (max 10 characters)</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="location"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Location</FormLabel>
+            <FormControl>
+              <Input placeholder="Property location" {...field} maxLength={100} />
+            </FormControl>
+            <FormDescription>Location of the property (max 100 characters)</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="roi"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Expected ROI (%)</FormLabel>
+            <FormControl>
+              <Input type="number" placeholder="5" {...field} min={0} max={100} />
+            </FormControl>
+            <FormDescription>Expected return on investment (0-100%)</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="payout_duration"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Payout Duration (months)</FormLabel>
+            <FormControl>
+              <Input type="number" placeholder="12" {...field} min={1} max={120} />
+            </FormControl>
+            <FormDescription>Duration of payouts in months (1-120)</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="token_address"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Token Address</FormLabel>
+            <FormControl>
+              <Input placeholder="Token address" {...field} />
+            </FormControl>
+            <FormDescription>Address of the property token (optional)</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="status"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Status</FormLabel>
+            <FormControl>
+              <Input placeholder="Property status" {...field} />
+            </FormControl>
+            <FormDescription>Status of the property</FormDescription>
             <FormMessage />
           </FormItem>
         )}

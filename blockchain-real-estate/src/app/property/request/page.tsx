@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { useAccount } from 'wagmi'
 import { useToast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +21,7 @@ import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import { LocationPicker } from '@/components/LocationPicker'
 import { Loader2 } from "lucide-react"
+import { useWalletEvents } from '@/app/wallet-events-provider'
 
 const defaultCenter = {
   lat: 48.8566, // Paris
@@ -47,7 +47,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>
 
 export default function PropertyRequest() {
-  const { address, isConnecting, isDisconnected } = useAccount()
+  const { address, isConnected } = useWalletEvents()
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [imagePreview, setImagePreview] = useState<string>('')
@@ -161,19 +161,7 @@ export default function PropertyRequest() {
     }
   }
 
-  if (isConnecting) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">Submit Property Request</h1>
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <p>Connecting wallet...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (isDisconnected || !address) {
+  if (!isConnected) {
     return (
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-6">Submit Property Request</h1>
@@ -199,7 +187,7 @@ export default function PropertyRequest() {
                     <Input placeholder="Enter property title" {...field} />
                   </FormControl>
                   <FormDescription>
-                    A clear and concise title for your property
+                    Enter a descriptive title for your property
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -214,13 +202,13 @@ export default function PropertyRequest() {
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Describe your property"
+                      placeholder="Describe your property..."
                       className="resize-none"
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    Detailed description of the property including features and condition
+                    Provide a detailed description of your property
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -233,11 +221,15 @@ export default function PropertyRequest() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Location</FormLabel>
-                  <LocationPicker
-                    defaultCenter={defaultCenter}
-                    onLocationSelect={handleLocationSelect}
-                    currentValue={field.value}
-                  />
+                  <FormControl>
+                    <LocationPicker
+                      defaultCenter={defaultCenter}
+                      onLocationSelect={handleLocationSelect}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Select the property location on the map
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -248,38 +240,32 @@ export default function PropertyRequest() {
               name="imageUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Property Image URL</FormLabel>
+                  <FormLabel>Image URL</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Enter image URL (must start with https://)"
+                      placeholder="Enter image URL"
                       {...field}
-                      onChange={(e) => handleImageUrlChange(e.target.value)}
+                      onChange={(e) => {
+                        field.onChange(e);
+                        handleImageUrlChange(e.target.value);
+                      }}
                     />
                   </FormControl>
-                  {imagePreview && (
-                    <div className="mt-2 relative w-full h-48">
-                      {/* Only render Image component if we have a valid URL */}
-                      {imagePreview.startsWith('http') && (
-                        <Image
-                          src={imagePreview}
-                          alt="Property preview"
-                          fill
-                          className="object-cover rounded-md"
-                          onError={() => {
-                            setImagePreview('');
-                            form.setError('imageUrl', {
-                              type: 'manual',
-                              message: 'Failed to load image. Please check the URL.'
-                            });
-                          }}
-                        />
-                      )}
-                    </div>
-                  )}
                   <FormDescription>
-                    Please provide a valid https:// URL for the property image
+                    Provide a URL to an image of your property
                   </FormDescription>
                   <FormMessage />
+                  {imagePreview && (
+                    <div className="mt-2 relative aspect-video rounded-lg overflow-hidden">
+                      <Image
+                        src={imagePreview}
+                        alt="Property preview"
+                        fill
+                        className="object-cover"
+                        onError={() => setImagePreview('')}
+                      />
+                    </div>
+                  )}
                 </FormItem>
               )}
             />
@@ -289,17 +275,36 @@ export default function PropertyRequest() {
               name="expectedPrice"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Expected Price (in EUR)</FormLabel>
+                  <FormLabel>Expected Price (EURC)</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      step="0.01"
-                      placeholder="Enter expected price"
+                      placeholder="Enter expected price in EURC"
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    The expected price in EUR
+                    Enter the expected price in EURC
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="documents"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Documents URL (Optional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Enter documents URL"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Provide a URL to any relevant documents (optional)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -315,12 +320,11 @@ export default function PropertyRequest() {
                   <FormControl>
                     <Input
                       type="number"
-                      placeholder="10000"
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    How many tokens do you want to create for this property? Each token represents partial ownership.
+                    Enter the total number of tokens to be created (1-100,000)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -332,18 +336,15 @@ export default function PropertyRequest() {
               name="payoutDuration"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Payout Frequency</FormLabel>
+                  <FormLabel>Payout Duration (months)</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      min="1"
-                      max="12"
-                      placeholder="3"
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    How often should yields be paid out? (in months)
+                    Enter the payout duration in months (1-12)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -355,16 +356,15 @@ export default function PropertyRequest() {
               name="finishAt"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Contract End Date</FormLabel>
+                  <FormLabel>End Date</FormLabel>
                   <FormControl>
                     <Input
                       type="date"
-                      min={new Date().toISOString().split('T')[0]}
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
-                    When will the investment contract end?
+                    Select the end date for the property listing
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -376,52 +376,30 @@ export default function PropertyRequest() {
               name="roi"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Annual Return on Investment (ROI)</FormLabel>
+                  <FormLabel>Expected ROI (%)</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      step="0.01"
-                      placeholder="8.5"
+                      step="0.1"
                       {...field}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value))}
                     />
                   </FormControl>
                   <FormDescription>
-                    Expected annual return on investment (%)
+                    Enter the expected Return on Investment (0-100%)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="documents"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Supporting Documents URL (Optional)</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Enter documents URL"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    URL to any supporting documents (e.g., property deed, certificates)
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} className="w-full">
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Submitting Request...
+                  Submitting...
                 </>
               ) : (
-                'Submit Property Request'
+                "Submit Property Request"
               )}
             </Button>
           </form>

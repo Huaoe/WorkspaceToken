@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useToast } from '@/components/ui/use-toast';
-import { useAccount } from 'wagmi';
+import { useWalletEvents } from '@/app/wallet-events-provider';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 type EmploymentStatus = 'employed' | 'self_employed' | 'unemployed' | 'student' | 'retired';
@@ -42,7 +42,7 @@ export default function KYCForm() {
   const supabase = createClientComponentClient();
   const router = useRouter();
   const { toast } = useToast();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useWalletEvents();
   const [loading, setLoading] = useState(false);
   const [existingKYC, setExistingKYC] = useState<any>(null);
 
@@ -207,39 +207,36 @@ export default function KYCForm() {
         }
       }
 
-      // Prepare KYC data
-      const kycData = {
+      // Prepare data for submission
+      const submissionData = {
         ...formData,
         ...uploadedFiles,
         wallet_address: address,
+        status: 'pending',
+        submitted_at: new Date().toISOString()
       };
 
-      // Submit to database
-      const { error: dbError } = existingKYC
-        ? await supabase
-            .from('kyc_submissions')
-            .update(kycData)
-            .eq('wallet_address', address)
-        : await supabase
-            .from('kyc_submissions')
-            .insert([kycData]);
+      // Submit to Supabase
+      const { error } = await supabase
+        .from('kyc_submissions')
+        .upsert(submissionData, {
+          onConflict: 'wallet_address'
+        });
 
-      if (dbError) {
-        console.error('Database error:', dbError);
-        throw new Error(dbError.message);
-      }
+      if (error) throw error;
 
       toast({
         title: "Success",
-        description: `KYC successfully ${existingKYC ? 'updated' : 'submitted'}`,
+        description: "Your KYC submission has been received and is under review.",
       });
 
-      router.push('/');
+      // Redirect to dashboard or confirmation page
+      router.push('/dashboard');
     } catch (error: any) {
       console.error('Submission error:', error);
       toast({
         title: "Error",
-        description: error.message || 'Failed to submit KYC',
+        description: error.message,
         variant: "destructive"
       });
     } finally {
@@ -247,289 +244,433 @@ export default function KYCForm() {
     }
   };
 
-  return (
-    <div className="max-w-4xl mx-auto p-6">
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Personal Information */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Personal Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <select
-              name="salutation"
-              value={formData.salutation}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            >
-              <option value="">Select Salutation</option>
-              <option value="Mr">Mr</option>
-              <option value="Mrs">Mrs</option>
-              <option value="Ms">Ms</option>
-            </select>
-            
-            <input
-              type="text"
-              name="first_name"
-              placeholder="First Name"
-              value={formData.first_name}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
-
-            <input
-              type="text"
-              name="middle_name"
-              placeholder="Middle Name (Optional)"
-              value={formData.middle_name}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-            />
-
-            <input
-              type="text"
-              name="last_name"
-              placeholder="Last Name"
-              value={formData.last_name}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
-
-            <input
-              type="date"
-              name="date_of_birth"
-              value={formData.date_of_birth}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
-
-            <input
-              type="text"
-              name="nationality"
-              placeholder="Nationality"
-              value={formData.nationality}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
+  if (existingKYC?.status === 'approved') {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+            <h2 className="text-2xl font-semibold text-green-800 mb-2">KYC Approved</h2>
+            <p className="text-green-700">Your KYC verification has been approved. You can now access all features of the platform.</p>
           </div>
         </div>
+      </div>
+    );
+  }
 
-        {/* Contact Information */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Contact Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              type="email"
-              name="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
+  if (existingKYC?.status === 'pending') {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+            <h2 className="text-2xl font-semibold text-yellow-800 mb-2">KYC Under Review</h2>
+            <p className="text-yellow-700">Your KYC submission is currently under review. We'll notify you once the verification is complete.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-            <div className="grid grid-cols-3 gap-2">
+  if (!isConnected) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-2xl font-semibold mb-4">Connect Your Wallet</h2>
+          <p className="mb-6">Please connect your wallet to proceed with KYC verification.</p>
+          <ConnectButton />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold mb-8">KYC Verification</h1>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Personal Information */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Personal Information</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Salutation</label>
+                <select
+                  name="salutation"
+                  value={formData.salutation}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                >
+                  <option value="">Select...</option>
+                  <option value="Mr">Mr</option>
+                  <option value="Mrs">Mrs</option>
+                  <option value="Ms">Ms</option>
+                  <option value="Dr">Dr</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">First Name</label>
+                <input
+                  type="text"
+                  name="first_name"
+                  value={formData.first_name}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Middle Name</label>
+                <input
+                  type="text"
+                  name="middle_name"
+                  value={formData.middle_name}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Last Name</label>
+                <input
+                  type="text"
+                  name="last_name"
+                  value={formData.last_name}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Date of Birth</label>
               <input
-                type="text"
-                name="phone_country_code"
-                placeholder="+1"
-                value={formData.phone_country_code}
+                type="date"
+                name="date_of_birth"
+                value={formData.date_of_birth}
                 onChange={handleInputChange}
-                className="border p-2 rounded"
+                className="w-full p-2 border rounded"
                 required
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Nationality</label>
+                <input
+                  type="text"
+                  name="nationality"
+                  value={formData.nationality}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Country of Residence</label>
+                <input
+                  type="text"
+                  name="country_of_residence"
+                  value={formData.country_of_residence}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Information */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Contact Information</h2>
+            <div>
+              <label className="block text-sm font-medium mb-1">Email</label>
               <input
-                type="tel"
-                name="phone_number"
-                placeholder="Phone Number"
-                value={formData.phone_number}
+                type="email"
+                name="email"
+                value={formData.email}
                 onChange={handleInputChange}
-                className="border p-2 rounded col-span-2"
+                className="w-full p-2 border rounded"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Country Code</label>
+                <input
+                  type="text"
+                  name="phone_country_code"
+                  value={formData.phone_country_code}
+                  onChange={handleInputChange}
+                  placeholder="+1"
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  name="phone_number"
+                  value={formData.phone_number}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Address Information */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Address Information</h2>
+            <div>
+              <label className="block text-sm font-medium mb-1">Street Address</label>
+              <input
+                type="text"
+                name="street_address"
+                value={formData.street_address}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">City</label>
+                <input
+                  type="text"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">State/Province</label>
+                <input
+                  type="text"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Postal Code</label>
+                <input
+                  type="text"
+                  name="postal_code"
+                  value={formData.postal_code}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Country</label>
+                <input
+                  type="text"
+                  name="country"
+                  value={formData.country}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Identification */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Identification</h2>
+            <div>
+              <label className="block text-sm font-medium mb-1">ID Type</label>
+              <select
+                name="identification_type"
+                value={formData.identification_type}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                required
+              >
+                <option value="">Select...</option>
+                <option value="passport">Passport</option>
+                <option value="national_id">National ID</option>
+                <option value="drivers_license">Driver's License</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">ID Number</label>
+              <input
+                type="text"
+                name="identification_number"
+                value={formData.identification_number}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Issue Date</label>
+                <input
+                  type="date"
+                  name="identification_issue_date"
+                  value={formData.identification_issue_date}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Expiry Date</label>
+                <input
+                  type="date"
+                  name="identification_expiry_date"
+                  value={formData.identification_expiry_date}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Financial Information */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Financial Information</h2>
+            <div>
+              <label className="block text-sm font-medium mb-1">Employment Status</label>
+              <select
+                name="employment_status"
+                value={formData.employment_status}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                required
+              >
+                <option value="employed">Employed</option>
+                <option value="self_employed">Self-Employed</option>
+                <option value="unemployed">Unemployed</option>
+                <option value="student">Student</option>
+                <option value="retired">Retired</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Source of Funds</label>
+              <input
+                type="text"
+                name="source_of_funds"
+                value={formData.source_of_funds}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Annual Income (USD)</label>
+              <input
+                type="number"
+                name="annual_income"
+                value={formData.annual_income}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
                 required
               />
             </div>
           </div>
-        </div>
 
-        {/* Address Information */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Address Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              name="street_address"
-              placeholder="Street Address"
-              value={formData.street_address}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
-
-            <input
-              type="text"
-              name="city"
-              placeholder="City"
-              value={formData.city}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
-
-            <input
-              type="text"
-              name="state"
-              placeholder="State/Province"
-              value={formData.state}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
-
-            <input
-              type="text"
-              name="postal_code"
-              placeholder="Postal Code"
-              value={formData.postal_code}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
-
-            <input
-              type="text"
-              name="country"
-              placeholder="Country"
-              value={formData.country}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
-          </div>
-        </div>
-
-        {/* Document Upload */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Document Upload</h2>
+          {/* Trading Information */}
           <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Trading Information</h2>
             <div>
-              <label className="block mb-2">Identity Proof</label>
+              <label className="block text-sm font-medium mb-1">Primary Blockchain Network</label>
+              <select
+                name="primary_blockchain_network"
+                value={formData.primary_blockchain_network}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                required
+              >
+                <option value="ethereum">Ethereum</option>
+                <option value="polygon">Polygon</option>
+                <option value="binance">Binance Smart Chain</option>
+                <option value="solana">Solana</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Trading Experience</label>
+              <select
+                name="trading_experience"
+                value={formData.trading_experience}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                required
+              >
+                <option value="none">None</option>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+                <option value="expert">Expert</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Purpose of Trading</label>
+              <textarea
+                name="purpose_of_trading"
+                value={formData.purpose_of_trading}
+                onChange={handleInputChange}
+                className="w-full p-2 border rounded"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Document Upload */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Document Upload</h2>
+            <div>
+              <label className="block text-sm font-medium mb-1">Identity Proof</label>
               <input
                 type="file"
                 onChange={(e) => handleFileChange(e, 'identity_proof')}
-                accept=".pdf,.jpg,.jpeg,.png"
                 className="w-full"
+                accept="image/*,.pdf"
                 required={!existingKYC}
               />
             </div>
-
             <div>
-              <label className="block mb-2">Address Proof</label>
+              <label className="block text-sm font-medium mb-1">Address Proof</label>
               <input
                 type="file"
                 onChange={(e) => handleFileChange(e, 'address_proof')}
-                accept=".pdf,.jpg,.jpeg,.png"
                 className="w-full"
+                accept="image/*,.pdf"
                 required={!existingKYC}
               />
             </div>
-
             <div>
-              <label className="block mb-2">Additional Document (Optional)</label>
+              <label className="block text-sm font-medium mb-1">Additional Document (Optional)</label>
               <input
                 type="file"
                 onChange={(e) => handleFileChange(e, 'additional_document')}
-                accept=".pdf,.jpg,.jpeg,.png"
                 className="w-full"
+                accept="image/*,.pdf"
               />
             </div>
           </div>
-        </div>
 
-        {/* Financial Information */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Financial Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <select
-              name="employment_status"
-              value={formData.employment_status}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            >
-              <option value="">Select Employment Status</option>
-              <option value="employed">Employed</option>
-              <option value="self_employed">Self Employed</option>
-              <option value="unemployed">Unemployed</option>
-              <option value="student">Student</option>
-              <option value="retired">Retired</option>
-            </select>
-
-            <input
-              type="text"
-              name="source_of_funds"
-              placeholder="Source of Funds"
-              value={formData.source_of_funds}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
-
-            <input
-              type="number"
-              name="annual_income"
-              placeholder="Annual Income"
-              value={formData.annual_income}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
-          </div>
-        </div>
-
-        {/* Trading Experience */}
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Trading Experience</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <select
-              name="trading_experience"
-              value={formData.trading_experience}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            >
-              <option value="">Select Trading Experience</option>
-              <option value="none">None</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-              <option value="expert">Expert</option>
-            </select>
-
-            <textarea
-              name="purpose_of_trading"
-              placeholder="Purpose of Trading"
-              value={formData.purpose_of_trading}
-              onChange={handleInputChange}
-              className="border p-2 rounded"
-              required
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end">
           <button
             type="submit"
-            disabled={loading || !isConnected}
-            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? 'Processing...' : existingKYC ? 'Update KYC' : 'Submit KYC'}
+            {loading ? 'Submitting...' : 'Submit KYC'}
           </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

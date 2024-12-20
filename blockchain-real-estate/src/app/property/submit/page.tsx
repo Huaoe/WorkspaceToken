@@ -8,7 +8,6 @@ import { useToast } from "@/components/ui/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useRouter } from "next/navigation";
 import { LocationPicker, geocodeAddress } from "@/components/LocationPicker";
 import { useState, useRef } from "react";
@@ -17,6 +16,9 @@ import { PropertyRequest } from "@/types/property";
 import { Search } from "lucide-react";
 import Image from 'next/image';
 import { AdminCheck } from "@/app/admin/components/AdminCheck";
+import { useWalletEvents } from "@/app/wallet-events-provider";
+import { getPropertyFactoryContract } from "@/lib/ethereum";
+import { ethers } from "ethers";
 
 const formSchema = z.object({
   title: z.string().min(3).max(50, {
@@ -39,18 +41,14 @@ const formSchema = z.object({
 });
 
 export default function SubmitProperty() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, signer } = useWalletEvents();
   const { toast } = useToast();
   const router = useRouter();
-  const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [previewError, setPreviewError] = useState(false);
   const locationPickerRef = useRef<{ updateMapLocation: (lat: number, lng: number) => void }>(null);
-
-  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -72,6 +70,15 @@ export default function SubmitProperty() {
         toast({
           title: "Error",
           description: "Please select a location on the map",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!signer) {
+        toast({
+          title: "Error",
+          description: "Please connect your wallet",
           variant: "destructive",
         });
         return;
@@ -99,19 +106,55 @@ export default function SubmitProperty() {
         .select()
         .single();
 
-      if (supabaseError) throw supabaseError;
+      if (supabaseError) {
+        throw supabaseError;
+      }
+
+      // Get the contract with signer
+      const contract = getPropertyFactoryContract().connect(signer);
+
+      // Convert price to wei (assuming 18 decimals)
+      const priceInWei = ethers.parseUnits(values.expected_price, 18);
+      const numberOfTokens = ethers.parseUnits(values.number_of_tokens, 0);
+
+      // Create property token
+      const tx = await contract.createPropertyToken(
+        values.title,
+        values.description,
+        priceInWei,
+        numberOfTokens,
+        {
+          gasLimit: 5000000, // Adjust as needed
+        }
+      );
+
+      // Wait for transaction to be mined
+      const receipt = await tx.wait();
+
+      // Get the property token address from the event
+      const propertyTokenAddress = receipt.logs[0].address;
+
+      // Update the request with the token address
+      const { error: updateError } = await supabase
+        .from('property_requests')
+        .update({ token_address: propertyTokenAddress })
+        .eq('id', insertedRequest.id);
+
+      if (updateError) {
+        throw updateError;
+      }
 
       toast({
-        title: "Success",
-        description: "Property request submitted successfully. Waiting for admin approval.",
+        title: "Success!",
+        description: "Property request submitted successfully",
       });
 
       router.push('/property/list');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting property:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to submit property",
+        description: error.message || "Failed to submit property",
         variant: "destructive",
       });
     } finally {
@@ -119,40 +162,22 @@ export default function SubmitProperty() {
     }
   };
 
-  const handleLocationSelect = ({ lat, lng, address }: { lat: number; lng: number; address: string }) => {
-    setCoordinates({ lat, lng });
-    form.setValue('location', address);
-  };
-
-  const handleAddressSearch = async () => {
-    const address = form.getValues('location');
-    if (!address) {
-      toast({
-        title: "Error",
-        description: "Please enter an address to search",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleSearch = async () => {
+    const location = form.getValues('location');
+    if (!location) return;
 
     setIsSearching(true);
     try {
-      const result = await geocodeAddress(address);
+      const result = await geocodeAddress(location);
       if (result) {
-        setCoordinates({ lat: result.lat, lng: result.lng });
-        form.setValue('location', result.display_name);
+        setCoordinates(result);
         locationPickerRef.current?.updateMapLocation(result.lat, result.lng);
-      } else {
-        toast({
-          title: "Error",
-          description: "Could not find location. Please try a different address.",
-          variant: "destructive",
-        });
       }
     } catch (error) {
+      console.error('Error geocoding address:', error);
       toast({
         title: "Error",
-        description: "Failed to search location",
+        description: "Failed to find location",
         variant: "destructive",
       });
     } finally {
@@ -162,13 +187,11 @@ export default function SubmitProperty() {
 
   if (!isConnected) {
     return (
-      <div className="container mx-auto p-8">
+      <div className="container mx-auto px-4 py-8">
         <Card>
           <CardHeader>
-            <CardTitle>Connect Wallet</CardTitle>
-            <CardDescription>
-              Please connect your wallet to submit a property
-            </CardDescription>
+            <CardTitle>Submit Property</CardTitle>
+            <CardDescription>Please connect your wallet to submit a property.</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -177,13 +200,11 @@ export default function SubmitProperty() {
 
   return (
     <AdminCheck>
-      <div className="container mx-auto p-8">
+      <div className="container mx-auto px-4 py-8">
         <Card>
           <CardHeader>
             <CardTitle>Submit Property</CardTitle>
-            <CardDescription>
-              Fill in the details of your property to submit it for review
-            </CardDescription>
+            <CardDescription>Fill in the details to submit a new property.</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -195,10 +216,10 @@ export default function SubmitProperty() {
                     <FormItem>
                       <FormLabel>Title</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Apartment, House, Villa" {...field} />
+                        <Input placeholder="Property title" {...field} />
                       </FormControl>
                       <FormDescription>
-                        The title of your property
+                        A descriptive title for the property
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -212,63 +233,57 @@ export default function SubmitProperty() {
                     <FormItem>
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Input placeholder="Describe your property" {...field} />
+                        <Input placeholder="Property description" {...field} />
                       </FormControl>
                       <FormDescription>
-                        Provide a detailed description of your property
+                        Detailed description of the property
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <div className="flex gap-2">
-                        <FormControl>
-                          <Input 
-                            placeholder="Enter property address" 
-                            {...field}
-                          />
-                        </FormControl>
-                        <Button 
-                          type="button" 
-                          variant="secondary"
-                          onClick={handleAddressSearch}
-                          disabled={isSearching}
-                        >
-                          {isSearching ? (
-                            "Searching..."
-                          ) : (
-                            <>
-                              <Search className="h-4 w-4 mr-2" />
-                              Search
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                      <FormDescription>
-                        Enter an address and click search, or select a location on the map
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="flex gap-4">
+                  <FormField
+                    control={form.control}
+                    name="location"
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormLabel>Location</FormLabel>
+                        <div className="flex gap-2">
+                          <FormControl>
+                            <Input placeholder="Property location" {...field} />
+                          </FormControl>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleSearch}
+                            disabled={isSearching}
+                          >
+                            {isSearching ? (
+                              <div className="animate-spin">⌛</div>
+                            ) : (
+                              <Search className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                        <FormDescription>
+                          Enter the property location and click search
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-                <div className="space-y-2">
-                  <FormLabel>Map Location</FormLabel>
+                <div className="h-[400px] w-full">
                   <LocationPicker
                     ref={locationPickerRef}
-                    onLocationSelect={handleLocationSelect}
-                    defaultCenter={coordinates || undefined}
+                    onLocationSelect={(location) => {
+                      setCoordinates({ lat: location.lat, lng: location.lng });
+                      form.setValue('location', location.address);
+                    }}
                   />
-                  <FormDescription>
-                    Click on the map to set the exact location of your property
-                  </FormDescription>
                 </div>
 
                 <FormField
@@ -276,12 +291,12 @@ export default function SubmitProperty() {
                   name="expected_price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price (EURC)</FormLabel>
+                      <FormLabel>Expected Price (ETH)</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" placeholder="0.00" {...field} />
                       </FormControl>
                       <FormDescription>
-                        The price in EURC tokens
+                        The expected price in ETH
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -295,10 +310,10 @@ export default function SubmitProperty() {
                     <FormItem>
                       <FormLabel>Number of Tokens</FormLabel>
                       <FormControl>
-                        <Input type="number" step="1" placeholder="1" {...field} />
+                        <Input type="number" placeholder="100" {...field} />
                       </FormControl>
                       <FormDescription>
-                        The number of tokens
+                        Total number of tokens to create
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -309,13 +324,12 @@ export default function SubmitProperty() {
                   control={form.control}
                   name="image_url"
                   render={({ field }) => (
-                    <FormItem className="space-y-4">
-                      <FormLabel>Property Image URL</FormLabel>
+                    <FormItem>
+                      <FormLabel>Image URL</FormLabel>
                       <FormControl>
                         <Input 
-                          type="url" 
-                          placeholder="https://example.com/property-image.jpg"
-                          {...field}
+                          placeholder="https://" 
+                          {...field} 
                           onChange={(e) => {
                             field.onChange(e);
                             setPreviewError(false);
@@ -323,31 +337,18 @@ export default function SubmitProperty() {
                         />
                       </FormControl>
                       <FormDescription>
-                        Enter the URL of your property's main image
+                        URL to the property image
                       </FormDescription>
                       <FormMessage />
-                      {field.value && (
-                        <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-gray-200">
+                      {field.value && !previewError && (
+                        <div className="mt-2 relative h-48 w-full">
                           <Image
                             src={field.value}
                             alt="Property preview"
                             fill
-                            className="object-cover"
-                            onError={() => {
-                              setPreviewError(true);
-                              toast({
-                                title: "Error",
-                                description: "Failed to load image preview. Please check the URL.",
-                                variant: "destructive",
-                              });
-                            }}
-                            onLoad={() => setPreviewError(false)}
+                            className="object-cover rounded-lg"
+                            onError={() => setPreviewError(true)}
                           />
-                          {previewError && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
-                              <p>Failed to load image preview</p>
-                            </div>
-                          )}
                         </div>
                       )}
                     </FormItem>
@@ -359,16 +360,12 @@ export default function SubmitProperty() {
                   name="documents_url"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Property Documents URL</FormLabel>
+                      <FormLabel>Documents URL (Optional)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="url" 
-                          placeholder="https://example.com/property-documents.pdf"
-                          {...field}
-                        />
+                        <Input placeholder="https://" {...field} />
                       </FormControl>
                       <FormDescription>
-                        Enter the URL of your property documents
+                        URL to property documents (optional)
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

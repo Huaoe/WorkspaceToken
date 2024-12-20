@@ -1,76 +1,65 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useAccount, useContractRead, usePublicClient } from 'wagmi';
-import { Address } from 'viem';
-import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
+import { useState, useEffect } from 'react';
+import { useToast } from '@/components/ui/use-toast';
 import { PropertyCard } from './property-card';
+import { getPropertyFactoryContract } from '@/lib/ethereum';
+import { useWalletEvents } from '@/app/wallet-events-provider';
 
-const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as Address;
+const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS;
 
 export function PropertyList() {
-  const [properties, setProperties] = useState<any[]>([]);
-  const { isConnected } = useAccount();
-  const publicClient = usePublicClient();
-
-  // Read property count from the contract
-  const { data: propertyCount } = useContractRead({
-    address: contractAddress,
-    abi: propertyFactoryABI,
-    functionName: 'getPropertyCount',
-  });
+  const [properties, setProperties] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchProperties = async () => {
-      if (!propertyCount || !publicClient) return;
-
-      const count = Number(propertyCount);
-      const propertyPromises = [];
-
-      for (let i = 0; i < count; i++) {
-        propertyPromises.push(
-          publicClient.readContract({
-            address: contractAddress,
-            abi: propertyFactoryABI,
-            functionName: 'properties',
-            args: [i],
-          })
-        );
-      }
-
       try {
-        const propertyAddresses = await Promise.all(propertyPromises);
-        setProperties(propertyAddresses);
-      } catch (error) {
+        const contract = await getPropertyFactoryContract();
+        console.log('Got contract:', contract.target);
+        
+        // Get all properties
+        const allProperties = await contract.getAllProperties();
+        console.log('All properties:', allProperties);
+        
+        setProperties(allProperties);
+      } catch (error: any) {
         console.error('Error fetching properties:', error);
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to fetch properties',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchProperties();
-  }, [propertyCount, publicClient]);
+  }, [toast]);
 
-  if (!isConnected) {
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+      </div>
+    );
+  }
+
+  if (!properties.length) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-600 dark:text-gray-400">
-          Please connect your wallet to view properties
-        </p>
+        <p className="text-gray-500">No properties found</p>
       </div>
     );
   }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {properties.map((propertyAddress, index) => (
-        <PropertyCard key={index} tokenAddress={propertyAddress} />
+      {properties.map((propertyAddress) => (
+        <PropertyCard key={propertyAddress} address={propertyAddress} />
       ))}
-      {properties.length === 0 && (
-        <div className="col-span-full text-center py-8">
-          <p className="text-gray-600 dark:text-gray-400">
-            No properties available at the moment
-          </p>
-        </div>
-      )}
     </div>
   );
 }

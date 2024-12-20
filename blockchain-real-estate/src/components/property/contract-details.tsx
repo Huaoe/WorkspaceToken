@@ -1,10 +1,11 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAccount, useContractRead } from "wagmi";
 import { Address } from "viem";
-import propertyTokenABI from '@contracts/abis/PropertyToken.json';
 import { CopyButton } from "@/components/ui/copy-button";
+import { useWalletEvents } from "@/app/wallet-events-provider";
+import { getPropertyTokenContract } from "@/lib/ethereum";
+import { useEffect, useState } from "react";
 
 interface ContractDetailsProps {
   tokenAddress: Address;
@@ -15,14 +16,22 @@ function truncateAddress(address: string) {
 }
 
 export function ContractDetails({ tokenAddress }: ContractDetailsProps) {
-  const { address } = useAccount();
+  const { address } = useWalletEvents();
+  const [owner, setOwner] = useState<string | null>(null);
 
-  // Read owner address from contract
-  const { data: owner } = useContractRead({
-    address: tokenAddress,
-    abi: propertyTokenABI.abi,
-    functionName: 'owner',
-  });
+  useEffect(() => {
+    async function fetchOwner() {
+      try {
+        const contract = getPropertyTokenContract(tokenAddress);
+        const ownerAddress = await contract.owner();
+        setOwner(ownerAddress);
+      } catch (error) {
+        console.error('Error fetching owner:', error);
+      }
+    }
+
+    fetchOwner();
+  }, [tokenAddress]);
 
   return (
     <Card>
@@ -47,10 +56,10 @@ export function ContractDetails({ tokenAddress }: ContractDetailsProps) {
           <div>
             <h4 className="text-sm font-medium mb-1">Owner Address</h4>
             <div className="flex items-center gap-2 bg-muted p-2 rounded-md">
-              <code className="text-xs flex-1 overflow-hidden text-ellipsis" title={owner as string}>
-                {truncateAddress(owner as string)}
+              <code className="text-xs flex-1 overflow-hidden text-ellipsis" title={owner}>
+                {truncateAddress(owner)}
               </code>
-              <CopyButton value={owner as string} />
+              <CopyButton value={owner} />
             </div>
           </div>
         )}

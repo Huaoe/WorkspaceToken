@@ -138,7 +138,7 @@ yarn start
 - Next.js 13 with App Router
 - TypeScript for type safety
 - Tailwind CSS for styling
-- wagmi hooks for Web3 interaction
+- ether.js for Web3 interaction
 - Supabase for off-chain data
 - Mistral AI for market insights
 - Shadcn/ui components

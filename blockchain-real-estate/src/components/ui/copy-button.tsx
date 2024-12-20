@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { ClipboardIcon, ClipboardCheckIcon } from "@heroicons/react/24/outline";
+import { Copy, Check } from "lucide-react";
 import { useState } from "react";
 
 interface CopyButtonProps {
@@ -40,9 +40,9 @@ export function CopyButton({ value }: CopyButtonProps) {
       title="Copy to clipboard"
     >
       {copied ? (
-        <ClipboardCheckIcon className="h-4 w-4" />
+        <Check className="h-4 w-4" />
       ) : (
-        <ClipboardIcon className="h-4 w-4" />
+        <Copy className="h-4 w-4" />
       )}
     </Button>
   );

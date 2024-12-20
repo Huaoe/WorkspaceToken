@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 
-console.log('[RootLayout] Starting to load layout components');
 
 const inter = Inter({ 
   subsets: ['latin'],

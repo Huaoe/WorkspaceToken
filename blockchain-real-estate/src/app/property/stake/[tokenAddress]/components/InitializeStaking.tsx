@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from "react";
-import { useAccount, useWalletClient, usePublicClient } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { propertyTokenABI, stakingRewardsABI } from "@/contracts";
-import { type Abi } from 'viem';
+import { useWalletEvents } from "@/app/wallet-events-provider";
+import { getPropertyTokenContract, getStakingRewardsContract } from "@/lib/ethereum";
 
 interface InitializeStakingProps {
   stakingAddress: string;
@@ -15,12 +14,10 @@ interface InitializeStakingProps {
 export function InitializeStaking({ stakingAddress, tokenAddress }: InitializeStakingProps) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { address, isConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
+  const { address, isConnected } = useWalletEvents();
 
   const handleInitialize = async () => {
-    if (!walletClient || !isConnected) {
+    if (!isConnected || !address) {
       toast({
         title: "Error",
         description: "Please connect your wallet",
@@ -32,36 +29,24 @@ export function InitializeStaking({ stakingAddress, tokenAddress }: InitializeSt
       setLoading(true);
 
       // Get EURC token address from property token
-      const eurcTokenAddress = await publicClient.readContract({
-        address: tokenAddress,
-        abi: propertyTokenABI,
-        functionName: "getEURCToken",
-      });
-
+      const propertyToken = getPropertyTokenContract(tokenAddress);
+      const eurcTokenAddress = await propertyToken.getEURCToken();
       console.log("EURC token address:", eurcTokenAddress);
 
       // Calculate rewards parameters
       const rewardsDuration = BigInt(365 * 24 * 60 * 60); // 1 year in seconds
       const rewardsAmount = BigInt(1000) * BigInt(10 ** 6); // 1000 EURC (6 decimals)
 
+      // Get contract instances
+      const stakingContract = getStakingRewardsContract(stakingAddress);
+      const eurcToken = getPropertyTokenContract(eurcTokenAddress);
+
       // First approve EURC transfer
-      const { request: approveRequest } = await publicClient.simulateContract({
-        address: eurcTokenAddress,
-        abi: propertyTokenABI,
-        functionName: "approve",
-        args: [stakingAddress, rewardsAmount],
-        account: address,
-      });
+      const approveTx = await eurcToken.approve(stakingAddress, rewardsAmount);
+      console.log("EURC approval transaction:", approveTx.hash);
+      const approveReceipt = await approveTx.wait();
 
-      const approveHash = await walletClient.writeContract(approveRequest);
-      console.log("EURC approval hash:", approveHash);
-
-      const approveReceipt = await publicClient.waitForTransactionReceipt({ 
-        hash: approveHash,
-        timeout: 60_000,
-      });
-
-      if (approveReceipt.status === 'success') {
+      if (approveReceipt.status === 1) {
         toast({
           title: "✨ EURC Approved! ✨",
           description: "Successfully approved EURC tokens for staking rewards 🎉",
@@ -71,23 +56,11 @@ export function InitializeStaking({ stakingAddress, tokenAddress }: InitializeSt
       }
 
       // Set rewards duration
-      const { request: durationRequest } = await publicClient.simulateContract({
-        address: stakingAddress,
-        abi: stakingRewardsABI,
-        functionName: "setRewardsDuration",
-        args: [rewardsDuration],
-        account: address,
-      });
+      const durationTx = await stakingContract.setRewardsDuration(rewardsDuration);
+      console.log("Set duration transaction:", durationTx.hash);
+      const durationReceipt = await durationTx.wait();
 
-      const durationHash = await walletClient.writeContract(durationRequest);
-      console.log("Set duration hash:", durationHash);
-
-      const durationReceipt = await publicClient.waitForTransactionReceipt({ 
-        hash: durationHash,
-        timeout: 60_000,
-      });
-
-      if (durationReceipt.status === 'success') {
+      if (durationReceipt.status === 1) {
         toast({
           title: "⏳ Duration Set! ⌛",
           description: "Successfully configured staking duration 🎯",
@@ -97,23 +70,11 @@ export function InitializeStaking({ stakingAddress, tokenAddress }: InitializeSt
       }
 
       // Notify reward amount
-      const { request: notifyRequest } = await publicClient.simulateContract({
-        address: stakingAddress,
-        abi: stakingRewardsABI,
-        functionName: "notifyRewardAmount",
-        args: [rewardsAmount],
-        account: address,
-      });
+      const notifyTx = await stakingContract.notifyRewardAmount(rewardsAmount);
+      console.log("Notify rewards transaction:", notifyTx.hash);
+      const notifyReceipt = await notifyTx.wait();
 
-      const notifyHash = await walletClient.writeContract(notifyRequest);
-      console.log("Notify rewards hash:", notifyHash);
-
-      const notifyReceipt = await publicClient.waitForTransactionReceipt({ 
-        hash: notifyHash,
-        timeout: 60_000,
-      });
-
-      if (notifyReceipt.status === 'success') {
+      if (notifyReceipt.status === 1) {
         toast({
           title: "💎 Rewards Ready! 💎",
           description: "Successfully configured staking rewards 🌟",
@@ -129,14 +90,13 @@ export function InitializeStaking({ stakingAddress, tokenAddress }: InitializeSt
           💫 Start staking to earn rewards! 💫
         `,
       });
-
-      setLoading(false);
     } catch (error: any) {
       console.error("Initialization error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to initialize staking rewards",
       });
+    } finally {
       setLoading(false);
     }
   };

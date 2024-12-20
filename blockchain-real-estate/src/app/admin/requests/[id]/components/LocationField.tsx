@@ -8,9 +8,18 @@ import { UseFormReturn } from "react-hook-form";
 import { LocationPicker, geocodeAddress } from "@/components/LocationPicker";
 import { Search } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { z } from "zod";
+import { propertyFormSchema } from "./PropertyDetailsFields";
+
+type FormValues = z.infer<typeof propertyFormSchema> & {
+  location: string;
+  token_address?: string;
+  roi: number;
+  payout_duration: number;
+};
 
 interface LocationFieldProps {
-  form: UseFormReturn<any>;
+  form: UseFormReturn<FormValues>;
   defaultLocation?: { lat: number; lng: number } | null;
 }
 
@@ -55,21 +64,13 @@ export function LocationField({ form, defaultLocation }: LocationFieldProps) {
     try {
       const result = await geocodeAddress(address);
       if (result) {
-        // Format location string to meet contract requirements
-        const formattedLocation = `${result.display_name.split(',')[0]}, ${result.display_name.split(',').slice(-2).join(',').trim()}`;
-        form.setValue('location', formattedLocation);
         locationPickerRef.current?.updateMapLocation(result.lat, result.lng);
-      } else {
-        toast({
-          title: "Error",
-          description: "Could not find location. Please try a different address.",
-          variant: "destructive",
-        });
       }
     } catch (error) {
+      console.error('Error searching address:', error);
       toast({
         title: "Error",
-        description: "Failed to search location",
+        description: "Failed to find location",
         variant: "destructive",
       });
     } finally {
@@ -78,16 +79,20 @@ export function LocationField({ form, defaultLocation }: LocationFieldProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <FormField
         control={form.control}
         name="location"
         render={({ field }) => (
           <FormItem>
             <FormLabel>Location</FormLabel>
-            <div className="flex gap-2">
+            <div className="flex space-x-2">
               <FormControl>
-                <Input placeholder="Enter address..." {...field} maxLength={256} />
+                <Input 
+                  placeholder="Enter property address" 
+                  {...field} 
+                  className="flex-1"
+                />
               </FormControl>
               <Button
                 type="button"
@@ -99,18 +104,14 @@ export function LocationField({ form, defaultLocation }: LocationFieldProps) {
                 <Search className="h-4 w-4" />
               </Button>
             </div>
-            <FormDescription>Property location (max 256 characters)</FormDescription>
+            <FormDescription>Enter the property address</FormDescription>
             <FormMessage />
           </FormItem>
         )}
       />
-      <LocationPicker 
-        ref={locationPickerRef} 
-        onLocationSelect={({ lat, lng, address }) => {
-          form.setValue('location', address);
-        }}
-        defaultCenter={defaultLocation || undefined}
-      />
+      <div className="h-[500px] w-full rounded-lg border bg-muted overflow-hidden">
+        <LocationPicker ref={locationPickerRef} />
+      </div>
     </div>
   );
 }

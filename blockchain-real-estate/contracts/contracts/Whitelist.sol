@@ -15,7 +15,7 @@ contract Whitelist is Initializable, OwnableUpgradeable {
     error AddressNotWhitelisted();
 
     // Mapping of whitelisted addresses
-    mapping(address => bool) public isWhitelisted;
+    mapping(address => bool) private _isWhitelisted;
     
     // Array to keep track of all whitelisted addresses
     address[] public whitelistedAddresses;
@@ -42,9 +42,9 @@ contract Whitelist is Initializable, OwnableUpgradeable {
     /// @param account The address to whitelist
     function addToWhitelist(address account) public onlyOwner {
         if (account == address(0)) revert InvalidAddress();
-        if (isWhitelisted[account]) revert AddressAlreadyWhitelisted();
+        if (_isWhitelisted[account]) revert AddressAlreadyWhitelisted();
 
-        isWhitelisted[account] = true;
+        _isWhitelisted[account] = true;
         whitelistedAddresses.push(account);
         
         emit AddressWhitelisted(account);
@@ -54,9 +54,9 @@ contract Whitelist is Initializable, OwnableUpgradeable {
     /// @notice Removes a single address from the whitelist
     /// @param account The address to remove from whitelist
     function removeFromWhitelist(address account) public onlyOwner {
-        if (!isWhitelisted[account]) revert AddressNotWhitelisted();
+        if (!_isWhitelisted[account]) revert AddressNotWhitelisted();
 
-        isWhitelisted[account] = false;
+        _isWhitelisted[account] = false;
         
         // Remove address from whitelistedAddresses array
         for (uint256 i = 0; i < whitelistedAddresses.length; i++) {
@@ -76,8 +76,8 @@ contract Whitelist is Initializable, OwnableUpgradeable {
     function addBatchToWhitelist(address[] memory accounts) public onlyOwner {
         for (uint256 i = 0; i < accounts.length; i++) {
             if (accounts[i] == address(0)) revert InvalidAddress();
-            if (!isWhitelisted[accounts[i]]) {
-                isWhitelisted[accounts[i]] = true;
+            if (!_isWhitelisted[accounts[i]]) {
+                _isWhitelisted[accounts[i]] = true;
                 whitelistedAddresses.push(accounts[i]);
                 emit AddressWhitelisted(accounts[i]);
             }
@@ -90,8 +90,8 @@ contract Whitelist is Initializable, OwnableUpgradeable {
     /// @param accounts Array of addresses to remove from whitelist
     function removeBatchFromWhitelist(address[] memory accounts) public onlyOwner {
         for (uint256 i = 0; i < accounts.length; i++) {
-            if (!isWhitelisted[accounts[i]]) revert AddressNotWhitelisted();
-            isWhitelisted[accounts[i]] = false;
+            if (!_isWhitelisted[accounts[i]]) revert AddressNotWhitelisted();
+            _isWhitelisted[accounts[i]] = false;
             // Remove from whitelistedAddresses array
             for (uint256 j = 0; j < whitelistedAddresses.length; j++) {
                 if (whitelistedAddresses[j] == accounts[i]) {
@@ -109,8 +109,8 @@ contract Whitelist is Initializable, OwnableUpgradeable {
     /// @notice Checks if an address is whitelisted
     /// @param account The address to check
     /// @return bool True if the address is whitelisted, false otherwise
-    function isAddressWhitelisted(address account) public view returns (bool) {
-        return isWhitelisted[account];
+    function isWhitelisted(address account) external view returns (bool) {
+        return _isWhitelisted[account];
     }
 
     /// @notice Gets all whitelisted addresses

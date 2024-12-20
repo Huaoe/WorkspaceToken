@@ -4,12 +4,13 @@ import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessa
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { STATUS_OPTIONS, PropertyStatus } from "@/lib/constants";
 import { UseFormReturn } from "react-hook-form";
+import { propertyFormSchema } from "./PropertyDetailsFields";
+import { z } from "zod";
+
+type FormValues = z.infer<typeof propertyFormSchema>;
 
 interface StatusFieldProps {
-  form: UseFormReturn<{
-    status: PropertyStatus;
-    [key: string]: any;
-  }>;
+  form: UseFormReturn<FormValues>;
 }
 
 export function StatusField({ form }: StatusFieldProps) {
@@ -41,33 +42,30 @@ export function StatusField({ form }: StatusFieldProps) {
       control={form.control}
       name="status"
       render={({ field }) => (
-        <FormItem>
+        <FormItem className="w-full">
           <FormLabel>Status</FormLabel>
-          <Select
-            value={field.value}
-            onValueChange={field.onChange}
-          >
-            <FormControl>
-              <SelectTrigger>
-                <SelectValue>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${getStatusColor(field.value as PropertyStatus)}`} />
-                    <span className="capitalize">{field.value === 'onchain' ? 'On Chain' : field.value}</span>
-                  </div>
-                </SelectValue>
+          <FormControl>
+            <Select
+              value={field.value}
+              onValueChange={field.onChange}
+              defaultValue={field.value}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select status" />
               </SelectTrigger>
-            </FormControl>
-            <SelectContent>
-              {STATUS_OPTIONS.map((status) => (
-                <SelectItem key={status} value={status}>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${getStatusColor(status)}`} />
-                    <span className="capitalize">{status === 'onchain' ? 'On Chain' : status}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectContent>
+                {STATUS_OPTIONS.map((status) => (
+                  <SelectItem
+                    key={status}
+                    value={status}
+                    className={`${getStatusColor(status)} text-white`}
+                  >
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormControl>
           <FormDescription>Current status of the property request</FormDescription>
           <FormMessage />
         </FormItem>

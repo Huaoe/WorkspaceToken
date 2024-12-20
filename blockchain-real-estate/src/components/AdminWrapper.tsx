@@ -1,11 +1,9 @@
 'use client';
 
-import { useAccount, useContractRead } from 'wagmi';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
-
-const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
+import { useWalletEvents } from '@/app/wallet-events-provider';
+import { getPropertyFactoryContract } from '@/lib/ethereum';
 
 export function AdminWrapper({
   children,
@@ -15,7 +13,6 @@ export function AdminWrapper({
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
-  // Move Wagmi hooks inside useEffect to ensure they're only called after mounting
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -31,31 +28,41 @@ export function AdminWrapper({
     </div>
   );
 }
-
-// Separate component for Wagmi hooks
 function AdminCheck({ children }: { children: React.ReactNode }) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useWalletEvents();
   const router = useRouter();
-
-  const { data: owner } = useContractRead({
-    address: contractAddress,
-    abi: propertyFactoryABI.abi,
-    functionName: 'owner',
-  });
+  const [owner, setOwner] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isConnected || !address) {
-      router.push('/');
-      return;
+    async function checkOwner() {
+      if (!isConnected || !address) {
+        router.push('/');
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const contract = await getPropertyFactoryContract();
+        const ownerAddress = await contract.owner();
+        setOwner(ownerAddress);
+
+        if (ownerAddress && address.toLowerCase() !== ownerAddress.toLowerCase()) {
+          router.push('/');
+        }
+      } catch (error) {
+        console.error('Error checking owner:', error);
+        router.push('/');
+      } finally {
+        setLoading(false);
+      }
     }
 
-    if (owner && address !== owner) {
-      router.push('/');
-      return;
-    }
-  }, [address, isConnected, owner, router]);
+    checkOwner();
+  }, [address, isConnected, router]);
 
-  if (!isConnected || address !== owner) return null;
+  if (loading) return null;
+  if (!isConnected || !owner || address.toLowerCase() !== owner.toLowerCase()) return null;
 
   return <>{children}</>;
 }

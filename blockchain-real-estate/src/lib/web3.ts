@@ -1,8 +1,4 @@
-import { getDefaultWallets } from '@rainbow-me/rainbowkit';
-import { configureChains, createConfig, fallback } from 'wagmi';
-import { hardhat } from 'wagmi/chains';
-import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
-import { createPublicClient, http, createWalletClient, custom } from 'viem';
+import { ethers } from 'ethers';
 
 export const hardhatChain = {
   id: 31337,
@@ -14,56 +10,42 @@ export const hardhatChain = {
     symbol: 'ETH',
   },
   rpcUrls: {
-    default: {
-      http: ['http://127.0.0.1:8545'],
-    },
-    public: {
-      http: ['http://127.0.0.1:8545'],
-    },
+    default: 'http://127.0.0.1:8545',
+    public: 'http://127.0.0.1:8545',
   },
-  blockExplorers: {
-    default: { name: 'Hardhat', url: 'http://127.0.0.1:8545' },
-  },
-  contracts: {
-    multicall3: {
-      address: '0xca11bde05977b3631167028862be2a173976ca11',
-      blockCreated: 0,
-    },
-  },
+  blockExplorer: 'http://127.0.0.1:8545',
   testnet: true,
 };
 
-// Create providers with different polling intervals
-const providers = [
-  jsonRpcProvider({
-    rpc: () => ({
-      http: 'http://127.0.0.1:8545',
-    }),
-    static: true,
-    pollingInterval: 1000,
-  }),
-  jsonRpcProvider({
-    rpc: () => ({
-      http: 'http://127.0.0.1:8545',
-    }),
-    static: true,
-    pollingInterval: 4000,
-  })
-];
+// Create a provider instance
+export const getProvider = () => {
+  if (typeof window !== 'undefined' && window.ethereum) {
+    return new ethers.BrowserProvider(window.ethereum);
+  }
+  return new ethers.JsonRpcProvider(hardhatChain.rpcUrls.default);
+};
 
-const { chains, publicClient } = configureChains(
-  [hardhatChain],
-  providers
-);
+// Get a signer instance
+export const getSigner = async () => {
+  const provider = getProvider();
+  if (provider instanceof ethers.BrowserProvider) {
+    return provider.getSigner();
+  }
+  throw new Error('No signer available');
+};
 
-const { connectors } = getDefaultWallets({
-  appName: 'Blockchain Real Estate',
-  projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || '',
-  chains,
-});
+// Contract factory functions
+import propertyFactoryABI from '@contracts/abis/PropertyFactoryProxy.json';
+import propertyTokenABI from '@contracts/abis/PropertyToken.json';
 
-export const config = createConfig({
-  autoConnect: true,
-  connectors,
-  publicClient,
-});
+export const getPropertyFactoryContract = () => {
+  const provider = getProvider();
+  const address = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS;
+  if (!address) throw new Error('Property factory address not found');
+  return new ethers.Contract(address, propertyFactoryABI.abi, provider);
+};
+
+export const getPropertyTokenContract = (address: string) => {
+  const provider = getProvider();
+  return new ethers.Contract(address, propertyTokenABI.abi, provider);
+};

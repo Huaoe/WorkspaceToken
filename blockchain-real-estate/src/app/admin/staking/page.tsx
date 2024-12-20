@@ -1,20 +1,18 @@
 'use client';
 
 import { useState } from "react";
-import { useAccount, useWalletClient, usePublicClient } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { propertyTokenABI, stakingFactoryABI } from "@/contracts";
+import { useWalletEvents } from "@/app/wallet-events-provider";
+import { getPropertyFactoryContract, getPropertyTokenContract, getStakingFactoryContract } from "@/lib/ethereum";
 
 export default function AdminStaking() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { address, isConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
+  const { address, isConnected } = useWalletEvents();
 
   const handleCreateStaking = async (tokenAddress: string) => {
-    if (!walletClient || !isConnected) {
+    if (!isConnected || !address) {
       toast({
         title: "Error",
         description: "Please connect your wallet",
@@ -26,13 +24,9 @@ export default function AdminStaking() {
       setLoading(true);
 
       // Get property details to calculate rewards
-      const propertyDetails = await publicClient.readContract({
-        address: tokenAddress,
-        abi: propertyTokenABI,
-        functionName: "propertyDetails",
-      });
-
-      const propertyPrice = propertyDetails[4] as bigint; // Price is at index 4
+      const propertyToken = getPropertyTokenContract(tokenAddress);
+      const propertyDetails = await propertyToken.propertyDetails();
+      const propertyPrice = propertyDetails[4]; // Price is at index 4
       
       // Calculate rewards as 8.5% APR of property value
       const rewardsAmount = (propertyPrice * BigInt(85)) / BigInt(1000); // 8.5%
@@ -44,55 +38,44 @@ export default function AdminStaking() {
         rewardsAmount: rewardsAmount.toString(),
       });
 
-      const stakingFactoryAddress = process.env.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS as `0x${string}`;
-
       // Deploy staking contract through factory
-      const { request: deployRequest } = await publicClient.simulateContract({
-        address: stakingFactoryAddress,
-        abi: stakingFactoryABI,
-        functionName: "createStakingRewards",
-        args: [
-          tokenAddress,
-          rewardsDuration,
-          rewardsAmount
-        ],
-        account: address,
-      });
+      const stakingFactory = getStakingFactoryContract();
 
-      const deployHash = await walletClient.writeContract(deployRequest);
-      console.log("Staking contract deployment hash:", deployHash);
+      // Check if staking contract already exists
+      const hasStaking = await stakingFactory.hasStakingRewards(tokenAddress);
+      if (hasStaking) {
+        throw new Error('Staking contract already exists for this property');
+      }
 
-      const deployReceipt = await publicClient.waitForTransactionReceipt({ 
-        hash: deployHash,
-        timeout: 60_000,
-      });
+      // Create staking contract
+      const tx = await stakingFactory.createStakingRewards(
+        tokenAddress,
+        rewardsDuration,
+        rewardsAmount
+      );
 
-      if (deployReceipt.status !== 'success') {
+      console.log("Staking contract deployment transaction:", tx.hash);
+      const receipt = await tx.wait();
+
+      if (!receipt.status) {
         throw new Error('Failed to deploy staking contract');
       }
 
       // Get the newly deployed address
-      const newAddress = await publicClient.readContract({
-        address: stakingFactoryAddress,
-        abi: stakingFactoryABI,
-        functionName: "getStakingRewards",
-        args: [tokenAddress],
-      });
-
+      const newAddress = await stakingFactory.getStakingRewards(tokenAddress);
       console.log("New staking contract deployed at:", newAddress);
 
       toast({
         title: "Success",
         description: "Successfully created staking contract",
       });
-
-      setLoading(false);
     } catch (error: any) {
       console.error("Creation error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create staking contract",
       });
+    } finally {
       setLoading(false);
     }
   };

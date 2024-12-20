@@ -8,8 +8,6 @@ import { Input } from "@/components/ui/input"
 import { PropertyRequest } from '@/types/property'
 import { PLACEHOLDER_IMAGE } from '@/lib/constants'
 import { supabase } from '@/lib/supabase/client'
-import { useReadContract } from 'wagmi'
-import { useAccount } from 'wagmi'
 import { useEffect, useState } from 'react'
 import { useToast } from "@/components/ui/use-toast"
 import { MiniMap } from "@/components/property/mini-map";
@@ -21,14 +19,12 @@ import { Spinner } from "@/components/ui/spinner";
 import { useKYCStatus } from '@/hooks/useKYCStatus';
 import { useRouter } from 'next/navigation';
 import { Progress } from "@/components/ui/progress"
-import { usePublicClient } from 'wagmi'
-import { formatUnits, parseAbiItem } from "viem"
+import { formatUnits, parseAbiItem } from "ethers"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { propertyTokenABI } from "@/lib/contracts"
-import whitelistJSON from "@contracts/abis/Whitelist.json";
-import propertyFactoryJSON from "@contracts/abis/PropertyFactory.json";
 import Image from "next/image";
+import { useWalletEvents } from '@/app/wallet-events-provider';
+import { getPropertyFactoryContract, getPropertyTokenContract } from '@/lib/ethereum';
 
 interface PropertyCardProps {
   property: PropertyRequest;
@@ -36,11 +32,10 @@ interface PropertyCardProps {
 }
 
 function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
-  const { address } = useAccount();
+  const { address } = useWalletEvents();
   const { hasSubmittedKYC, isLoading: isKYCLoading } = useKYCStatus(address);
   const { toast } = useToast();
   const router = useRouter();
-  const publicClient = usePublicClient();
   const [tokenProgress, setTokenProgress] = useState<number>(0);
   const [isLoadingProgress, setIsLoadingProgress] = useState(true);
   const [tokenStats, setTokenStats] = useState<{
@@ -75,9 +70,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
       return "0";
     }
     const num = parseFloat(amount);
-    console.log('Parsed amount:', num);
     const formatted = num % 1 === 0 ? num.toLocaleString() : num.toFixed(2);
-    console.log('Formatted amount:', formatted);
     return formatted;
   };
 
@@ -109,51 +102,22 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
       console.log('Fetching token data for address:', property.token_address);
 
       try {
-        const propertyContract = {
-          address: property.token_address as `0x${string}`,
-          abi: propertyTokenABI,
-        };
+        const propertyToken = getPropertyTokenContract(property.token_address);
 
         // Fetch all token data in parallel
-        const [
-          totalSupply,
-          propertyDetailsResult,
-          name,
-          symbol
-        ] = await Promise.all([
-          publicClient.readContract({
-            ...propertyContract,
-            functionName: "totalSupply",
-          }).catch((error) => {
-            console.error('Error fetching totalSupply:', error);
-            return 0n;
-          }),
-          publicClient.readContract({
-            ...propertyContract,
-            functionName: "propertyDetails",
-          }).catch((error) => {
-            console.error('Error fetching propertyDetails:', error);
-            return { price: 0n };
-          }),
-          publicClient.readContract({
-            ...propertyContract,
-            functionName: "name",
-          }).catch((error) => {
-            console.error('Error fetching name:', error);
-            return "";
-          }),
-          publicClient.readContract({
-            ...propertyContract,
-            functionName: "symbol",
-          }).catch((error) => {
-            console.error('Error fetching symbol:', error);
-            return "";
-          })
+        const [totalSupply, propertyDetails, name, symbol] = await Promise.all([
+          propertyToken.totalSupply(),
+          propertyToken.propertyDetails(),
+          propertyToken.name(),
+          propertyToken.symbol()
         ]);
 
-        console.log('Property details:', propertyDetailsResult);
-        const price = propertyDetailsResult[4]; // price is the 5th field in the struct
-        console.log('Price from propertyDetails:', price?.toString());
+        console.log('Property details:', propertyDetails);
+        
+        // Safely extract price, providing a default if undefined
+        const price = propertyDetails[4] || 0n;
+          
+        console.log('Price from propertyDetails:', price.toString());
 
         // Calculate token metrics
         const total = Number(formatUnits(totalSupply, 18));
@@ -179,18 +143,13 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
 
         // Fetch token holders
         try {
-          const filter = await publicClient.createEventFilter({
-            address: property.token_address as `0x${string}`,
-            event: parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)'),
-            fromBlock: 0n
-          });
-
-          const logs = await publicClient.getFilterLogs({ filter });
+          const filter = propertyToken.filters.Transfer();
+          const logs = await propertyToken.queryFilter(filter);
           const uniqueAddresses = new Set<string>();
           
           logs.forEach(log => {
-            if (log.args.from) uniqueAddresses.add(log.args.from);
-            if (log.args.to) uniqueAddresses.add(log.args.to);
+            if (log.args?.from) uniqueAddresses.add(log.args.from);
+            if (log.args?.to) uniqueAddresses.add(log.args.to);
           });
 
           console.log('Number of unique holders:', uniqueAddresses.size);
@@ -221,7 +180,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
     };
 
     fetchTokenSupply();
-  }, [property.token_address, publicClient]);
+  }, [property.token_address]);
 
   const getStatusColor = (status: PropertyStatus) => {
     switch (status) {
@@ -294,85 +253,45 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-2 cursor-help">
                       <span className="text-muted-foreground">Token Sales Progress</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent className="w-64 p-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Supply:</span>
-                        <span className="font-medium">{formatTokenAmount(tokenStats.total)} tokens</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Tokens Sold:</span>
-                        <span className="font-medium">{formatTokenAmount(tokenStats.sold)} tokens</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Available:</span>
-                        <span className="font-medium">{formatTokenAmount(tokenStats.remaining)} tokens</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Holders:</span>
-                        <span className="font-medium">{tokenStats.holders}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Name:</span>
-                        <span className="font-medium">{tokenStats.name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Symbol:</span>
-                        <span className="font-medium">{tokenStats.symbol}</span>
-                      </div>
-                    </div>
+                  <TooltipContent>
+                    <p>Total Supply: {formatTokenAmount(tokenStats.total)} tokens</p>
+                    <p>Remaining: {formatTokenAmount(tokenStats.remaining)} tokens</p>
+                    <p>Holders: {tokenStats.holders}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              <span className="font-medium">{Math.round(tokenProgress)}%</span>
+              <span className="text-muted-foreground">
+                {tokenProgress}%
+              </span>
             </div>
-            {isLoadingProgress ? (
-              <div className="h-2 w-full bg-primary/20 rounded-full animate-pulse" />
-            ) : (
-              <div className="space-y-1">
-                <Progress 
-                  value={tokenProgress} 
-                  className={cn(
-                    "h-2",
-                    getProgressColor(tokenProgress)
-                  )}
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{formatTokenAmount(tokenStats.remaining)} available • €{formatPrice(tokenStats.price)} EURC/token</span>
-                  <span className="text-xs text-muted-foreground">{tokenStats.holders} holders</span>
-                </div>
-              </div>
-            )}
+            <Progress
+              value={tokenProgress}
+              className={cn("h-2", getProgressColor(tokenProgress))}
+            />
           </div>
         )}
 
-        <div className="mt-4">
-          {property.token_address ? (
-            isKYCLoading ? (
-              <Button className="w-full" disabled>
-                <Spinner className="mr-2 h-4 w-4" />
-                Checking KYC Status
+        <div className="flex flex-col gap-2">
+          <Link href={`/property/${property.token_address}`} onClick={handleViewDetails}>
+            <Button className="w-full" variant="outline">
+              View Details
+            </Button>
+          </Link>
+          {property.status === 'funding' && (
+            <Link href={`/property/purchase/${property.token_address}`}>
+              <Button className="w-full">
+                Buy Tokens
               </Button>
-            ) : (
-              <Button
-                className="w-full"
-                onClick={handleViewDetails}
-                asChild={hasSubmittedKYC}
-              >
-                {hasSubmittedKYC ? (
-                  <Link href={`/property/${property.token_address}`}>
-                    View Details
-                  </Link>
-                ) : (
-                  "Submit KYC to View"
-                )}
+            </Link>
+          )}
+          {property.status === 'staking' && (
+            <Link href={`/property/stake/${property.token_address}`}>
+              <Button className="w-full">
+                Stake Tokens
               </Button>
-            )
-          ) : (
-            <Button className="w-full" disabled>Property Not Available</Button>
+            </Link>
           )}
         </div>
       </div>
@@ -387,33 +306,36 @@ export default function PropertyList() {
   const [sortBy, setSortBy] = useState('newest');
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useWalletEvents();
   const { toast } = useToast();
   const [isAdmin, setIsAdmin] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
 
-  const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
+  // Check if connected address is admin
+  useEffect(() => {
+    async function checkAdmin() {
+      if (!mounted || !isConnected || !address) {
+        setIsAdmin(false);
+        return;
+      }
 
-  // Read admin from contract
-  const { data: contractAdmin } = useReadContract({
-    address: contractAddress,
-    abi: propertyFactoryJSON.abi,
-    functionName: 'owner',
-  });
+      try {
+        const contract = getPropertyFactoryContract();
+        const owner = await contract.owner();
+        setIsAdmin(address.toLowerCase() === owner.toLowerCase());
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        setIsAdmin(false);
+      }
+    }
+
+    checkAdmin();
+  }, [address, isConnected, mounted]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Check if connected address is admin
-  useEffect(() => {
-    if (address && contractAdmin) {
-      setIsAdmin(address.toLowerCase() === contractAdmin.toLowerCase());
-    } else {
-      setIsAdmin(false);
-    }
-  }, [address, contractAdmin]);
 
   useEffect(() => {
     async function fetchProperties() {

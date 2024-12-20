@@ -1,112 +1,61 @@
-"use client";
+'use client';
 
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { PropertyList } from '@/components/property/property-list';
+import { useWalletEvents } from './wallet-events-provider';
+import { getWhitelistContract } from '@/lib/ethereum';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { useAccount, useReadContract, usePublicClient } from "wagmi";
-import propertyFactoryABI from "@contracts/abis/PropertyFactory.json";
-import { useEffect, useState } from "react";
+import { PROPERTY_FACTORY_ADDRESS } from "@/lib/contracts";
 import { Building2, List, ShieldCheck, UserCheck, Coins, Lock, TrendingUp } from "lucide-react";
 import Image from "next/image";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { PropertyList } from '@/components/property/property-list';
-
-const contractAddress = process.env
-  .NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
+import { useToast } from "@/components/ui/use-toast";
 
 export default function Home() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useWalletEvents();
+  const [isKYCVerified, setIsKYCVerified] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
-  const [hasKYC, setHasKYC] = useState(false);
-  const publicClient = usePublicClient();
   const supabase = createClientComponentClient();
-
-  // Only attempt to read contract if wallet is connected
-  const { data: owner, isError: ownerError, error: ownerErrorData } = useReadContract({
-    address: contractAddress,
-    abi: propertyFactoryABI.abi,
-    functionName: "owner",
-    chainId: 31337,
-    enabled: isConnected, // Only run query when wallet is connected
-  });
-
-  useEffect(() => {
-    if (ownerError) {
-      console.error('Error reading contract:', ownerErrorData);
-    }
-  }, [ownerError, ownerErrorData]);
-
-  // Add connection status display
-  useEffect(() => {
-    if (!isConnected) {
-      console.info('Wallet not connected. Please connect your wallet to interact with the contract.');
-    }
-  }, [isConnected]);
+  const { toast } = useToast();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    async function checkKYCStatus() {
-      if (!address) return;
+    const checkKYCStatus = async () => {
+      if (!isConnected || !address) {
+        setIsKYCVerified(false);
+        setLoading(false);
+        return;
+      }
+
       try {
-        const { data } = await supabase
-          .from('kyc_submissions')
-          .select('*')
-          .eq('wallet_address', address)
-          .single();
-        
-        setHasKYC(!!data);
+        const contract = await getWhitelistContract();
+        const isVerified = await contract.isAddressWhitelisted(address);
+        setIsKYCVerified(isVerified);
       } catch (error) {
         console.error('Error checking KYC status:', error);
-        setHasKYC(false);
+        setIsKYCVerified(false);
+      } finally {
+        setLoading(false);
       }
-    }
+    };
 
-    if (mounted && address) {
-      checkKYCStatus();
-    }
-  }, [mounted, address, supabase]);
+    checkKYCStatus();
+  }, [address, isConnected]);
 
-  useEffect(() => {
-    if (mounted) {
-      console.log("Contract Debug:", {
-        contractAddress,
-        owner,
-        ownerError,
-        address,
-        isConnected,
-      });
-
-      if (contractAddress && publicClient) {
-        publicClient
-          .readContract({
-            address: contractAddress,
-            abi: propertyFactoryABI.abi,
-            functionName: "owner",
-          })
-          .then((result) => {
-            console.log("Direct contract read result:", result);
-          })
-          .catch((error) => {
-            console.error("Contract read error:", error);
-          });
-      }
-    }
-  }, [
-    mounted,
-    address,
-    owner,
-    isConnected,
-    contractAddress,
-    publicClient,
-    ownerError,
-  ]);
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   if (!mounted) return null;
 
   const isAdmin =
-    isConnected && address?.toLowerCase() === owner?.toLowerCase();
+    isConnected && address?.toLowerCase() === PROPERTY_FACTORY_ADDRESS?.toLowerCase();
 
   return (
     <div className="space-y-12">
@@ -259,7 +208,21 @@ export default function Home() {
         <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
           Featured Properties
         </h2>
-        <PropertyList />
+        {!isConnected ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600 dark:text-gray-400">
+              Please connect your wallet to view properties
+            </p>
+          </div>
+        ) : !isKYCVerified ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600 dark:text-gray-400">
+              Please complete KYC verification to view properties
+            </p>
+          </div>
+        ) : (
+          <PropertyList />
+        )}
       </div>
     </div>
   );

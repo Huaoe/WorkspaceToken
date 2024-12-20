@@ -4,17 +4,14 @@ import Link from 'next/link';
 import { CustomConnectButton } from '@/components/connect-button';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useAccount } from 'wagmi';
 import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
-import propertyFactoryABI from "@contracts/abis/PropertyFactory.json";
+import { useWalletEvents } from '@/app/wallet-events-provider';
+import { getPropertyFactoryContract } from '@/lib/ethereum';
 import { ThemeToggle } from '@/components/theme/theme-toggle';
-
-const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as string;
 
 const Navbar = () => {
   const pathname = usePathname();
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useWalletEvents();
   const [mounted, setMounted] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [contractOwner, setContractOwner] = useState<string | null>(null);
@@ -29,14 +26,7 @@ const Navbar = () => {
       if (!mounted || !isConnected) return;
       
       try {
-        // Get the provider from window.ethereum
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const contract = new ethers.Contract(
-          contractAddress,
-          propertyFactoryABI.abi,
-          provider
-        );
-        
+        const contract = await getPropertyFactoryContract();
         const owner = await contract.owner();
         setContractOwner(owner);
       } catch (error) {

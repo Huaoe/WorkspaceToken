@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,288 +13,263 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form } from "@/components/ui/form";
 import { supabase } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { propertyFormSchema } from "./components/PropertyDetailsFields";
-import {
-  useAccount,
-  usePublicClient,
-  useWalletClient,
-} from "wagmi";
-import { formatUnits, parseUnits } from "viem";
-import { decodeEventLog } from "viem";
-import { StakingInitButton } from "./components/StakingInitButton";
-import { StatusField } from "./components/StatusField";
+import { useWalletEvents } from "@/app/wallet-events-provider";
 import { PropertyDetailsFields } from "./components/PropertyDetailsFields";
 import { LocationField } from "./components/LocationField";
-import { ClientOnly } from "./components/ClientOnly";
+import { StatusField } from "./components/StatusField";
 import { CreateTokenButton } from "./components/CreateTokenButton";
+import { StakingInitButton } from "./components/StakingInitButton";
+import { ClientOnly } from "./components/ClientOnly";
+import { PropertyStatus } from "@/lib/constants";
 
-const formSchema = propertyFormSchema.extend({
-  location: z.string().min(2).max(256, {
-    message: "Location must be between 2 and 256 characters.",
-  }),
-  token_address: z.string().optional(),
-  roi: z.number().min(0, "ROI must be greater than 0"),
-  payout_duration: z.number().min(0, "Duration must be greater than 0"),
-});
+type FormValues = z.infer<typeof propertyFormSchema> & {
+  location: string;
+  token_address?: string;
+  roi: number;
+  payout_duration: number;
+  image_url: string;
+  documents_url: string;
+};
 
-export default function ReviewRequest() {
-  const { id } = useParams();
+export default function ReviewRequest({
+  params,
+}: {
+  params: { id: string };
+}) {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { id } = params;
   const router = useRouter();
+  const { isConnected } = useWalletEvents();
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(propertyFormSchema.extend({
+      location: z.string().min(2).max(256, {
+        message: "Location must be between 2 and 256 characters.",
+      }),
+      token_address: z.string().optional(),
+      roi: z.coerce.number().min(0, "ROI must be greater than 0"),
+      payout_duration: z.coerce.number().min(0, "Duration must be greater than 0"),
+      image_url: z.string(),
+      documents_url: z.string(),
+    })),
     defaultValues: {
       title: "",
       description: "",
       location: "",
-      expected_price: "",
-      number_of_tokens: "",
+      expected_price: "0",
+      number_of_tokens: "0",
       token_name: "",
       token_symbol: "",
-      status: "pending",
       token_address: "",
-      payout_duration: 365,
-      roi: 8.8,
+      roi: 0,
+      payout_duration: 0,
+      status: "pending" as PropertyStatus,
+      image_url: "",
+      documents_url: "",
     },
   });
 
-  const fetchRequest = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("property_requests")
-        .select("*")
-        .eq("id", id)
-        .single();
+  useEffect(() => {
+    async function fetchRequest() {
+      try {
+        setLoading(true);
+        setError(null);
 
-      if (error) throw error;
+        const { data: request, error } = await supabase
+          .from("property_requests")
+          .select("*")
+          .eq("id", id)
+          .single();
 
-      if (data) {
-        console.log('Database Response:', {
-          payout_duration: data.payout_duration,
-          roi: data.roi,
-          full_data: data
-        });
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (!request) {
+          throw new Error("Property request not found");
+        }
 
         form.reset({
-          title: data.title || "",
-          description: data.description || "",
-          location: data.location || "",
-          expected_price: data.expected_price || "",
-          number_of_tokens: data.number_of_tokens || "",
-          token_name: data.token_name || "",
-          token_symbol: data.token_symbol || "",
-          status: data.status || "pending",
-          token_address: data.token_address || "",
-          payout_duration: data.payout_duration || 365,
-          roi: data.roi || 8.8,
+          title: request.title || "",
+          description: request.description || "",
+          location: request.location || "",
+          expected_price: request.expected_price?.toString() || "0",
+          number_of_tokens: request.number_of_tokens?.toString() || "0",
+          token_name: request.token_name || "",
+          token_symbol: request.token_symbol || "",
+          token_address: request.token_address || "",
+          roi: request.roi || 0,
+          payout_duration: request.payout_duration || 0,
+          status: (request.status as PropertyStatus) || "pending",
+          image_url: request.image_url || "",
+          documents_url: request.documents_url || "",
         });
+      } catch (err: any) {
+        console.error("Error fetching request:", err);
+        setError(err.message);
+        toast({
+          title: "Error",
+          description: err.message,
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching request:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch request data",
-        variant: "destructive",
-      });
     }
-  };
 
-  useEffect(() => {
-    fetchRequest();
-  }, [id]);
+    if (id) {
+      fetchRequest();
+    }
+  }, [id, form, toast]);
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (values: FormValues) => {
     try {
-      console.log("Form submission started with values:", {
-        ...values,
-        number_of_tokens_type: typeof values.number_of_tokens,
-        number_of_tokens_value: values.number_of_tokens,
-      });
-
+      setLoading(true);
       const now = new Date().toISOString();
-      const updateData = {
-        title: values.title,
-        description: values.description,
-        location: values.location,
-        expected_price: values.expected_price,
-        number_of_tokens: values.number_of_tokens,
-        token_name: values.token_name,
-        token_symbol: values.token_symbol,
-        status: values.status,
-        token_address: values.token_address,
-        payout_duration: values.payout_duration || 365,
-        roi: values.roi || 8.8,
-        updated_at: now,
-      };
 
-      console.log('Updating request with data:', updateData);
-
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from("property_requests")
-        .update(updateData)
+        .update({
+          title: values.title,
+          description: values.description,
+          location: values.location,
+          expected_price: values.expected_price,
+          number_of_tokens: values.number_of_tokens,
+          token_name: values.token_name,
+          token_symbol: values.token_symbol,
+          status: values.status,
+          token_address: values.token_address,
+          payout_duration: values.payout_duration,
+          roi: values.roi,
+          image_url: values.image_url,
+          documents_url: values.documents_url,
+          updated_at: now,
+        })
         .eq("id", id);
 
-      if (updateError) {
-        console.error("Database update error:", updateError);
-        throw updateError;
-      }
-
-      console.log("Database update successful");
+      if (error) throw error;
 
       toast({
         title: "Success",
         description: "Property request updated successfully",
       });
 
-      // Refresh the data
-      const { data: refreshedData, error: refreshError } = await supabase
-        .from("property_requests")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (refreshError) {
-        console.error("Error refreshing data:", refreshError);
-        throw refreshError;
-      }
-
-      console.log("Refreshed data:", refreshedData);
-    } catch (error: any) {
-      console.error("Form submission error:", error);
+      router.refresh();
+    } catch (err: any) {
+      console.error("Error updating request:", err);
       toast({
         title: "Error",
-        description: error.message || "Failed to update property request",
+        description: err.message,
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
+  if (!isConnected) {
+    return (
+      <div className="text-center py-8">
+        <h1 className="text-2xl font-bold mb-4">Please connect your wallet</h1>
+        <p className="text-muted-foreground">You need to connect your wallet to view this page</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
+        <span>Loading property request...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <h1 className="text-2xl font-bold mb-4">Error</h1>
+        <p className="text-muted-foreground">{error}</p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => router.push('/admin/requests')}
+        >
+          Back to Requests
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Review Property Request</CardTitle>
-        <CardDescription>
-          Review and update the property request details
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <div className="space-y-4">
-              <StatusField form={form} />
-              <PropertyDetailsFields form={form} />
-              <LocationField form={form} />
+    <ClientOnly>
+      <Card>
+        <CardHeader>
+          <CardTitle>Review Property Request</CardTitle>
+          <CardDescription>
+            Review and update the property request details
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left Column - Property Details */}
+                <div className="space-y-6">
+                  <div className="space-y-6">
+                    <PropertyDetailsFields form={form} />
+                  </div>
+                  <div className="space-y-4">
+                    <StatusField form={form} />
+                  </div>
+                </div>
 
-              <div className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="roi"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <div className="space-y-1">
-                        <FormLabel>ROI (%)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            placeholder="8.8"
-                            {...field}
-                            onChange={(e) => {
-                              const value = parseFloat(e.target.value);
-                              field.onChange(isNaN(value) ? '' : value);
-                            }}
-                          />
-                        </FormControl>
-                      </div>
-                      <FormDescription>
-                        Annual return on investment percentage
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="payout_duration"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <div className="space-y-1">
-                        <FormLabel>Payout Duration (days)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="365"
-                            {...field}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value);
-                              field.onChange(isNaN(value) ? '' : value);
-                            }}
-                          />
-                        </FormControl>
-                      </div>
-                      <FormDescription>
-                        Duration of the staking period in days
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* Right Column - Location */}
+                <div className="space-y-6">
+                  <LocationField form={form} />
+                </div>
               </div>
-            </div>
 
-            <div className="flex justify-between">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => router.push("/admin/requests")}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading && (
-                  <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Save Changes
-              </Button>
-            </div>
-          </form>
-        </Form>
+              <div className="flex justify-between items-center pt-6 border-t">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-32"
+                >
+                  {loading && (
+                    <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Save Changes
+                </Button>
 
-        <div className="mt-6 flex flex-col gap-4">
-          <ClientOnly>
-            {() => form.watch("status") === "approved" && (
-              <CreateTokenButton
-                id={id}
-                formData={form.getValues()}
-              />
-            )}
-          </ClientOnly>
-          <ClientOnly>
-            {() => form.watch("status") === "funding" && (
-              <StakingInitButton
-                propertyTokenAddress={form.getValues().token_address as `0x${string}`}
-                status={form.watch("status")}
-              />
-            )}
-          </ClientOnly>
-        </div>
-      </CardContent>
-    </Card>
+                <div className="flex space-x-4">
+                  <ClientOnly>
+                    {isConnected && form.getValues("status") === "approved" && (
+                      <CreateTokenButton
+                        propertyId={id}
+                        form={form}
+                      />
+                    )}
+                    {isConnected && form.getValues("status") === "onchain" && (
+                      <StakingInitButton
+                        propertyId={id}
+                        form={form}
+                      />
+                    )}
+                  </ClientOnly>
+                </div>
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </ClientOnly>
   );
 }
