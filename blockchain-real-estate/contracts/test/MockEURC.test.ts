@@ -55,7 +55,7 @@ describe("MockEURC Distribution", function () {
     it("Should track total supply correctly", async function () {
       const { mockEURC } = await loadFixture(deployMockEURCFixture);
 
-      const expectedTotalSupply = ethers.parseUnits("1000000", 6); // 1M EURC
+      const expectedTotalSupply = ethers.parseUnits("1000000000000", 6); // 1T EURC (1,000,000,000,000)
       expect(await mockEURC.totalSupply()).to.equal(expectedTotalSupply);
     });
 

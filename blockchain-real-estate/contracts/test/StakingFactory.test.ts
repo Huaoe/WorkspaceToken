@@ -3,8 +3,6 @@ import { expect } from "chai";
 import { 
     StakingFactory,
     PropertyFactory,
-    PropertyToken,
-    StakingRewards,
     MockEURC,
     Whitelist
 } from "../typechain-types";
@@ -15,7 +13,7 @@ describe("StakingFactory", function () {
     let stakingFactory: StakingFactory;
     let propertyFactory: PropertyFactory;
     let mockEURC: MockEURC;
-    let propertyToken: PropertyToken;
+    let propertyToken: any;
     let owner: SignerWithAddress;
     let admin: SignerWithAddress;
     let staker: SignerWithAddress;
@@ -52,14 +50,14 @@ describe("StakingFactory", function () {
 
         // Deploy PropertyFactory
         const PropertyFactory = await ethers.getContractFactory("PropertyFactory");
-        propertyFactory = await upgrades.deployProxy(PropertyFactory, [
+        propertyFactory = (await upgrades.deployProxy(PropertyFactory, [
             "Property Token",  // name prefix
             "PT",             // symbol prefix
             await mockEURC.getAddress(), // payment token
             owner.address,    // admin
             owner.address,    // validator
             await whitelist.getAddress() // whitelist contract
-        ]);
+        ])) as unknown as PropertyFactory;
 
         // Deploy StakingFactory
         const StakingFactory = await ethers.getContractFactory("StakingFactory");
@@ -135,7 +133,7 @@ describe("StakingFactory", function () {
             expect(stakingAddress).to.not.equal(ethers.ZeroAddress);
 
             // Verify the StakingRewards contract parameters
-            const stakingRewards = await ethers.getContractAt("StakingRewards", stakingAddress) as StakingRewards;
+            const stakingRewards = await ethers.getContractAt("StakingRewards", stakingAddress);
             expect(await stakingRewards.stakingToken()).to.equal(propertyTokenAddress);
             expect(await stakingRewards.rewardsToken()).to.equal(await mockEURC.getAddress());
             expect(await stakingRewards.duration()).to.equal(rewardsDuration);

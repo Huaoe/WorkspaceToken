@@ -1,7 +1,5 @@
 import { ethers } from "hardhat";
-import { task } from "hardhat/config";
 import * as dotenv from "dotenv";
-import { updateEnvFile } from "./utils";
 
 dotenv.config({ path: "../.env.local" });
 
