@@ -118,51 +118,6 @@ export default function PurchaseProperty() {
   }, [tokenAddress]);
 
   useEffect(() => {
-    const checkAccess = async () => {
-      if (!isConnected || !address) return;
-
-      console.log("Debug - Connected Account:", {
-        address,
-        isConnected,
-        tokenAddress,
-      });
-
-      // Get the whitelist contract
-      const whitelistContract = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS as `0x${string}`;
-      console.log("Debug - Whitelist Contract:", whitelistContract);
-
-      try {
-        // Get all whitelisted addresses
-        const whitelistedAddresses = await publicClient.readContract({
-          address: whitelistContract,
-          abi: whitelistABI,
-          functionName: "getWhitelistedAddresses",
-        });
-
-        console.log("Debug - All Whitelisted Addresses:", whitelistedAddresses);
-
-        // Check if current address is whitelisted
-        const isWhitelisted = await publicClient.readContract({
-          address: whitelistContract,
-          abi: whitelistABI,
-          functionName: "isWhitelisted",
-          args: [address],
-        });
-
-        console.log("Debug - Current Address Whitelist Status:", {
-          address,
-          isWhitelisted,
-        });
-
-      } catch (error) {
-        console.error("Error checking whitelist:", error);
-      }
-    };
-
-    checkAccess();
-  }, [isConnected, address, publicClient]);
-
-  useEffect(() => {
     if (contractData && !isContractLoading) {
       const [propertyDetailsResult, balance, name, symbol, totalSupply, eurcBalance] = contractData;
       

@@ -55,76 +55,84 @@ const AerialView: React.FC<AerialViewProps> = ({ location, className }) => {
             };
             setCoordinates(coords);
             console.log('[AerialView] Coordinates obtained:', coords);
+
+            // Initialize map with the coordinates
+            if (mapRef.current && !mapInstance.current) {
+              const map = new google.maps.Map(mapRef.current, {
+                center: coords,
+                zoom: 18,
+                mapTypeId: 'satellite',
+                disableDefaultUI: true,
+              });
+              mapInstance.current = map;
+            }
             
             try {
-              const url = `/api/aerial-view?lat=${coords.lat}&lng=${coords.lng}`;
-              console.log('[AerialView] Generated proxy URL:', url);
-
-              const response = await fetch(url, {
-                headers: {
-                  'Accept': 'video/mp4,video/*'
-                }
+              const url = `/api/aerial-view/${coords.lat}/${coords.lng}`;
+              console.log('[AerialView] Making API request to:', url);
+              
+              // Log request details
+              const requestStartTime = Date.now();
+              console.log('[AerialView] Request details:', {
+                method: 'GET',
+                url,
+                coordinates: coords,
+                timestamp: new Date().toISOString()
               });
-              console.log('[AerialView] Proxy response status:', response.status);
+              
+              const response = await fetch(url);
+              const requestDuration = Date.now() - requestStartTime;
+              
+              console.log('[AerialView] Response received:', {
+                status: response.status,
+                statusText: response.statusText,
+                headers: Object.fromEntries(response.headers.entries()),
+                duration: `${requestDuration}ms`,
+                url: response.url
+              });
               
               if (!response.ok) {
-                let errorMessage = 'Failed to fetch aerial view';
-                try {
-                  const errorData = await response.json();
-                  errorMessage = errorData.error || errorData.details || errorMessage;
-                } catch {
-                  errorMessage = await response.text().catch(() => errorMessage);
-                }
-                console.error('[AerialView] Error response:', errorMessage);
-                throw new Error(errorMessage);
+                const errorBody = await response.text();
+                console.error('[AerialView] Error response:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                  body: errorBody,
+                  url: response.url
+                });
+                throw new Error(`HTTP error! status: ${response.status}, body: ${errorBody}`);
               }
-
-              const contentType = response.headers.get('content-type');
-              console.log('[AerialView] Response content type:', contentType);
-
-              const blob = await response.blob();
-              console.log('[AerialView] Received blob size:', blob.size);
               
-              if (blob.size < 1000) { // If blob is too small, probably not a valid video
-                throw new Error('Invalid video data received');
+              const data = await response.json();
+              console.log('[AerialView] Parsed response data:', data);
+              
+              if (data.success) {
+                setVideoUrl(data.videoUrl);
+                setShowMap(false);
+              } else {
+                console.log('[AerialView] No video URL, showing map');
+                setShowMap(true);
               }
-
-              const blobUrl = URL.createObjectURL(blob);
-              console.log('[AerialView] Created blob URL for video:', blobUrl);
-              
-              setVideoUrl(blobUrl);
-              setShowMap(false);
-              setLoading(false);
-            } catch (err) {
-              console.error('[AerialView] Error fetching video:', err);
-              console.log('[AerialView] Falling back to static map');
+            } catch (error) {
+              console.error('[AerialView] API error:', error);
+              setError(error instanceof Error ? error.message : 'Failed to load aerial view');
               setShowMap(true);
-              setLoading(false);
             }
+            
+            setLoading(false);
           } else {
             console.error('[AerialView] Geocoding failed:', { status, results });
-            setError("Could not find location coordinates");
+            setError('Failed to get location coordinates');
             setLoading(false);
           }
         });
-      } catch (err) {
-        console.error('[AerialView] Error initializing aerial view:', err);
-        setError("Failed to initialize aerial view");
+      } catch (error) {
+        console.error('[AerialView] Error in initialization:', error);
+        setError(error instanceof Error ? error.message : 'Failed to initialize aerial view');
         setLoading(false);
       }
     };
 
     initializeAerialView();
-
-    return () => {
-      console.log('[AerialView] Component cleanup');
-      setVideoUrl(null);
-      setShowMap(false);
-      if (mapInstance.current) {
-        // @ts-ignore
-        mapInstance.current = null;
-      }
-    };
   }, [location]);
 
   // Effect for handling video element

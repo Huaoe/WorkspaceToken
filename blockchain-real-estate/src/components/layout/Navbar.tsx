@@ -11,7 +11,7 @@ import { ThemeToggle } from '@/components/theme/theme-toggle';
 
 const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
 
-export function Navbar() {
+const Navbar = () => {
   const pathname = usePathname();
   const { address } = useAccount();
   const [mounted, setMounted] = useState(false);
@@ -141,4 +141,6 @@ export function Navbar() {
       </div>
     </nav>
   );
-}
+};
+
+export default Navbar;

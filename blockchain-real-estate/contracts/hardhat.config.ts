@@ -3,6 +3,7 @@ import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
 import "@nomicfoundation/hardhat-chai-matchers";
 import "hardhat-deploy";
+import "@typechain/hardhat";
 import "dotenv/config";
 
 // Task to whitelist an address
@@ -53,7 +54,12 @@ const config: HardhatUserConfig = {
     sources: "./contracts",
     tests: "./test",
     cache: "./cache",
-    artifacts: "./artifacts"
+    artifacts: "./artifacts",
+    typechain: './typechain-types'
+  },
+  typechain: {
+    outDir: 'typechain-types',
+    target: 'ethers-v6'
   }
 };
 

@@ -25,7 +25,9 @@ import { usePublicClient } from 'wagmi'
 import { formatUnits, parseAbiItem } from "viem"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { propertyTokenABI, mockEURCABI } from "@/lib/contracts"
+import { propertyTokenABI } from "@/lib/contracts"
+import whitelistJSON from "@contracts/abis/Whitelist.json";
+import propertyFactoryJSON from "@contracts/abis/PropertyFactory.json";
 import Image from "next/image";
 
 interface PropertyCardProps {
@@ -396,8 +398,8 @@ export default function PropertyList() {
   // Read admin from contract
   const { data: contractAdmin } = useReadContract({
     address: contractAddress,
-    abi: mockEURCABI,
-    functionName: 'admin',
+    abi: propertyFactoryJSON.abi,
+    functionName: 'owner',
   });
 
   useEffect(() => {

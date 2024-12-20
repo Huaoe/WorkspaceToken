@@ -28,6 +28,7 @@ import { MiniMap } from "@/components/property/mini-map";
 import MarketInsights from "@/components/property/market-insights";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContractDetails } from "@/components/property/contract-details";
+import AerialView from "@/components/property/aerial-view";
 
 interface PropertyDetails {
   title: string;
@@ -393,73 +394,26 @@ export default function PropertyDetails() {
                           {propertyDetails.location}
                         </p>
                       </div>
-                      <div
-                        style={{
-                          height: "400px",
-                          width: "100%",
-                          position: "relative",
-                        }}
-                      >
-                        <MiniMap
-                          location={propertyDetails.location}
-                          height="400px"
-                        />
-                      </div>
-                      <div className="flex-1 min-h-0">
-                        <Card className="h-full flex flex-col">
-                          <CardHeader className="flex-shrink-0">
-                            <CardTitle>Nearby Places</CardTitle>
+                      <div className="grid grid-cols-1 gap-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Aerial View</CardTitle>
                           </CardHeader>
-                          <CardContent className="flex-1 min-h-0 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-                            <div className="grid grid-cols-1 gap-3">
-                              {places.map((place, index) => (
-                                <div
-                                  key={place.name}
-                                  className="flex items-start space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-                                  onClick={() => handlePlaceClick(place, index)}
-                                >
-                                  <div className="flex-shrink-0 mt-1">
-                                    <div className="w-6 h-6 flex items-center justify-center rounded-full bg-red-100">
-                                      <svg
-                                        className="w-4 h-4 text-red-500"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                                        />
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                                        />
-                                      </svg>
-                                    </div>
-                                  </div>
-                                  <div className="flex-1">
-                                    <h4 className="font-medium text-gray-900 dark:text-white">
-                                      {place.name}
-                                    </h4>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
-                                      {place.vicinity}
-                                    </p>
-                                    {place.rating && (
-                                      <div className="mt-1 flex items-center">
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                                          Rating: {place.rating}
-                                        </span>
-                                        <span className="ml-1 text-yellow-400">⭐</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
+                          <CardContent>
+                            <AerialView location={propertyDetails.location} />
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Map View</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div style={{ height: "400px", width: "100%", position: "relative" }}>
+                              <MiniMap
+                                location={propertyDetails.location}
+                                places={places}
+                                onPlaceClick={handlePlaceClick}
+                              />
                             </div>
                           </CardContent>
                         </Card>

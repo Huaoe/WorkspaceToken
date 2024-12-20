@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ReloadIcon } from "@radix-ui/react-icons";
 import {
   Card,
   CardContent,
@@ -10,459 +13,48 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { supabase } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { Form } from "@/components/ui/form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { StatusField } from "./components/StatusField";
-import { PropertyDetailsFields } from "./components/PropertyDetailsFields";
-import { LocationField } from "./components/LocationField";
-import { ClientOnly } from "./components/ClientOnly";
+import { propertyFormSchema } from "./components/PropertyDetailsFields";
 import {
   useAccount,
   usePublicClient,
   useWalletClient,
-  useSwitchChain,
-  useReadContract,
 } from "wagmi";
-import propertyFactoryJSON from "@contracts/abis/PropertyFactory.json";
-import { type Abi } from "viem";
-import { parseUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 import { decodeEventLog } from "viem";
 import { StakingInitButton } from "./components/StakingInitButton";
-
-import { propertyFormSchema } from "./components/PropertyDetailsFields";
+import { StatusField } from "./components/StatusField";
+import { PropertyDetailsFields } from "./components/PropertyDetailsFields";
+import { LocationField } from "./components/LocationField";
+import { ClientOnly } from "./components/ClientOnly";
+import { CreateTokenButton } from "./components/CreateTokenButton";
 
 const formSchema = propertyFormSchema.extend({
   location: z.string().min(2).max(256, {
     message: "Location must be between 2 and 256 characters.",
   }),
   token_address: z.string().optional(),
+  roi: z.number().min(0, "ROI must be greater than 0"),
+  payout_duration: z.number().min(0, "Duration must be greater than 0"),
 });
-
-function CreateTokenButton({
-  id,
-  status,
-  formData,
-}: {
-  id: string;
-  status: string;
-  formData: any;
-}) {
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const { address, isConnected } = useAccount();
-  const contractAddress = process.env
-    .NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
-  const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
-  const router = useRouter();
-  const propertyFactoryABI = propertyFactoryJSON.abi as Abi;
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (walletClient) {
-      console.log("Wallet client ready:", walletClient);
-    }
-  }, [walletClient]);
-
-  const { data: factoryOwner } = useReadContract({
-    address: contractAddress,
-    abi: propertyFactoryABI,
-    functionName: "owner",
-  });
-
-  const isOwner =
-    address &&
-    factoryOwner &&
-    factoryOwner.toLowerCase() === address.toLowerCase();
-
-  if (!mounted || !isConnected) {
-    return null;
-  }
-
-  const convertPriceToTokens = (price: string | number): bigint => {
-    let numericPrice: number;
-    if (typeof price === "string") {
-      numericPrice = parseFloat(price.replace(/,/g, ""));
-    } else {
-      numericPrice = price;
-    }
-
-    if (isNaN(numericPrice) || numericPrice <= 0) {
-      throw new Error("Invalid price value");
-    }
-
-    return parseUnits(numericPrice.toString(), 6);
-  };
-
-  const handleCreateToken = async () => {
-    if (!walletClient || !formData || !isConnected) {
-      toast({
-        title: "Error",
-        description:
-          "Please connect your wallet and ensure form data is complete",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Save changes to database first
-      const { error: saveError } = await supabase
-        .from("property_requests")
-        .update({
-          title: formData.title,
-          description: formData.description,
-          location: formData.location,
-          expected_price: formData.expected_price,
-          number_of_tokens: formData.number_of_tokens,
-          token_name: formData.token_name,
-          token_symbol: formData.token_symbol,
-          image_url: formData.image_url,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-
-      if (saveError) {
-        throw new Error(`Failed to save changes: ${saveError.message}`);
-      }
-
-      // Get the current nonce
-      const nonce = await publicClient.getTransactionCount({
-        address: address!,
-      });
-
-      console.log("Current nonce:", nonce);
-
-      // Validate input lengths
-      if (formData.title.length > 32) {
-        throw new Error("Title must be less than 32 characters");
-      }
-      if (formData.description.length > 256) {
-        throw new Error("Description must be less than 256 characters");
-      }
-
-      // Truncate location if needed
-      const location =
-        formData.location.length > 64
-          ? formData.location.substring(0, 64)
-          : formData.location;
-
-      // Ensure image URL is valid and not too long
-      const imageUrl =
-        formData.image_url && formData.image_url.length > 128
-          ? formData.image_url.substring(0, 128)
-          : formData.image_url || "";
-
-      // Convert and validate price
-      const priceValue = convertPriceToTokens(formData.expected_price);
-
-      // Convert number of tokens to total supply with 18 decimals
-      const totalSupply = parseUnits(formData.number_of_tokens, 18);
-
-      console.log("Starting token creation with:", {
-        contractAddress,
-        title: formData.title,
-        description: formData.description,
-        location,
-        imageUrl,
-        price: priceValue.toString(),
-        totalSupply: totalSupply.toString(),
-        tokenName: formData.token_name,
-        tokenSymbol: formData.token_symbol,
-        walletAddress: address,
-        nonce,
-      });
-
-      // First simulate the transaction
-      const { request } = await publicClient.simulateContract({
-        address: contractAddress,
-        abi: propertyFactoryABI,
-        functionName: "createProperty",
-        args: [
-          formData.title,
-          formData.description,
-          location,
-          imageUrl,
-          priceValue,
-          totalSupply,
-          formData.token_name,
-          formData.token_symbol,
-        ],
-        account: address,
-      });
-
-      console.log("Simulation successful, executing transaction...");
-
-      // Execute the transaction with explicit nonce
-      const hash = await walletClient.writeContract({
-        ...request,
-        address: contractAddress,
-        nonce,
-      });
-
-      console.log("Transaction submitted:", hash);
-
-      toast({
-        title: "Transaction Sent",
-        description: "Creating property token...",
-      });
-
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash,
-        timeout: 60_000,
-      });
-
-      console.log("Transaction receipt:", receipt);
-      console.log("Transaction logs:", receipt.logs);
-
-      if (receipt.status === "success") {
-        // Get the property token address from the event logs
-        console.log("Looking for PropertySubmitted event in logs...");
-
-        const propertySubmittedEvent = receipt.logs.find((log) => {
-          try {
-            console.log("Trying to decode log:", log);
-            const event = decodeEventLog({
-              abi: propertyFactoryABI,
-              data: log.data,
-              topics: log.topics,
-            });
-            console.log("Decoded event:", event);
-            return event.eventName === "PropertySubmitted";
-          } catch (error) {
-            console.log("Failed to decode log:", error);
-            return false;
-          }
-        });
-
-        console.log("Found event:", propertySubmittedEvent);
-
-        if (!propertySubmittedEvent) {
-          throw new Error("Property token address not found in event logs");
-        }
-
-        console.log("Decoding event data...");
-        const decodedEvent = decodeEventLog({
-          abi: propertyFactoryABI,
-          data: propertySubmittedEvent.data,
-          topics: propertySubmittedEvent.topics,
-        });
-        console.log("Decoded event:", decodedEvent);
-
-        const propertyTokenAddress = decodedEvent.args
-          .tokenAddress as `0x${string}`;
-        console.log("Property token address:", propertyTokenAddress);
-
-        await supabase
-          .from("property_requests")
-          .update({
-            status: "onchain",
-            token_address: propertyTokenAddress,
-          })
-          .eq("id", id);
-
-        console.log("Updated Supabase with token address");
-        toast({
-          title: "Success!",
-          description: "Property token created successfully",
-        });
-
-        router.push("/admin/requests");
-      } else {
-        throw new Error("Transaction failed");
-      }
-    } catch (error) {
-      console.error("Contract interaction error:", error);
-      let errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Failed to create property token";
-
-      // Handle specific error cases
-      if (errorMessage.includes("execution reverted")) {
-        errorMessage =
-          "Transaction reverted. Please check the property details and try again.";
-      } else if (errorMessage.includes("nonce too high")) {
-        errorMessage =
-          "Network state error. Please refresh the page and try again.";
-      }
-
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleApproveProperty = async () => {
-    if (!walletClient || !isConnected) {
-      toast({
-        title: "Error",
-        description: "Please connect your wallet",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      // Get the property token address from Supabase
-      console.log("Fetching property data from Supabase...");
-      const { data: propertyData, error: propertyError } = await supabase
-        .from("property_requests")
-        .select("token_address")
-        .eq("id", id)
-        .single();
-
-      console.log("Property data from Supabase:", propertyData);
-      console.log("Property error from Supabase:", propertyError);
-
-      if (propertyError) {
-        console.error("Supabase error:", propertyError);
-        throw new Error(
-          "Failed to fetch property data: " + propertyError.message
-        );
-      }
-
-      if (!propertyData?.token_address) {
-        console.error("Property data:", propertyData);
-        throw new Error("Property token address not found Wrong data");
-      }
-
-      // Get the current nonce
-      const nonce = await publicClient.getTransactionCount({
-        address: address!,
-      });
-
-      console.log("Current nonce:", nonce);
-      console.log("Using token address:", propertyData.token_address);
-
-      // First simulate the transaction
-      const { request } = await publicClient.simulateContract({
-        address: contractAddress,
-        abi: propertyFactoryABI,
-        functionName: "approveProperty",
-        args: [propertyData.token_address as `0x${string}`],
-        account: address,
-      });
-
-      console.log("Simulation successful, executing transaction...");
-
-      // Execute the transaction with explicit nonce
-      const hash = await walletClient.writeContract({
-        ...request,
-        address: contractAddress,
-        nonce,
-      });
-
-      console.log("Transaction submitted:", hash);
-
-      toast({
-        title: "Transaction Sent",
-        description: "Approving property...",
-      });
-
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash,
-        timeout: 60_000,
-      });
-
-      console.log("Transaction receipt:", receipt);
-
-      if (receipt.status === "success") {
-        await supabase
-          .from("property_requests")
-          .update({ status: "funding" })
-          .eq("id", id);
-
-        toast({
-          title: "Success!",
-          description: "Property approved successfully",
-        });
-
-        router.push("/admin/requests");
-      } else {
-        throw new Error("Transaction failed");
-      }
-    } catch (error) {
-      console.error("Contract interaction error:", error);
-      let errorMessage =
-        error instanceof Error ? error.message : "Failed to approve property";
-
-      // Handle specific error cases
-      if (errorMessage.includes("execution reverted")) {
-        errorMessage =
-          "Transaction reverted. Please check the property details and try again.";
-      } else if (errorMessage.includes("nonce too high")) {
-        errorMessage =
-          "Network state error. Please refresh the page and try again.";
-      }
-
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if ((status !== "approved" && status !== "onchain") || !isOwner) {
-    return null;
-  }
-
-  return (
-    <div className="space-y-4">
-      {status === "approved" && (
-        <Button
-          onClick={handleCreateToken}
-          disabled={loading}
-          className="bg-primary"
-        >
-          {loading ? "Creating Token..." : "Create Token"}
-        </Button>
-      )}
-
-      {status === "onchain" && (
-        <Button
-          onClick={handleApproveProperty}
-          disabled={loading}
-          className="bg-primary"
-        >
-          {loading ? "Approving Property..." : "Go Funding Property"}
-        </Button>
-      )}
-    </div>
-  );
-}
 
 export default function ReviewRequest() {
   const { id } = useParams();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [request, setRequest] = useState<any>(null);
-  const [mapLocation, setMapLocation] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-  const locationPickerRef = useRef<{
-    updateMapLocation: (lat: number, lng: number) => void;
-  }>(null);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -474,72 +66,56 @@ export default function ReviewRequest() {
       number_of_tokens: "",
       token_name: "",
       token_symbol: "",
-      image_url: "",
       status: "pending",
       token_address: "",
+      payout_duration: 365,
+      roi: 8.8,
     },
   });
 
-  const status = form.watch("status");
+  const fetchRequest = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("property_requests")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        console.log('Database Response:', {
+          payout_duration: data.payout_duration,
+          roi: data.roi,
+          full_data: data
+        });
+
+        form.reset({
+          title: data.title || "",
+          description: data.description || "",
+          location: data.location || "",
+          expected_price: data.expected_price || "",
+          number_of_tokens: data.number_of_tokens || "",
+          token_name: data.token_name || "",
+          token_symbol: data.token_symbol || "",
+          status: data.status || "pending",
+          token_address: data.token_address || "",
+          payout_duration: data.payout_duration || 365,
+          roi: data.roi || 8.8,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch request data",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
-    const fetchRequest = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("property_requests")
-          .select("*")
-          .eq("id", id)
-          .single();
-
-        if (error) throw error;
-
-        if (data) {
-          setRequest(data);
-          form.reset({
-            title: data.title || "",
-            description: data.description || "",
-            location: data.location || "",
-            expected_price: data.expected_price?.toString() || "",
-            number_of_tokens: data.number_of_tokens?.toString() || "",
-            token_name: data.token_name || "",
-            token_symbol: data.token_symbol || "",
-            image_url: data.image_url || "",
-            status: data.status || "pending",
-            token_address: data.token_address || "",
-          });
-
-          // Geocode the location and update the map
-          if (data.location) {
-            try {
-              const result = await geocodeAddress(data.location);
-              if (result) {
-                setMapLocation({ lat: result.lat, lng: result.lng });
-                // Update the map location using the ref
-                locationPickerRef.current?.updateMapLocation(
-                  result.lat,
-                  result.lng
-                );
-              }
-            } catch (error) {
-              console.error("Failed to geocode location:", error);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load property request",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) {
-      fetchRequest();
-    }
+    fetchRequest();
   }, [id]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -551,7 +127,7 @@ export default function ReviewRequest() {
       });
 
       const now = new Date().toISOString();
-      const updates = {
+      const updateData = {
         title: values.title,
         description: values.description,
         location: values.location,
@@ -559,27 +135,26 @@ export default function ReviewRequest() {
         number_of_tokens: values.number_of_tokens,
         token_name: values.token_name,
         token_symbol: values.token_symbol,
-        image_url: values.image_url,
         status: values.status,
         token_address: values.token_address,
+        payout_duration: values.payout_duration || 365,
+        roi: values.roi || 8.8,
         updated_at: now,
       };
 
-      console.log("Preparing database update with:", updates);
+      console.log('Updating request with data:', updateData);
 
-      const { data, error } = await supabase
+      const { error: updateError } = await supabase
         .from("property_requests")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
+        .update(updateData)
+        .eq("id", id);
 
-      if (error) {
-        console.error("Database update error:", error);
-        throw error;
+      if (updateError) {
+        console.error("Database update error:", updateError);
+        throw updateError;
       }
 
-      console.log("Database update successful:", data);
+      console.log("Database update successful");
 
       toast({
         title: "Success",
@@ -599,8 +174,6 @@ export default function ReviewRequest() {
       }
 
       console.log("Refreshed data:", refreshedData);
-      setRequest(refreshedData);
-
     } catch (error: any) {
       console.error("Form submission error:", error);
       toast({
@@ -611,66 +184,117 @@ export default function ReviewRequest() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="container mx-auto p-4">
-        <Card>
-          <CardContent className="pt-6">
-            <p>Loading...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Review Property Request</CardTitle>
-          <CardDescription>
-            Review and update property request details
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+    <Card>
+      <CardHeader>
+        <CardTitle>Review Property Request</CardTitle>
+        <CardDescription>
+          Review and update the property request details
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <div className="space-y-4">
               <StatusField form={form} />
               <PropertyDetailsFields form={form} />
               <LocationField form={form} />
 
-              <div className="flex justify-between pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => router.push("/admin/requests")}
-                >
-                  Back
-                </Button>
-                <div className="flex gap-4">
-                  <Button type="submit">Save Changes</Button>
-                  <ClientOnly>
-                    {() => (
-                      <CreateTokenButton
-                        id={id}
-                        status={form.watch("status")}
-                        formData={form.getValues()}
-                      />
-                    )}
-                  </ClientOnly>
-                  {form.watch("status") === "funding" && (
-                    <StakingInitButton
-                      propertyTokenAddress={
-                        form.getValues().token_address || ""
-                      }
-                      status={form.watch("status")}
-                    />
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="roi"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <div className="space-y-1">
+                        <FormLabel>ROI (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            placeholder="8.8"
+                            {...field}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              field.onChange(isNaN(value) ? '' : value);
+                            }}
+                          />
+                        </FormControl>
+                      </div>
+                      <FormDescription>
+                        Annual return on investment percentage
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
+                />
+
+                <FormField
+                  control={form.control}
+                  name="payout_duration"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <div className="space-y-1">
+                        <FormLabel>Payout Duration (days)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="365"
+                            {...field}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value);
+                              field.onChange(isNaN(value) ? '' : value);
+                            }}
+                          />
+                        </FormControl>
+                      </div>
+                      <FormDescription>
+                        Duration of the staking period in days
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-    </div>
+            </div>
+
+            <div className="flex justify-between">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => router.push("/admin/requests")}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading && (
+                  <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </Form>
+
+        <div className="mt-6 flex flex-col gap-4">
+          <ClientOnly>
+            {() => form.watch("status") === "approved" && (
+              <CreateTokenButton
+                id={id}
+                formData={form.getValues()}
+              />
+            )}
+          </ClientOnly>
+          <ClientOnly>
+            {() => form.watch("status") === "funding" && (
+              <StakingInitButton
+                propertyTokenAddress={form.getValues().token_address as `0x${string}`}
+                status={form.watch("status")}
+              />
+            )}
+          </ClientOnly>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,8 +1,29 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { FaFacebookF, FaTwitter, FaLinkedinIn, FaPinterestP, FaRss } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
 
-export function Footer() {
+console.log('[Footer] Initializing Footer component');
+
+function Footer() {
+  console.log('[Footer] Rendering Footer component');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    console.log('[Footer] Running mount effect');
+    setMounted(true);
+    return () => {
+      console.log('[Footer] Cleaning up Footer component');
+    };
+  }, []);
+
+  if (!mounted) {
+    console.log('[Footer] Not mounted yet, returning loading state');
+    return <div className="h-16 bg-background border-t animate-pulse" />;
+  }
+
   const partners = [
     { name: 'Journal du Net', src: '/images/partners/journaldunet.png', alt: 'Journal du Net Logo' },
     { name: 'Gecina', src: '/images/partners/gecina.png', alt: 'Gecina Logo' },
@@ -15,6 +36,7 @@ export function Footer() {
     { name: 'CBRE', src: '/images/partners/cbre.png', alt: 'CBRE Logo' },
   ];
 
+  console.log('[Footer] Rendering main content');
   return (
     <footer className="bg-gray-100 dark:bg-gray-900 mt-auto">
       <div className="container mx-auto px-4 py-8">
@@ -106,3 +128,5 @@ export function Footer() {
     </footer>
   );
 }
+
+export default Footer;

@@ -7,18 +7,24 @@
     "outDir": "dist",
     "declaration": true,
     "resolveJsonModule": true,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
       "typechain-types/*": ["./typechain-types/*"]
-    }
+    },
+    "types": ["node", "mocha", "chai"]
   },
   "include": [
     "./test",
     "./scripts",
-    "./typechain-types"
+    "./typechain-types",
+    "./tasks",
+    "./deploy",
+    "./contracts"
   ],
-  "files": ["./hardhat.config.ts"]
+  "files": ["hardhat.config.ts"]
 }
