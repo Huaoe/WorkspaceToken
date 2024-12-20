@@ -5,22 +5,15 @@ import Link from 'next/link';
 import { FaFacebookF, FaTwitter, FaLinkedinIn, FaPinterestP, FaRss } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
 
-console.log('[Footer] Initializing Footer component');
 
 function Footer() {
-  console.log('[Footer] Rendering Footer component');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    console.log('[Footer] Running mount effect');
     setMounted(true);
-    return () => {
-      console.log('[Footer] Cleaning up Footer component');
-    };
   }, []);
 
   if (!mounted) {
-    console.log('[Footer] Not mounted yet, returning loading state');
     return <div className="h-16 bg-background border-t animate-pulse" />;
   }
 
@@ -36,7 +29,6 @@ function Footer() {
     { name: 'CBRE', src: '/images/partners/cbre.png', alt: 'CBRE Logo' },
   ];
 
-  console.log('[Footer] Rendering main content');
   return (
     <footer className="bg-gray-100 dark:bg-gray-900 mt-auto">
       <div className="container mx-auto px-4 py-8">

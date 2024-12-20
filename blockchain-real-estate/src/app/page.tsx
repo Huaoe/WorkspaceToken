@@ -20,11 +20,27 @@ export default function Home() {
   const publicClient = usePublicClient();
   const supabase = createClientComponentClient();
 
-  const { data: owner, isError: ownerError } = useReadContract({
+  // Only attempt to read contract if wallet is connected
+  const { data: owner, isError: ownerError, error: ownerErrorData } = useReadContract({
     address: contractAddress,
     abi: propertyFactoryABI.abi,
     functionName: "owner",
+    chainId: 31337,
+    enabled: isConnected, // Only run query when wallet is connected
   });
+
+  useEffect(() => {
+    if (ownerError) {
+      console.error('Error reading contract:', ownerErrorData);
+    }
+  }, [ownerError, ownerErrorData]);
+
+  // Add connection status display
+  useEffect(() => {
+    if (!isConnected) {
+      console.info('Wallet not connected. Please connect your wallet to interact with the contract.');
+    }
+  }, [isConnected]);
 
   useEffect(() => {
     setMounted(true);

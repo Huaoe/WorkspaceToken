@@ -8,15 +8,6 @@ export function middleware(request: NextRequest) {
   }
 
   const requestId = Math.random().toString(36).substring(7);
-  
-  console.log(`[Middleware] [${requestId}] Processing API request:`, {
-    url: request.url,
-    method: request.method,
-    pathname: request.nextUrl.pathname,
-    search: request.nextUrl.search,
-    headers: Object.fromEntries(request.headers.entries()),
-    timestamp: new Date().toISOString()
-  });
 
   // Add request ID to response headers for tracking
   const response = NextResponse.next();

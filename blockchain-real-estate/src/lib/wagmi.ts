@@ -2,16 +2,13 @@ import { http, createConfig, Chain } from 'wagmi';
 import { hardhat } from 'viem/chains';
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 
-console.log('[Wagmi] Initializing wagmi configuration');
-
 const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID;
 
 if (!projectId) {
-  console.error('[Wagmi] Missing NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID');
   throw new Error('Missing NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID');
 }
 
-// Define our own Hardhat chain to ensure correct chain ID
+// Define Hardhat chain with explicit RPC URL
 const hardhatChain: Chain = {
   ...hardhat,
   id: 31337,
@@ -23,29 +20,36 @@ const hardhatChain: Chain = {
     symbol: 'ETH',
   },
   rpcUrls: {
-    default: { http: ['http://127.0.0.1:8545'] },
-    public: { http: ['http://127.0.0.1:8545'] },
+    default: {
+      http: ['http://localhost:8545'],
+    },
+    public: {
+      http: ['http://localhost:8545'],
+    },
   },
 };
 
-console.log('[Wagmi] Creating wagmi config with chain:', hardhatChain.name);
+// Configure HTTP transport with retries and timeout
+const transport = http({
+  batch: false, // Disable batching to avoid URL object issues
+  retryCount: 3,
+  timeout: 30_000,
+  fetchOptions: {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  },
+});
 
+// Create wagmi config with improved settings
 export const config = getDefaultConfig({
   appName: 'Blockchain Real Estate',
   projectId,
   chains: [hardhatChain],
   transports: {
-    [hardhatChain.id]: http({
-      retryCount: 2,
-      timeout: 10_000,
-    }),
+    [hardhatChain.id]: transport,
   },
-  ssr: true, // Enable server-side rendering support
-  syncConnectedChain: true, // Keep chain in sync
-  pollingInterval: 4_000, // 4 seconds
-  batch: {
-    multicall: true,
-  },
+  ssr: true,
+  syncConnectedChain: true,
+  pollingInterval: 4_000,
 });
-
-console.log('[Wagmi] Wagmi configuration initialized');

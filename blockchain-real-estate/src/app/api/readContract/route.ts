@@ -60,12 +60,6 @@ export async function POST(request: Request) {
       )
     }
 
-    console.log('Reading contract:', {
-      address,
-      functionName,
-      args,
-    })
-
     // Read from the contract
     const data = await publicClient.readContract({
       address: address as `0x${string}`,
@@ -74,14 +68,10 @@ export async function POST(request: Request) {
       args,
     })
 
-    console.log('Contract read result:', data)
-
     // For functions that return multiple values, convert to an object
     if (Array.isArray(data) && abiFunction.outputs) {
       const result = abiFunction.outputs.reduce((acc: any, output: any, index: number) => {
-        // Convert BigInt values to strings before adding to the result
         const value = serializeBigInt(data[index]);
-        // Use output.name if available, otherwise use the type as a fallback
         const key = output.name || output.type || `output${index}`;
         acc[key] = value;
         return acc;
@@ -92,7 +82,6 @@ export async function POST(request: Request) {
     // Serialize any BigInt values in the response
     return NextResponse.json(serializeBigInt(data))
   } catch (error: any) {
-    console.error('Contract read error:', error)
     return NextResponse.json(
       { 
         error: 'Failed to read contract',

@@ -4,72 +4,67 @@ import Link from 'next/link';
 import { CustomConnectButton } from '@/components/connect-button';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useAccount, useReadContract } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { useState, useEffect } from 'react';
-import propertyFactoryABI from '@contracts/abis/PropertyFactory.json';
+import { ethers } from 'ethers';
+import propertyFactoryABI from "@contracts/abis/PropertyFactory.json";
 import { ThemeToggle } from '@/components/theme/theme-toggle';
 
-const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as `0x${string}`;
+const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS as string;
 
 const Navbar = () => {
   const pathname = usePathname();
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
   const [mounted, setMounted] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-
-  // Read admin address from contract
-  const { data: contractAdmin } = useReadContract({
-    address: contractAddress,
-    abi: propertyFactoryABI.abi,
-    functionName: 'admin',
-  });
+  const [contractOwner, setContractOwner] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Get contract owner using ethers.js
+  useEffect(() => {
+    async function getContractOwner() {
+      if (!mounted || !isConnected) return;
+      
+      try {
+        // Get the provider from window.ethereum
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const contract = new ethers.Contract(
+          contractAddress,
+          propertyFactoryABI.abi,
+          provider
+        );
+        
+        const owner = await contract.owner();
+        setContractOwner(owner);
+      } catch (error) {
+        console.error('Error getting contract owner:', error);
+        setContractOwner(null);
+      }
+    }
+
+    getContractOwner();
+  }, [mounted, isConnected]);
+
   // Check if connected address is admin
   useEffect(() => {
-    if (address && contractAdmin) {
-      setIsAdmin(address.toLowerCase() === contractAdmin.toLowerCase());
+    if (!mounted || !isConnected) {
+      setIsAdmin(false);
+      return;
+    }
+
+    if (address && contractOwner) {
+      setIsAdmin(address.toLowerCase() === contractOwner.toLowerCase());
     } else {
       setIsAdmin(false);
     }
-  }, [address, contractAdmin]);
+  }, [address, contractOwner, mounted, isConnected]);
 
   // Don't render anything until mounted to prevent hydration mismatch
   if (!mounted) {
-    return (
-      <nav className="border-b">
-        <div className="container flex h-16 items-center px-4">
-          <div className="flex items-center space-x-4 lg:space-x-6">
-            <Link
-              href="/"
-              className="text-sm font-medium transition-colors hover:text-primary text-muted-foreground"
-            >
-              Work Space Token
-            </Link>
-            <Link
-              href="/property/list"
-              className="text-sm font-medium transition-colors hover:text-primary text-muted-foreground"
-            >
-              Properties
-            </Link>
-            {isAdmin && (
-              <Link
-                href="/property/request"
-                className="text-sm font-medium transition-colors hover:text-primary text-muted-foreground"
-              >
-                Submit Property
-              </Link>
-            )}
-          </div>
-          <div className="ml-auto flex items-center space-x-4">
-            <CustomConnectButton />
-          </div>
-        </div>
-      </nav>
-    );
+    return null;
   }
 
   return (

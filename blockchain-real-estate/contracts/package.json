@@ -8,7 +8,7 @@
     "compile": "hardhat compile",
     "clean": "hardhat clean",
     "deploy:local": "npx hardhat run scripts/deploy-local.ts --network localhost",
-    "deploy:proxy": "npx hardhat run scripts/deploy-proxy-optimized.ts --network localhost",
+    "deploy:proxy": "npx hardhat run scripts/deploy-proxy.ts --network localhost",
     "deploy:eurc": "npx hardhat run scripts/deploy-mock-eurc-upgradeable.ts --network localhost",
     "n": "npx hardhat node",
     "distributeMockEURC": "npx hardhat run scripts/distribute-mock-eurc-optimized.ts --network localhost",
@@ -17,7 +17,8 @@
     "test:pf": "npx hardhat test test/PropertyFactory.test.ts",
     "whitelist": "npx hardhat whitelist-address --network localhost",
     "show-addresses": "npx hardhat run scripts/show-addresses.ts --network localhost",
-    "fund:factory": "npx hardhat run scripts/fund-staking-factory.ts --network localhost"
+    "fund:factory": "npx hardhat run scripts/fund-staking-factory.ts --network localhost",
+    "get:factory-owner": "npx hardhat run scripts/get-property-factory-owner.ts --network localhost"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
