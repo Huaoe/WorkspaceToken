@@ -43,31 +43,13 @@ export const propertyTokenABI = [
   'function allowance(address owner, address spender) view returns (uint256)',
   'function approve(address spender, uint256 amount) returns (bool)',
   'function transferFrom(address from, address to, uint256 amount) returns (bool)',
+  'function purchaseTokens(uint256 amount) returns (bool)',
   
   // Property specific functions
-  {
-    name: 'propertyDetails',
-    type: 'function',
-    inputs: [],
-    outputs: [
-      {
-        type: 'tuple',
-        components: [
-          { name: 'title', type: 'string' },
-          { name: 'description', type: 'string' },
-          { name: 'location', type: 'string' },
-          { name: 'imageUrl', type: 'string' },
-          { name: 'price', type: 'uint256' },
-          { name: 'isActive', type: 'bool' }
-        ]
-      }
-    ],
-    stateMutability: 'view'
-  },
+  'function getPropertyDetails() view returns (tuple(string title, string description, string location, string imageUrl, uint256 price, address owner, bool isApproved))',
   'function owner() view returns (address)',
   'function isActive() view returns (bool)',
   'function price() view returns (uint256)',
-  'function purchaseTokens(uint256 amount) returns (bool)',
   
   // Events
   'event Transfer(address indexed from, address indexed to, uint256 value)',
@@ -123,7 +105,8 @@ export interface PropertyDetails {
   location: string;
   imageUrl: string;
   price: bigint;
-  isActive: boolean;
+  owner: string;
+  isApproved: boolean;
 }
 
 export interface PropertyToken extends BaseContract {
@@ -139,7 +122,7 @@ export interface PropertyToken extends BaseContract {
   owner(): Promise<string>;
   isActive(): Promise<boolean>;
   price(): Promise<bigint>;
-  propertyDetails(): Promise<PropertyDetails>;
+  getPropertyDetails(): Promise<PropertyDetails>;
   purchaseTokens(amount: bigint): Promise<boolean>;
 }
 

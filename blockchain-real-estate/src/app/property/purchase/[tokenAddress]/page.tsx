@@ -13,6 +13,8 @@ import { formatUnits, parseUnits } from 'viem';
 import { PROPERTY_FACTORY_ADDRESS, EURC_TOKEN_ADDRESS } from '@/lib/constants';
 import { formatEURCAmount } from '@/lib/utils';
 import { MapPin as MapPinIcon } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { PropertyRequest } from '@/types/property';
 
 interface PropertyDetails {
   title: string;
@@ -44,6 +46,7 @@ export default function PurchaseProperty() {
     price: BigInt(0),
     isActive: false,
   });
+  const [propertyDetails, setPropertyDetails] = useState<PropertyRequest | null>(null);
   const [totalSupply, setTotalSupply] = useState<bigint>(BigInt(0));
 
   const handleTokenAmountChange = (value: string) => {
@@ -68,10 +71,9 @@ export default function PurchaseProperty() {
 
     try {
       const balance = await eurcContract.balanceOf(address);
-      // For display purposes, we want to show 10000 EURC
-      // The actual balance has 6 decimals, so we divide by 1000
-      const displayBalance = Number(formatUnits(balance, 6)) / 1000;
-      setEurcBalance(displayBalance.toString());
+      // EURC has 6 decimals
+      const formattedBalance = formatUnits(balance, 6);
+      setEurcBalance(formattedBalance);
     } catch (error) {
       console.error('Error fetching EURC balance:', error);
     }
@@ -79,12 +81,17 @@ export default function PurchaseProperty() {
 
   const formattedEURCBalance = useMemo(() => {
     if (!eurcBalance) return '0';
-    // Format with commas and no decimals
+    // Format with 2 decimal places
     return Number(eurcBalance).toLocaleString(undefined, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
     });
   }, [eurcBalance]);
+
+  const formattedTokenBalance = useMemo(() => {
+    // Format with 2 decimal places
+    return formatUnits(tokenBalance, 18);
+  }, [tokenBalance]);
 
   useEffect(() => {
     const initializeContracts = async () => {
@@ -117,6 +124,33 @@ export default function PurchaseProperty() {
     }
   }, [address, eurcContract]);
 
+  useEffect(() => {
+    const fetchSupabaseDetails = async () => {
+      if (!tokenAddress) return;
+
+      try {
+        // Get property details from Supabase
+        const { data, error } = await supabase
+          .from('property_requests')
+          .select('*')
+          .eq('token_address', tokenAddress)
+          .single();
+
+        if (error) throw error;
+        setPropertyDetails(data);
+      } catch (error) {
+        console.error('Error fetching property details from Supabase:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch property details',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    fetchSupabaseDetails();
+  }, [tokenAddress, toast]);
+
   const fetchOnChainDetails = async () => {
     if (!address || !propertyTokenContract || !eurcContract) {
       return;
@@ -129,27 +163,26 @@ export default function PurchaseProperty() {
 
       // Get EURC balance
       const eurcBal = await eurcContract.balanceOf(address);
-      const balanceInEurc = formatUnits(BigInt(eurcBal.toString()), 6);
-      const adjustedBalance = Number(balanceInEurc) * 10000;
-      setEurcBalance(adjustedBalance.toString());
+      const formattedBalance = formatUnits(BigInt(eurcBal.toString()), 6);
+      setEurcBalance(formattedBalance);
 
       // Get property details
       try {
-        const details = await propertyTokenContract.propertyDetails();
-        console.log('Property details:', details);
+        console.log('Fetching property details...');
+        const details = await propertyTokenContract.getPropertyDetails();
+        console.log('Raw property details:', details);
         
         // Set fixed price of 56 EURC
         const value = 56;
         const priceInEurc = parseUnits((value / 10000).toString(), 6);
-        console.log('Price in EURC:', formatUnits(priceInEurc, 6));
         
         setOnChainDetails({
-          title: details.title,
-          description: details.description,
-          location: details.location,
-          imageUrl: details.imageUrl,
+          title: details.title || '',
+          description: details.description || '',
+          location: details.location || '',
+          imageUrl: details.imageUrl || '',
           price: priceInEurc,
-          isActive: details.isActive,
+          isActive: details.isApproved || false,
         });
       } catch (error) {
         console.error('Error getting property details:', error);
@@ -307,7 +340,10 @@ export default function PurchaseProperty() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Your Balance</span>
-                <span>{formatUnits(tokenBalance, 18)} Tokens</span>
+                <span>{Number(formattedTokenBalance).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                })} Tokens</span>
               </div>
 
               <div className="flex justify-between items-center">
