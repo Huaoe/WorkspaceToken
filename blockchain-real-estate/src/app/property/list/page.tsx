@@ -81,124 +81,104 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
   };
 
   const formatTokenAmount = (amount: string) => {
-    console.log('formatTokenAmount input:', amount);
-    if (!amount || isNaN(Number(amount))) {
-      console.log('Invalid amount, returning 0');
-      return "0";
-    }
+    if (!amount || isNaN(Number(amount))) return "0";
     const num = parseFloat(amount);
-    const formatted = num % 1 === 0 ? num.toLocaleString() : num.toFixed(2);
-    return formatted;
+    return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
   };
 
-  const formatPrice = (price: string) => {
-    console.log('formatPrice input:', price);
-    if (!price || isNaN(Number(price))) {
-      console.log('Invalid price, returning 0.00');
-      return "0.00";
-    }
-    const numPrice = parseFloat(price);
-    console.log('Parsed price:', numPrice);
-    // Format with thousands separator and 2 decimal places
-    const formatted = new Intl.NumberFormat('en-US', {
+  const formatPrice = (price: bigint) => {
+    return Number(formatUnits(price, 6)).toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(numPrice);
-    console.log('Formatted price:', formatted);
-    return formatted;
+    });
   };
 
   useEffect(() => {
     const fetchTokenSupply = async () => {
       if (!property.token_address) {
-        console.log('No token address provided');
         setIsLoadingProgress(false);
         return;
       }
-
-      console.log('Fetching token data for address:', property.token_address);
 
       try {
         const propertyToken = await getPropertyTokenContract(property.token_address);
 
         // Get total supply
         const totalSupply = await propertyToken.totalSupply();
-        const total = Number(formatUnits(totalSupply, 18));
-        console.log('Total supply:', total);
+        console.log('Total supply:', totalSupply);
 
         // Get property details
-        try {
-          console.log('Fetching property details...');
-          const details = await propertyToken.propertyDetails();
-          console.log('Raw property details:', details);
-          
-          // Set fixed price of 56 EURC
-          const value = 56;
-          const priceInEurc = parseUnits((value / 10000).toString(), 6);
-          
-          setOnChainDetails({
-            title: details.title || '',
-            description: details.description || '',
-            location: details.location || '',
-            imageUrl: details.imageUrl || '',
-            price: priceInEurc,
-            isActive: details.isActive || false,
-          });
+        const details = await propertyToken.propertyDetails();
+        console.log('Property details:', details);
 
-          // Update token stats with fixed price
-          setTokenStats({
-            total: total.toString(),
-            remaining: total.toString(),
-            sold: "0",
-            holders: 0,
-            price: (value / 10000).toString(),
-            name: "",
-            symbol: ""
-          });
-        } catch (error) {
-          console.error('Error getting property details:', error);
-          setTokenStats({
-            total: "0",
-            remaining: "0",
-            sold: "0",
-            holders: 0,
-            price: "0",
-            name: "",
-            symbol: ""
-          });
-        }
+        // Set fixed price of 56 EURC
+        const priceInEurc = parseUnits("56", 6);
 
-        // Set initial progress
-        setTokenProgress(0);
-        setIsLoadingProgress(false);
-
-      } catch (error) {
-        console.error('Error in fetchTokenSupply:', error);
-        // Set default values on error
-        setTokenStats({
-          total: "0",
-          remaining: "0",
-          sold: "0",
-          holders: 0,
-          price: "0",
-          name: "",
-          symbol: ""
+        setOnChainDetails({
+          title: details.title,
+          description: details.description,
+          location: details.location,
+          imageUrl: details.imageUrl || PLACEHOLDER_IMAGE,
+          price: priceInEurc,
+          isActive: details.isApproved
         });
+
+        // Calculate token stats
+        const total = Number(formatUnits(totalSupply, 18));
+        const sold = total * (Math.random() * 0.3); // Simulated sold amount for demo
+        const remaining = total - sold;
+
+        setTokenStats(prev => ({
+          ...prev,
+          total: total.toString(),
+          remaining: remaining.toString(),
+          sold: sold.toString(),
+          holders: Math.floor(Math.random() * 50), // Simulated holders for demo
+          price: "56",
+          name: property.token_name || '',
+          symbol: property.token_symbol || ''
+        }));
+
+        // Calculate progress
+        const progress = (sold / total) * 100;
+        setTokenProgress(progress);
+      } catch (error) {
+        console.error('Error fetching token data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch token data",
+          variant: "destructive"
+        });
+      } finally {
         setIsLoadingProgress(false);
       }
     };
 
     fetchTokenSupply();
-  }, [property.token_address]);
+  }, [property.token_address, toast, property.token_name, property.token_symbol]);
 
-  const getStatusColor = (status: PropertyStatus) => {
+  const getStatusBadgeProps = (status: string) => {
     switch (status) {
       case 'funding':
-        return 'bg-purple-500 hover:bg-purple-600';
+        return {
+          variant: "secondary" as const,
+          className: "bg-blue-500 text-white"
+        };
       case 'staking':
-        return 'bg-blue-500 hover:bg-blue-600';
+        return {
+          variant: "secondary" as const,
+          className: "bg-green-500 text-white"
+        };
+      case 'closed':
+        return {
+          variant: "secondary" as const,
+          className: "bg-gray-500 text-white"
+        };
       default:
-        return 'bg-gray-500 hover:bg-gray-600';
+        return {
+          variant: "secondary" as const,
+          className: "bg-gray-500 text-white"
+        };
     }
   };
 
@@ -224,90 +204,86 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
   };
 
   return (
-    <div className="bg-card rounded-lg shadow-md overflow-hidden border">
-      <div className="aspect-video relative">
-        <Image
-          src={onChainDetails.imageUrl || property.image_url || PLACEHOLDER_IMAGE}
-          alt={onChainDetails.title || property.title || 'Property'}
-          fill
-          className="object-cover"
-          priority
-          onError={(e) => {
-            const img = e.target as HTMLImageElement;
-            img.src = PLACEHOLDER_IMAGE;
-          }}
-        />
-      </div>
-      <div className="p-4">
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="text-lg font-semibold">{onChainDetails.title || property.title}</h3>
-          <Badge className={getStatusColor(property.status as PropertyStatus)}>
-            {property.status === 'staking' ? 'Staking' : 'Funding'}
+    <Card className="w-full max-w-md mx-auto">
+      <CardHeader className="relative">
+        <div className="relative w-full h-48 mb-4 rounded-t-lg overflow-hidden">
+          <Image
+            src={onChainDetails.imageUrl || PLACEHOLDER_IMAGE}
+            alt={onChainDetails.title || property.title}
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+        <div className="absolute top-2 right-2">
+          <Badge {...getStatusBadgeProps(property.status)}>
+            {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
           </Badge>
         </div>
-        <p className="text-muted-foreground text-sm mb-2">{onChainDetails.location || property.location}</p>
-        <div className="flex items-baseline gap-1 mb-4">
-          <span className="font-medium text-lg">€{formatPrice(tokenStats.price)}</span>
-          <span className="text-muted-foreground text-sm">/token</span>
-          <span className="text-xs text-muted-foreground ml-1">
-            (Total: €{new Intl.NumberFormat('en-US', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2
-            }).format(Number(tokenStats.price) * Number(tokenStats.total))})
-          </span>
-        </div>
-        
-        {property.token_address && (
-          <div className="mb-4">
-            <div className="flex justify-between text-sm mb-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2 cursor-help">
-                      <span className="text-muted-foreground">Token Sales Progress</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Total Supply: {formatTokenAmount(tokenStats.total)} tokens</p>
-                    <p>Remaining: {formatTokenAmount(tokenStats.remaining)} tokens</p>
-                    <p>Holders: {tokenStats.holders}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <span className="text-muted-foreground">
-                {tokenProgress}%
-              </span>
-            </div>
-            <Progress
-              value={tokenProgress}
-              className={cn("h-2", getProgressColor(tokenProgress))}
-            />
-          </div>
-        )}
+        <CardTitle className="text-xl font-bold">
+          {onChainDetails.title || property.title}
+        </CardTitle>
+        <CardDescription className="text-sm text-gray-500">
+          {onChainDetails.location || property.location}
+        </CardDescription>
+      </CardHeader>
 
-        <div className="flex flex-col gap-2">
-          <Link href={`/property/${property.token_address}`} onClick={handleViewDetails}>
-            <Button className="w-full" variant="outline">
+      <CardContent className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-2xl font-bold">
+              €56 <span className="text-sm font-normal">/token</span>
+            </p>
+            <p className="text-sm text-gray-500">
+              (Total: €{(56 * Number(tokenStats.total)).toLocaleString()})
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Token Sales Progress</span>
+            <span>{tokenProgress.toFixed(1)}%</span>
+          </div>
+          <Progress value={tokenProgress} className={cn("h-2", getProgressColor(tokenProgress))} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-gray-500">Available</p>
+            <p className="font-medium">{formatTokenAmount(tokenStats.remaining)} tokens</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Total Supply</p>
+            <p className="font-medium">{formatTokenAmount(tokenStats.total)} tokens</p>
+          </div>
+        </div>
+
+        <div className="flex justify-between gap-2">
+          <Button
+            className="flex-1"
+            variant="outline"
+            asChild
+            onClick={handleViewDetails}
+          >
+            <Link href={`/property/${property.token_address}`}>
               View Details
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           {property.status === 'funding' && (
-            <Link href={`/property/purchase/${property.token_address}`}>
-              <Button className="w-full">
-                Buy Tokens
-              </Button>
-            </Link>
-          )}
-          {property.status === 'staking' && (
-            <Link href={`/property/stake/${property.token_address}`}>
-              <Button className="w-full">
+            <Button
+              className="flex-1"
+              variant="default"
+              asChild
+            >
+              <Link href={`/property/stake/${property.token_address}`}>
                 Stake Tokens
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           )}
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
