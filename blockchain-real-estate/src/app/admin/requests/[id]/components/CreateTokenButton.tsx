@@ -4,11 +4,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { z } from "zod";
-import { getPropertyFactoryContract, getWhitelistContract, getSigner } from "@/lib/ethereum";
-import { useWalletClient } from "wagmi";
+import { getPropertyFactoryContract, getWhitelistContract, getSigner, getEURCContract } from "@/lib/ethereum";
+import { useAccount } from "wagmi";
 import { propertyFormSchema } from "./PropertyDetailsFields";
 import { UseFormReturn } from "react-hook-form";
 import { parseUnits, formatUnits } from "viem";
+import { Loader2 } from "lucide-react";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import type { Database } from "@/lib/supabase/types";
 
 const formSchema = propertyFormSchema.extend({
   location: z.string().min(2).max(256, {
@@ -29,7 +32,8 @@ interface CreateTokenButtonProps {
 export function CreateTokenButton({ propertyId, form }: CreateTokenButtonProps) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { address, isConnected } = useWalletClient();
+  const { address, isConnected } = useAccount();
+  const supabase = createClientComponentClient<Database>();
 
   const validateInput = (input: string, maxLength: number, fieldName: string) => {
     if (!input || input.trim().length === 0) {
@@ -293,7 +297,7 @@ export function CreateTokenButton({ propertyId, form }: CreateTokenButtonProps) 
       variant="outline"
     >
       {loading && (
-        <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       )}
       Create Token
     </Button>
