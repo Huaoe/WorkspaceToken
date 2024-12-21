@@ -257,7 +257,7 @@ export default function ReviewRequest({
                         form={form}
                       />
                     )}
-                    {isConnected && form.getValues("status") === "onchain" && (
+                    {isConnected && (form.getValues("status") === "onchain" || form.getValues("status") === "funding") && (
                       <StakingInitButton
                         propertyId={id}
                         form={form}

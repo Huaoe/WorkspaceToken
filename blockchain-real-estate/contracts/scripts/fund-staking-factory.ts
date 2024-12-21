@@ -4,7 +4,7 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: "../.env.local" });
 
 async function main() {
-  const stakingFactoryAddress = process.env.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS;
+  const stakingFactoryAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS;
   const eurcTokenAddress = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS;
 
   if (!stakingFactoryAddress || !eurcTokenAddress) {

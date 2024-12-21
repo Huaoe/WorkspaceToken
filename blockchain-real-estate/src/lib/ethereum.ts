@@ -1,8 +1,8 @@
 'use client';
 
 import { Contract, Signer, ethers } from 'ethers';
-import { propertyFactoryABI, propertyTokenABI, eurcABI, whitelistABI } from './contracts';
-import { PROPERTY_FACTORY_ADDRESS, WHITELIST_ADDRESS, EURC_TOKEN_ADDRESS } from './contracts';
+import { propertyFactoryABI, propertyTokenABI, eurcABI, whitelistABI, stakingFactoryABI } from './contracts';
+import { PROPERTY_FACTORY_ADDRESS, WHITELIST_ADDRESS, EURC_TOKEN_ADDRESS, STAKING_FACTORY_ADDRESS } from './contracts';
 
 declare global {
   interface Window {
@@ -101,28 +101,11 @@ export const getWhitelistContract = async (withSigner = false) => {
   return getContract(WHITELIST_ADDRESS, whitelistABI, withSigner);
 };
 
-export const getStakingFactoryContract = async (needsSigner = false) => {
-  try {
-    const factoryAddress = process.env.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS;
-    if (!factoryAddress) {
-      throw new Error('StakingFactory address not found in environment variables');
-    }
-
-    const factoryABI = [
-      'function rewardsToken() view returns (address)',
-      'function propertyToStaking(address) view returns (address)',
-      'function stakingContracts(uint256) view returns (address)',
-      'function owner() view returns (address)',
-      'function createStakingRewards(address stakingToken, uint256 duration, uint256 rewardRate) returns (address)',
-      'event StakingRewardsCreated(address indexed stakingToken, address indexed stakingRewards)',
-      'event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)'
-    ];
-
-    return getContract(factoryAddress, factoryABI, needsSigner);
-  } catch (error) {
-    console.error('Error getting staking factory contract:', error);
-    throw error;
+export const getStakingFactoryContract = async (withSigner = false): Promise<StakingFactory> => {
+  if (!STAKING_FACTORY_ADDRESS) {
+    throw new Error('Staking factory address not found');
   }
+  return (await getContract(STAKING_FACTORY_ADDRESS, stakingFactoryABI, withSigner)) as StakingFactory;
 };
 
 export const connectWallet = async () => {

@@ -68,7 +68,10 @@ export default function PurchaseProperty() {
 
     try {
       const balance = await eurcContract.balanceOf(address);
-      setEurcBalance(formatUnits(balance, 6)); // EURC uses 6 decimals
+      // For display purposes, we want to show 10000 EURC
+      // The actual balance has 6 decimals, so we divide by 1000
+      const displayBalance = Number(formatUnits(balance, 6)) / 1000;
+      setEurcBalance(displayBalance.toString());
     } catch (error) {
       console.error('Error fetching EURC balance:', error);
     }
@@ -76,7 +79,7 @@ export default function PurchaseProperty() {
 
   const formattedEURCBalance = useMemo(() => {
     if (!eurcBalance) return '0';
-    // Parse with 6 decimals and format with commas
+    // Format with commas and no decimals
     return Number(eurcBalance).toLocaleString(undefined, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
