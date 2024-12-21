@@ -183,8 +183,35 @@ export default function PurchaseProperty() {
       console.log('Got signer');
 
       // Get fresh contract instances with signer
-      const propertyTokenWithSigner = await getPropertyTokenContract(tokenAddress, true);
+      const propertyTokenWithSigner = await getPropertyTokenContract(tokenAddress as string, true);
+      const eurcWithSigner = await getEURCContract(EURC_TOKEN_ADDRESS, true);
       console.log('Got property token contract with signer');
+
+      // Calculate the total cost in EURC (with proper decimals)
+      const amount = parseFloat(tokenAmount);
+      const pricePerToken = parseUnits('56', 6); // 56 EURC with 6 decimals
+      const totalCost = pricePerToken * BigInt(amount);
+
+      // Get the current nonce
+      const provider = await getProvider();
+      const currentNonce = await provider.getTransactionCount(address);
+      console.log('Current nonce:', currentNonce);
+
+      // First approve EURC spending with current nonce
+      console.log('Approving EURC spending...');
+      const approveTx = await eurcWithSigner.approve(tokenAddress, totalCost, {
+        nonce: currentNonce
+      });
+      await approveTx.wait();
+      console.log('EURC spending approved');
+
+      // Then purchase tokens with incremented nonce
+      console.log('Purchasing tokens...');
+      const purchaseTx = await propertyTokenWithSigner.purchaseTokens(parseUnits(tokenAmount, 18), {
+        nonce: currentNonce + 1
+      });
+      await purchaseTx.wait();
+      console.log('Tokens purchased successfully');
 
       toast({
         title: 'Success',
@@ -194,6 +221,10 @@ export default function PurchaseProperty() {
       // Refresh balances
       await fetchEURCBalance();
       await fetchOnChainDetails();
+      
+      // Reset amount inputs
+      setTokenAmount('');
+      setEurcAmount('');
     } catch (error: any) {
       console.error('Error purchasing tokens:', error);
       

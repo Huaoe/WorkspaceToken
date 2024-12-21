@@ -12,7 +12,7 @@ import { InitializeStaking } from "./components/InitializeStaking";
 import { Spinner } from "@/components/ui/spinner";
 import TokenMetrics from '@/components/staking/token-metrics';
 import { useWalletEvents } from "@/app/wallet-events-provider";
-import { getPropertyTokenContract, getStakingFactoryContract, getStakingRewardsContract } from "@/lib/ethereum";
+import { getPropertyTokenContract, getStakingContract, getStakingFactoryContract } from "@/lib/ethereum";
 
 export default function StakeProperty() {
   const params = useParams();
@@ -40,8 +40,8 @@ export default function StakeProperty() {
   useEffect(() => {
     const getStakingAddress = async () => {
       try {
-        const factory = getStakingFactoryContract();
-        const address = await factory.getStakingRewards(tokenAddress);
+        const factory = await getStakingFactoryContract();
+        const address = await factory.propertyToStaking(tokenAddress);
         console.log("Found staking contract:", address);
         setStakingAddress(address);
       } catch (error) {
@@ -64,8 +64,8 @@ export default function StakeProperty() {
       if (!isConnected || !address || !stakingAddress) return;
 
       try {
-        const propertyToken = getPropertyTokenContract(tokenAddress);
-        const stakingContract = getStakingRewardsContract(stakingAddress);
+        const propertyToken = await getPropertyTokenContract(tokenAddress);
+        const stakingContract = await getStakingContract(stakingAddress);
 
         const [balance, staked, earned, totalStaked, rewardRate, duration] = await Promise.all([
           propertyToken.balanceOf(address),
@@ -95,42 +95,28 @@ export default function StakeProperty() {
     return () => clearInterval(interval);
   }, [address, isConnected, stakingAddress, tokenAddress]);
 
-  // Check initialization
+  // Check if staking contract is initialized
   useEffect(() => {
     const checkInitialization = async () => {
-      if (!stakingAddress || stakingAddress === '0x0000000000000000000000000000000000000000') {
-        console.log("No valid staking address found");
-        setIsInitialized(false);
-        setIsLoading(false);
-        return;
-      }
-      
+      if (!stakingAddress || !isConnected) return;
+
       try {
-        console.log("Checking staking contract at:", stakingAddress);
-        const stakingContract = getStakingRewardsContract(stakingAddress);
-        const [rewardRate, duration, updatedAt] = await Promise.all([
+        const stakingContract = await getStakingContract(stakingAddress);
+        const [rewardRate, duration] = await Promise.all([
           stakingContract.rewardRate(),
-          stakingContract.duration(),
-          stakingContract.updatedAt()
+          stakingContract.duration()
         ]);
 
-        console.log("Staking contract state:", {
-          rewardRate: rewardRate.toString(),
-          duration: duration.toString(),
-          updatedAt: updatedAt.toString(),
-        });
-
-        setIsInitialized(rewardRate !== BigInt(0) && duration !== BigInt(0) && updatedAt !== BigInt(0));
+        setIsInitialized(rewardRate > BigInt(0) && duration > BigInt(0));
+        setIsLoading(false);
       } catch (error) {
-        console.error("Error checking staking initialization:", error);
-        setIsInitialized(false);
-      } finally {
+        console.error("Error checking initialization:", error);
         setIsLoading(false);
       }
     };
 
     checkInitialization();
-  }, [stakingAddress]);
+  }, [stakingAddress, isConnected]);
 
   useEffect(() => {
     setMounted(true);
@@ -158,8 +144,8 @@ export default function StakeProperty() {
         amountToStake: amountToStake.toString(),
       });
 
-      const propertyToken = getPropertyTokenContract(tokenAddress);
-      const stakingContract = getStakingRewardsContract(stakingAddress!);
+      const propertyToken = await getPropertyTokenContract(tokenAddress);
+      const stakingContract = await getStakingContract(stakingAddress);
 
       // Check token balance
       const balance = await propertyToken.balanceOf(address);
@@ -195,7 +181,7 @@ export default function StakeProperty() {
       });
 
       // Check rewards token balance
-      const eurcToken = getPropertyTokenContract(rewardsToken);
+      const eurcToken = await getPropertyTokenContract(rewardsToken);
       const rewardsBalance = await eurcToken.balanceOf(stakingAddress);
 
       console.log("\nRewards token balance:", {
@@ -272,7 +258,7 @@ export default function StakeProperty() {
       setLoading(true);
       const amountToWithdraw = parseUnits(amount, 18);
 
-      const stakingContract = getStakingRewardsContract(stakingAddress!);
+      const stakingContract = await getStakingContract(stakingAddress);
       const tx = await stakingContract.withdraw(amountToWithdraw);
       const receipt = await tx.wait();
 
@@ -302,7 +288,7 @@ export default function StakeProperty() {
 
     try {
       setLoading(true);
-      const stakingContract = getStakingRewardsContract(stakingAddress!);
+      const stakingContract = await getStakingContract(stakingAddress);
       const tx = await stakingContract.getReward();
       const receipt = await tx.wait();
 
@@ -339,10 +325,10 @@ export default function StakeProperty() {
 
   if (!mounted) return null;
 
-  if (isLoading || !stakingAddress) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Spinner className="h-8 w-8" />
+      <div className="flex justify-center items-center min-h-[200px]">
+        <Spinner />
       </div>
     );
   }

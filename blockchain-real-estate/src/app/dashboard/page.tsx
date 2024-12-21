@@ -63,7 +63,7 @@ export default function Dashboard() {
 
           try {
             // Get token balance
-            const propertyToken = getPropertyTokenContract(property.token_address);
+            const propertyToken = await getPropertyTokenContract(property.token_address, true);
             const balance = await propertyToken.balanceOf(address);
 
             // If user has any tokens, get staking info

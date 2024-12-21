@@ -33,29 +33,46 @@ export const propertyFactoryABI = [
 ];
 
 export const propertyTokenABI = [
-  // View functions
+  // ERC20 functions
   'function name() view returns (string)',
   'function symbol() view returns (string)',
   'function decimals() view returns (uint8)',
   'function totalSupply() view returns (uint256)',
-  'function balanceOf(address owner) view returns (uint256)',
-  'function eurcToken() view returns (address)',
+  'function balanceOf(address account) view returns (uint256)',
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function transferFrom(address from, address to, uint256 amount) returns (bool)',
+  
+  // Property specific functions
+  {
+    name: 'propertyDetails',
+    type: 'function',
+    inputs: [],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'title', type: 'string' },
+          { name: 'description', type: 'string' },
+          { name: 'location', type: 'string' },
+          { name: 'imageUrl', type: 'string' },
+          { name: 'price', type: 'uint256' },
+          { name: 'isActive', type: 'bool' }
+        ]
+      }
+    ],
+    stateMutability: 'view'
+  },
   'function owner() view returns (address)',
-  'function isApproved() view returns (bool)',
-  'function propertyDetails() view returns (tuple(string title, string description, string location, string imageUrl, uint256 price, bool isActive))',
-  'function purchaseTokens(uint256 _amount)',
-
-  // State-changing functions
-  'function transfer(address to, uint256 value) returns (bool)',
-  'function transferFrom(address from, address to, uint256 value) returns (bool)',
-  'function approve(address spender, uint256 value) returns (bool)',
-  'function setApproved(bool _approved)',
-
+  'function isActive() view returns (bool)',
+  'function price() view returns (uint256)',
+  'function purchaseTokens(uint256 amount) returns (bool)',
+  
   // Events
   'event Transfer(address indexed from, address indexed to, uint256 value)',
-  'event Approval(address indexed owner, address indexed spender, uint256 value)',
-  'event PropertyApproved(address indexed propertyToken)'
-];
+  'event Approval(address indexed owner, address indexed spender, uint256 value)'
+] as const;
 
 export const eurcABI = [
   'function name() view returns (string)',
@@ -69,15 +86,15 @@ export const eurcABI = [
   'function allowance(address owner, address spender) view returns (uint256)',
   'event Transfer(address indexed from, address indexed to, uint256 value)',
   'event Approval(address indexed owner, address indexed spender, uint256 value)'
-];
+] as const;
 
 export const whitelistABI = [
-  'function isWhitelisted(address) view returns (bool)',
-  'function addWhitelisted(address)',
-  'function removeWhitelisted(address)',
+  'function isWhitelisted(address account) view returns (bool)',
+  'function addWhitelisted(address account)',
+  'function removeWhitelisted(address account)',
   'event Whitelisted(address indexed account)',
   'event RemovedWhitelist(address indexed account)'
-];
+] as const;
 
 export const stakingFactoryABI = [
   // View functions
@@ -100,6 +117,32 @@ export const stakingFactoryABI = [
 ];
 
 // Contract Interfaces
+export interface PropertyDetails {
+  title: string;
+  description: string;
+  location: string;
+  imageUrl: string;
+  price: bigint;
+  isActive: boolean;
+}
+
+export interface PropertyToken extends BaseContract {
+  name(): Promise<string>;
+  symbol(): Promise<string>;
+  decimals(): Promise<number>;
+  totalSupply(): Promise<bigint>;
+  balanceOf(account: string): Promise<bigint>;
+  transfer(to: string, amount: bigint): Promise<boolean>;
+  allowance(owner: string, spender: string): Promise<bigint>;
+  approve(spender: string, amount: bigint): Promise<boolean>;
+  transferFrom(from: string, to: string, amount: bigint): Promise<boolean>;
+  owner(): Promise<string>;
+  isActive(): Promise<boolean>;
+  price(): Promise<bigint>;
+  propertyDetails(): Promise<PropertyDetails>;
+  purchaseTokens(amount: bigint): Promise<boolean>;
+}
+
 export interface StakingFactory extends Contract {
   createStakingRewards(
     stakingToken: string,

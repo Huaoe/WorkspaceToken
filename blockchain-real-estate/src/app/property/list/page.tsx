@@ -105,17 +105,17 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
         const propertyToken = await getPropertyTokenContract(property.token_address);
 
         // Fetch all token data in parallel
-        const [totalSupply, details, name, symbol] = await Promise.all([
+        const [totalSupply, propertyDetails, name, symbol] = await Promise.all([
           propertyToken.totalSupply(),
-          propertyToken.propertyDetails,
+          propertyToken.propertyDetails(),
           propertyToken.name(),
           propertyToken.symbol()
         ]);
 
-        console.log('Property details:', details);
+        console.log('Property details:', propertyDetails);
         
-        // Safely extract price from the tuple returned by getPropertyDetails
-        const price = details.price || 0n;
+        // Safely extract price, providing a default if undefined
+        const price = propertyDetails[4] || 0n;
           
         console.log('Price from propertyDetails:', price.toString());
 

@@ -101,11 +101,12 @@ export const getWhitelistContract = async (withSigner = false) => {
   return getContract(WHITELIST_ADDRESS, whitelistABI, withSigner);
 };
 
-export const getStakingFactoryContract = async (withSigner = false): Promise<StakingFactory> => {
+export const getStakingFactoryContract = async (withSigner = false) => {
   if (!STAKING_FACTORY_ADDRESS) {
-    throw new Error('Staking factory address not found');
+    throw new Error('Staking factory address not configured');
   }
-  return (await getContract(STAKING_FACTORY_ADDRESS, stakingFactoryABI, withSigner)) as StakingFactory;
+  console.log('Getting staking factory contract at address:', STAKING_FACTORY_ADDRESS);
+  return getContract(STAKING_FACTORY_ADDRESS, stakingFactoryABI, withSigner);
 };
 
 export const connectWallet = async () => {

@@ -48,8 +48,11 @@ export default function PropertyDetailsPage() {
           const tokenContract = await getPropertyTokenContract(tokenAddress as string, true);
           console.log('Token contract initialized:', tokenContract);
 
-          // Get contract functions
-          const functions = Object.keys(tokenContract.interface.functions);
+          // Get contract functions from ABI
+          const abi = tokenContract.abi;
+          const functions = abi
+            .filter((item: any) => item.type === 'function')
+            .map((item: any) => item.name);
           console.log('Available contract functions:', functions);
 
           // Get balance

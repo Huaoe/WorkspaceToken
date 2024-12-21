@@ -3,11 +3,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { ReloadIcon } from "@radix-ui/react-icons";
-import { useWalletEvents } from "@/app/wallet-events-provider";
-import { getPropertyFactoryContract, getSigner, getWhitelistContract, getEURCContract } from "@/lib/ethereum";
-import { supabase } from "@/lib/supabase/client";
 import { z } from "zod";
+import { getPropertyFactoryContract, getWhitelistContract, getSigner } from "@/lib/ethereum";
+import { useWalletClient } from "wagmi";
 import { propertyFormSchema } from "./PropertyDetailsFields";
 import { UseFormReturn } from "react-hook-form";
 import { parseUnits, formatUnits } from "viem";
@@ -31,7 +29,7 @@ interface CreateTokenButtonProps {
 export function CreateTokenButton({ propertyId, form }: CreateTokenButtonProps) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { address, isConnected } = useWalletEvents();
+  const { address, isConnected } = useWalletClient();
 
   const validateInput = (input: string, maxLength: number, fieldName: string) => {
     if (!input || input.trim().length === 0) {
