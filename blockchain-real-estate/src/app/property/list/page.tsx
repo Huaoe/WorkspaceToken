@@ -19,7 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useKYCStatus } from '@/hooks/useKYCStatus';
 import { useRouter } from 'next/navigation';
 import { Progress } from "@/components/ui/progress"
-import { formatUnits, parseAbiItem } from "ethers"
+import { formatUnits, parseAbiItem, parseUnits } from "ethers"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import Image from "next/image";
@@ -29,6 +29,15 @@ import { getPropertyFactoryContract, getPropertyTokenContract } from '@/lib/ethe
 interface PropertyCardProps {
   property: PropertyRequest;
   showAdminControls: boolean;
+}
+
+interface PropertyDetails {
+  title: string;
+  description: string;
+  location: string;
+  imageUrl: string;
+  price: bigint;
+  isActive: boolean;
 }
 
 function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
@@ -54,6 +63,14 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
     price: "0",
     name: "",
     symbol: ""
+  });
+  const [onChainDetails, setOnChainDetails] = useState<PropertyDetails>({
+    title: '',
+    description: '',
+    location: '',
+    imageUrl: '',
+    price: BigInt(0),
+    isActive: false,
   });
 
   const getProgressColor = (progress: number) => {
@@ -104,67 +121,60 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
       try {
         const propertyToken = await getPropertyTokenContract(property.token_address);
 
-        // Fetch all token data in parallel
-        const [totalSupply, propertyDetails, name, symbol] = await Promise.all([
-          propertyToken.totalSupply(),
-          propertyToken.propertyDetails(),
-          propertyToken.name(),
-          propertyToken.symbol()
-        ]);
-
-        console.log('Property details:', propertyDetails);
-        
-        // Safely extract price, providing a default if undefined
-        const price = propertyDetails[4] || 0n;
-          
-        console.log('Price from propertyDetails:', price.toString());
-
-        // Calculate token metrics
+        // Get total supply
+        const totalSupply = await propertyToken.totalSupply();
         const total = Number(formatUnits(totalSupply, 18));
-        console.log('Formatted total supply:', total);
+        console.log('Total supply:', total);
 
-        // Price is in EURC (6 decimals)
-        const rawPrice = price;
-        console.log('Raw price from contract:', rawPrice.toString());
-        
-        const priceInEurc = formatUnits(rawPrice, 6);
-        console.log('Formatted price in EURC:', priceInEurc);
-
-        // Update token stats with properly formatted price
-        setTokenStats({
-          total: total.toString(),
-          remaining: total.toString(),
-          sold: "0",
-          holders: 0,
-          price: priceInEurc,
-          name: name || "",
-          symbol: symbol || ""
-        });
-
-        // Fetch token holders
+        // Get property details
         try {
-          const filter = propertyToken.filters.Transfer();
-          const logs = await propertyToken.queryFilter(filter);
-          const uniqueAddresses = new Set<string>();
+          console.log('Fetching property details...');
+          const details = await propertyToken.propertyDetails();
+          console.log('Raw property details:', details);
           
-          logs.forEach(log => {
-            if (log.args?.from) uniqueAddresses.add(log.args.from);
-            if (log.args?.to) uniqueAddresses.add(log.args.to);
+          // Set fixed price of 56 EURC
+          const value = 56;
+          const priceInEurc = parseUnits((value / 10000).toString(), 6);
+          
+          setOnChainDetails({
+            title: details.title || '',
+            description: details.description || '',
+            location: details.location || '',
+            imageUrl: details.imageUrl || '',
+            price: priceInEurc,
+            isActive: details.isActive || false,
           });
 
-          console.log('Number of unique holders:', uniqueAddresses.size);
-
-          // Update token stats with holder count
-          setTokenStats(prev => ({
-            ...prev,
-            holders: uniqueAddresses.size
-          }));
+          // Update token stats with fixed price
+          setTokenStats({
+            total: total.toString(),
+            remaining: total.toString(),
+            sold: "0",
+            holders: 0,
+            price: (value / 10000).toString(),
+            name: "",
+            symbol: ""
+          });
         } catch (error) {
-          console.error('Error fetching token holders:', error);
+          console.error('Error getting property details:', error);
+          setTokenStats({
+            total: "0",
+            remaining: "0",
+            sold: "0",
+            holders: 0,
+            price: "0",
+            name: "",
+            symbol: ""
+          });
         }
+
+        // Set initial progress
+        setTokenProgress(0);
+        setIsLoadingProgress(false);
 
       } catch (error) {
         console.error('Error in fetchTokenSupply:', error);
+        // Set default values on error
         setTokenStats({
           total: "0",
           remaining: "0",
@@ -174,9 +184,8 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
           name: "",
           symbol: ""
         });
+        setIsLoadingProgress(false);
       }
-
-      setIsLoadingProgress(false);
     };
 
     fetchTokenSupply();
@@ -218,8 +227,8 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
     <div className="bg-card rounded-lg shadow-md overflow-hidden border">
       <div className="aspect-video relative">
         <Image
-          src={property.image_url || PLACEHOLDER_IMAGE}
-          alt={property.title || 'Property'}
+          src={onChainDetails.imageUrl || property.image_url || PLACEHOLDER_IMAGE}
+          alt={onChainDetails.title || property.title || 'Property'}
           fill
           className="object-cover"
           priority
@@ -231,17 +240,20 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
       </div>
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
-          <h3 className="text-lg font-semibold">{property.title}</h3>
+          <h3 className="text-lg font-semibold">{onChainDetails.title || property.title}</h3>
           <Badge className={getStatusColor(property.status as PropertyStatus)}>
             {property.status === 'staking' ? 'Staking' : 'Funding'}
           </Badge>
         </div>
-        <p className="text-muted-foreground text-sm mb-2">{property.location}</p>
+        <p className="text-muted-foreground text-sm mb-2">{onChainDetails.location || property.location}</p>
         <div className="flex items-baseline gap-1 mb-4">
-          <span className="font-medium">€{formatPrice(tokenStats.price)}</span>
-          <span className="text-muted-foreground">/token</span>
+          <span className="font-medium text-lg">€{formatPrice(tokenStats.price)}</span>
+          <span className="text-muted-foreground text-sm">/token</span>
           <span className="text-xs text-muted-foreground ml-1">
-            (Total: €{(Number(tokenStats.price) * Number(tokenStats.total)).toLocaleString()})
+            (Total: €{new Intl.NumberFormat('en-US', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            }).format(Number(tokenStats.price) * Number(tokenStats.total))})
           </span>
         </div>
         

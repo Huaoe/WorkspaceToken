@@ -1,7 +1,7 @@
 'use client';
 
 import { Contract, Signer, ethers } from 'ethers';
-import { propertyFactoryABI, propertyTokenABI, eurcABI, whitelistABI, stakingFactoryABI } from './contracts';
+import { propertyFactoryABI, propertyTokenABI, eurcABI, whitelistABI, stakingFactoryABI, stakingABI } from './contracts';
 import { PROPERTY_FACTORY_ADDRESS, WHITELIST_ADDRESS, EURC_TOKEN_ADDRESS, STAKING_FACTORY_ADDRESS } from './contracts';
 
 declare global {
@@ -107,6 +107,10 @@ export const getStakingFactoryContract = async (withSigner = false) => {
   }
   console.log('Getting staking factory contract at address:', STAKING_FACTORY_ADDRESS);
   return getContract(STAKING_FACTORY_ADDRESS, stakingFactoryABI, withSigner);
+};
+
+export const getStakingContract = async (address: string, withSigner = false) => {
+  return getContract(address, stakingABI, withSigner);
 };
 
 export const connectWallet = async () => {

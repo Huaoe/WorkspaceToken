@@ -51,11 +51,11 @@ export default function PurchaseProperty() {
 
   const handleTokenAmountChange = (value: string) => {
     setTokenAmount(value);
-    if (value) {
+    if (value && onChainDetails.price) {
       try {
-        // Simple calculation: amount * 56 EURC
         const amount = Number(value);
-        const totalCost = amount * 56;
+        const pricePerToken = Number(formatUnits(onChainDetails.price, 6));
+        const totalCost = amount * pricePerToken;
         setEurcAmount(totalCost.toString());
       } catch (error) {
         console.error('Error calculating EURC amount:', error);
@@ -169,20 +169,16 @@ export default function PurchaseProperty() {
       // Get property details
       try {
         console.log('Fetching property details...');
-        const details = await propertyTokenContract.getPropertyDetails();
+        const details = await propertyTokenContract.propertyDetails();
         console.log('Raw property details:', details);
-        
-        // Set fixed price of 56 EURC
-        const value = 56;
-        const priceInEurc = parseUnits((value / 10000).toString(), 6);
         
         setOnChainDetails({
           title: details.title || '',
           description: details.description || '',
           location: details.location || '',
           imageUrl: details.imageUrl || '',
-          price: priceInEurc,
-          isActive: details.isApproved || false,
+          price: BigInt(details.price.toString()),
+          isActive: details.isActive,
         });
       } catch (error) {
         console.error('Error getting property details:', error);
@@ -222,8 +218,7 @@ export default function PurchaseProperty() {
 
       // Calculate the total cost in EURC (with proper decimals)
       const amount = parseFloat(tokenAmount);
-      const pricePerToken = parseUnits('56', 6); // 56 EURC with 6 decimals
-      const totalCost = pricePerToken * BigInt(amount);
+      const totalCost = onChainDetails.price * BigInt(amount);
 
       // Get the current nonce
       const provider = await getProvider();
@@ -324,8 +319,8 @@ export default function PurchaseProperty() {
         {/* Left Column - Property Image */}
         <div className="aspect-square relative rounded-lg overflow-hidden border">
           <Image
-            src={onChainDetails.imageUrl || '/placeholder.jpg'}
-            alt={onChainDetails.title}
+            src={propertyDetails?.imageUrl || '/placeholder.jpg'}
+            alt={propertyDetails?.title}
             fill
             className="object-cover"
           />
@@ -353,7 +348,7 @@ export default function PurchaseProperty() {
 
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Price per token</span>
-                <span>56 {eurcSymbol}</span>
+                <span>{Number(formatUnits(onChainDetails.price, 6)).toFixed(2)} {eurcSymbol}</span>
               </div>
 
               <div className="space-y-2">
@@ -399,13 +394,13 @@ export default function PurchaseProperty() {
             
             <div className="space-y-4">
               <div>
-                <h3 className="font-medium">{onChainDetails.title}</h3>
-                <p className="text-muted-foreground mt-1">{onChainDetails.description}</p>
+                <h3 className="font-medium">{propertyDetails?.title}</h3>
+                <p className="text-muted-foreground mt-1">{propertyDetails?.description}</p>
               </div>
 
               <div className="flex items-start gap-2">
                 <MapPinIcon className="w-5 h-5 mt-0.5 text-muted-foreground flex-shrink-0" />
-                <p className="text-sm text-muted-foreground">{onChainDetails.location}</p>
+                <p className="text-sm text-muted-foreground">{propertyDetails?.location}</p>
               </div>
             </div>
           </div>

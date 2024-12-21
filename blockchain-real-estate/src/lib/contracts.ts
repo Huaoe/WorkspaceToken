@@ -1,8 +1,8 @@
 'use client';
 
-import propertyFactoryJSON from '@contracts/abis/PropertyFactory.json';
-import whitelistJSON from '@contracts/abis/Whitelist.json';
-import propertyTokenJSON from '@contracts/abis/PropertyToken.json';
+import { propertyTokenABI as propertyTokenJSONABI } from '@contracts/abis/PropertyToken.json';
+import { propertyFactoryABI as propertyFactoryJSONABI } from '@contracts/abis/PropertyFactory.json';
+import { whitelistABI as whitelistJSONABI } from '@contracts/abis/Whitelist.json';
 
 export const PROPERTY_FACTORY_ADDRESS = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS;
 export const WHITELIST_ADDRESS = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS;
@@ -30,7 +30,7 @@ export const propertyFactoryABI = [
   'event PropertyCreated(address indexed propertyToken, address indexed creator, string title, string location, uint256 price)',
   'event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)',
   'event StakingRewardsCreated(address indexed stakingToken, address indexed stakingRewards)'
-];
+] as const;
 
 export const propertyTokenABI = [
   // ERC20 functions
@@ -43,17 +43,20 @@ export const propertyTokenABI = [
   'function allowance(address owner, address spender) view returns (uint256)',
   'function approve(address spender, uint256 amount) returns (bool)',
   'function transferFrom(address from, address to, uint256 amount) returns (bool)',
-  'function purchaseTokens(uint256 amount) returns (bool)',
   
   // Property specific functions
-  'function getPropertyDetails() view returns (tuple(string title, string description, string location, string imageUrl, uint256 price, address owner, bool isApproved))',
+  'function propertyDetails() view returns (string title, string description, string location, string imageUrl, uint256 price, bool isActive)',
   'function owner() view returns (address)',
   'function isActive() view returns (bool)',
   'function price() view returns (uint256)',
   
   // Events
   'event Transfer(address indexed from, address indexed to, uint256 value)',
-  'event Approval(address indexed owner, address indexed spender, uint256 value)'
+  'event Approval(address indexed owner, address indexed spender, uint256 value)',
+  'event PropertyTokenized(string title, string location, uint256 price, address indexed owner)',
+  'event TokensPurchased(address indexed buyer, uint256 amount, uint256 eurcPaid)',
+  'event TokensSold(address indexed seller, uint256 amount, uint256 eurcReceived)',
+  'event PropertyStatusUpdated(bool isActive)'
 ] as const;
 
 export const eurcABI = [
@@ -61,11 +64,13 @@ export const eurcABI = [
   'function symbol() view returns (string)',
   'function decimals() view returns (uint8)',
   'function totalSupply() view returns (uint256)',
-  'function balanceOf(address owner) view returns (uint256)',
-  'function transfer(address to, uint256 value) returns (bool)',
-  'function transferFrom(address from, address to, uint256 value) returns (bool)',
-  'function approve(address spender, uint256 value) returns (bool)',
+  'function balanceOf(address account) view returns (uint256)',
+  'function transfer(address to, uint256 amount) returns (bool)',
   'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function transferFrom(address from, address to, uint256 amount) returns (bool)',
+  
+  // Events
   'event Transfer(address indexed from, address indexed to, uint256 value)',
   'event Approval(address indexed owner, address indexed spender, uint256 value)'
 ] as const;
@@ -83,49 +88,37 @@ export const stakingFactoryABI = [
   'function rewardsToken() view returns (address)',
   'function propertyToStaking(address) view returns (address)',
   'function stakingContracts(uint256) view returns (address)',
-  'function owner() view returns (address)',
-  'function hasStakingRewards(address propertyToken) view returns (bool)',
-  'function getStakingRewards(address propertyToken) view returns (address)',
-  'function getAllStakingContracts() view returns (address[])',
-  'function getStakingContractsCount() view returns (uint256)',
-
+  'function stakingContractsLength() view returns (uint256)',
+  
   // State-changing functions
-  'function createStakingRewards(address _stakingToken, uint256 _duration, uint256 _rewardRate) returns (address)',
-  'function transferOwnership(address newOwner)',
-
+  'function createStakingRewards(address stakingToken, uint256 duration, uint256 rewardRate) returns (address)',
+  'function setRewardsToken(address _rewardsToken)',
+  
   // Events
   'event StakingRewardsCreated(address indexed stakingToken, address indexed stakingRewards)',
-  'event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)'
-];
+  'event RewardsTokenSet(address indexed rewardsToken)'
+] as const;
+
+export const stakingABI = [
+  'function stake(uint256 amount)',
+  'function withdraw(uint256 amount)',
+  'function getReward()',
+  'function exit()',
+  'function balanceOf(address account) view returns (uint256)',
+  'function earned(address account) view returns (uint256)',
+  'function rewardPerToken() view returns (uint256)',
+  'function totalSupply() view returns (uint256)',
+  'function rewardRate() view returns (uint256)',
+  'function lastTimeRewardApplicable() view returns (uint256)',
+  'function rewardsDuration() view returns (uint256)',
+  'function periodFinish() view returns (uint256)',
+  'event RewardAdded(uint256 reward)',
+  'event Staked(address indexed user, uint256 amount)',
+  'event Withdrawn(address indexed user, uint256 amount)',
+  'event RewardPaid(address indexed user, uint256 reward)'
+] as const;
 
 // Contract Interfaces
-export interface PropertyDetails {
-  title: string;
-  description: string;
-  location: string;
-  imageUrl: string;
-  price: bigint;
-  owner: string;
-  isApproved: boolean;
-}
-
-export interface PropertyToken extends BaseContract {
-  name(): Promise<string>;
-  symbol(): Promise<string>;
-  decimals(): Promise<number>;
-  totalSupply(): Promise<bigint>;
-  balanceOf(account: string): Promise<bigint>;
-  transfer(to: string, amount: bigint): Promise<boolean>;
-  allowance(owner: string, spender: string): Promise<bigint>;
-  approve(spender: string, amount: bigint): Promise<boolean>;
-  transferFrom(from: string, to: string, amount: bigint): Promise<boolean>;
-  owner(): Promise<string>;
-  isActive(): Promise<boolean>;
-  price(): Promise<bigint>;
-  getPropertyDetails(): Promise<PropertyDetails>;
-  purchaseTokens(amount: bigint): Promise<boolean>;
-}
-
 export interface StakingFactory extends Contract {
   createStakingRewards(
     stakingToken: string,
