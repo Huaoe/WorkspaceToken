@@ -42,7 +42,8 @@ export const propertyTokenABI = [
   'function eurcToken() view returns (address)',
   'function owner() view returns (address)',
   'function isApproved() view returns (bool)',
-  'function getPropertyDetails() view returns (tuple(string title, string description, string location, string imageUrl, uint256 price))',
+  'function propertyDetails() view returns (tuple(string title, string description, string location, string imageUrl, uint256 price, bool isActive))',
+  'function purchaseTokens(uint256 _amount)',
 
   // State-changing functions
   'function transfer(address to, uint256 value) returns (bool)',
