@@ -1,7 +1,7 @@
 'use client';
 
-import { Contract, Signer, ethers } from 'ethers';
-import { propertyFactoryABI, propertyTokenABI, eurcABI, whitelistABI, stakingFactoryABI, stakingABI } from './contracts';
+import { Contract, Signer, ethers, BaseContract, ContractTransaction } from 'ethers';
+import { propertyFactoryABI, propertyTokenABI, eurcABI, whitelistABI, stakingFactoryABI, stakingABI, PropertyToken } from './contracts';
 import { PROPERTY_FACTORY_ADDRESS, WHITELIST_ADDRESS, EURC_TOKEN_ADDRESS, STAKING_FACTORY_ADDRESS } from './contracts';
 
 declare global {
@@ -42,7 +42,7 @@ export const getSigner = async (): Promise<Signer> => {
   return provider.getSigner();
 };
 
-const getContract = async (address: string, abi: any[], withSigner = false) => {
+const getContract = async <T extends BaseContract>(address: string, abi: any[], withSigner = false): Promise<T> => {
   console.log('Initializing contract at address:', address);
   console.log('Using ABI:', abi);
 
@@ -60,7 +60,7 @@ const getContract = async (address: string, abi: any[], withSigner = false) => {
     }
 
     // Create contract instance with provider first
-    const contract = new ethers.Contract(address, abi, provider);
+    const contract = new ethers.Contract(address, abi, provider) as T;
 
     // Return contract with signer if requested
     if (withSigner) {
@@ -88,7 +88,7 @@ export const getPropertyFactoryContract = async (withSigner = false) => {
   return getContract(PROPERTY_FACTORY_ADDRESS, propertyFactoryABI, withSigner);
 };
 
-export const getPropertyTokenContract = async (address: string, withSigner = false) => {
+export const getPropertyTokenContract = async (address: string, withSigner = false): Promise<PropertyToken> => {
   console.log('Getting property token contract at address:', address);
   return getContract(address, propertyTokenABI, withSigner);
 };

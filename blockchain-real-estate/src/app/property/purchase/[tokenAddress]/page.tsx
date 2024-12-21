@@ -1,20 +1,28 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useMemo } from 'react';
-import { useParams } from 'next/navigation';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/components/ui/use-toast';
-import { useAccount } from 'wagmi';
-import { getPropertyTokenContract, getPropertyFactoryContract, getEURCContract, getWhitelistContract, getProvider, getSigner } from '@/lib/ethereum';
-import { formatUnits, parseUnits } from 'viem';
-import { PROPERTY_FACTORY_ADDRESS, EURC_TOKEN_ADDRESS } from '@/lib/constants';
-import { formatEURCAmount } from '@/lib/utils';
-import { MapPin as MapPinIcon } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { PropertyRequest } from '@/types/property';
+import { useEffect, useState, useMemo } from "react";
+import { useParams } from "next/navigation";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+import { useAccount } from "wagmi";
+import {
+  getPropertyTokenContract,
+  getPropertyFactoryContract,
+  getEURCContract,
+  getWhitelistContract,
+  getProvider,
+  getSigner,
+} from "@/lib/ethereum";
+import { formatUnits, parseUnits, formatEther } from "viem";
+import { PROPERTY_FACTORY_ADDRESS, EURC_TOKEN_ADDRESS } from "@/lib/constants";
+import { formatEURCAmount } from "@/lib/utils";
+import { MapPin as MapPinIcon } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { PropertyRequest } from "@/types/property";
+import { ethers } from "ethers";
 
 interface PropertyDetails {
   title: string;
@@ -34,20 +42,24 @@ export default function PurchaseProperty() {
   const [eurcContract, setEurcContract] = useState<any>(null);
   const [whitelistContract, setWhitelistContract] = useState<any>(null);
   const [tokenBalance, setTokenBalance] = useState<bigint>(BigInt(0));
-  const [eurcBalance, setEurcBalance] = useState<string>('0');
-  const [eurcSymbol, setEurcSymbol] = useState<string>('EURC');
-  const [tokenAmount, setTokenAmount] = useState<string>('');
-  const [eurcAmount, setEurcAmount] = useState<string>('');
+  const [eurcBalance, setEurcBalance] = useState<string>("0");
+  const [eurcSymbol, setEurcSymbol] = useState<string>("EURC");
+  const [tokenAmount, setTokenAmount] = useState<string>("");
+  const [eurcAmount, setEurcAmount] = useState<string>("");
   const [onChainDetails, setOnChainDetails] = useState<PropertyDetails>({
-    title: '',
-    description: '',
-    location: '',
-    imageUrl: '',
+    title: "",
+    description: "",
+    location: "",
+    imageUrl: "",
     price: BigInt(0),
     isActive: false,
   });
-  const [propertyDetails, setPropertyDetails] = useState<PropertyRequest | null>(null);
-  const [totalSupply, setTotalSupply] = useState<bigint>(BigInt(0));
+  const [ownerBalance, setOwnerBalance] = useState("0");
+  const [propertyDetails, setPropertyDetails] =
+    useState<PropertyRequest | null>(null);
+  const [totalSupply, setTotalSupply] = useState<string>("0");
+
+  const [owner, setOwner] = useState<string | null>(null);
 
   const handleTokenAmountChange = (value: string) => {
     setTokenAmount(value);
@@ -58,11 +70,11 @@ export default function PurchaseProperty() {
         const totalCost = amount * pricePerToken;
         setEurcAmount(totalCost.toString());
       } catch (error) {
-        console.error('Error calculating EURC amount:', error);
-        setEurcAmount('0');
+        console.error("Error calculating EURC amount:", error);
+        setEurcAmount("0");
       }
     } else {
-      setEurcAmount('0');
+      setEurcAmount("0");
     }
   };
 
@@ -75,16 +87,16 @@ export default function PurchaseProperty() {
       const formattedBalance = formatUnits(balance, 6);
       setEurcBalance(formattedBalance);
     } catch (error) {
-      console.error('Error fetching EURC balance:', error);
+      console.error("Error fetching EURC balance:", error);
     }
   };
 
   const formattedEURCBalance = useMemo(() => {
-    if (!eurcBalance) return '0';
+    if (!eurcBalance) return "0";
     // Format with 2 decimal places
     return Number(eurcBalance).toLocaleString(undefined, {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     });
   }, [eurcBalance]);
 
@@ -100,7 +112,9 @@ export default function PurchaseProperty() {
       }
 
       try {
-        const propertyToken = await getPropertyTokenContract(tokenAddress as string);
+        const propertyToken = await getPropertyTokenContract(
+          tokenAddress as string
+        );
         const eurc = await getEURCContract(EURC_TOKEN_ADDRESS);
         const whitelist = await getWhitelistContract();
 
@@ -112,7 +126,7 @@ export default function PurchaseProperty() {
         fetchOnChainDetails();
         fetchEURCBalance();
       } catch (error) {
-        console.error('Error initializing contracts:', error);
+        console.error("Error initializing contracts:", error);
       }
     };
     initializeContracts();
@@ -121,6 +135,7 @@ export default function PurchaseProperty() {
   useEffect(() => {
     if (address && eurcContract) {
       fetchEURCBalance();
+      fetchOnChainDetails();
     }
   }, [address, eurcContract]);
 
@@ -131,19 +146,19 @@ export default function PurchaseProperty() {
       try {
         // Get property details from Supabase
         const { data, error } = await supabase
-          .from('property_requests')
-          .select('*')
-          .eq('token_address', tokenAddress)
+          .from("property_requests")
+          .select("*")
+          .eq("token_address", tokenAddress)
           .single();
 
         if (error) throw error;
         setPropertyDetails(data);
       } catch (error) {
-        console.error('Error fetching property details from Supabase:', error);
+        console.error("Error fetching property details from Supabase:", error);
         toast({
-          title: 'Error',
-          description: 'Failed to fetch property details',
-          variant: 'destructive',
+          title: "Error",
+          description: "Failed to fetch property details",
+          variant: "destructive",
         });
       }
     };
@@ -159,7 +174,31 @@ export default function PurchaseProperty() {
     try {
       // Get token balance
       const balance = await propertyTokenContract.balanceOf(address);
-      setTokenBalance(BigInt(balance.toString()));
+      console.log("User balance:", balance.toString());
+      setTokenBalance(formatEther(balance));
+
+      // Get contract owner
+      try {
+        const contractOwner = await propertyTokenContract.owner();
+        console.log("Contract owner:", contractOwner);
+        setOwner(contractOwner);
+
+        // Get owner's balance
+        const ownerBal = await propertyTokenContract.balanceOf(contractOwner);
+        console.log("Owner balance:", ownerBal.toString());
+        setOwnerBalance(formatEther(ownerBal));
+      } catch (error) {
+        console.error("Error fetching owner details:", error);
+      }
+
+      // Get total supply
+      try {
+        const supply = await propertyTokenContract.totalSupply();
+        console.log("Total supply fetched:", supply.toString());
+        setTotalSupply(formatEther(supply));
+      } catch (error) {
+        console.error("Error fetching total supply:", error);
+      }
 
       // Get EURC balance
       const eurcBal = await eurcContract.balanceOf(address);
@@ -168,114 +207,145 @@ export default function PurchaseProperty() {
 
       // Get property details
       try {
-        console.log('Fetching property details...');
+        console.log("Fetching property details...");
         const details = await propertyTokenContract.propertyDetails();
-        console.log('Raw property details:', details);
-        
+        console.log("Raw property details:", details);
+
         setOnChainDetails({
-          title: details.title || '',
-          description: details.description || '',
-          location: details.location || '',
-          imageUrl: details.imageUrl || '',
+          title: details.title || "",
+          description: details.description || "",
+          location: details.location || "",
+          imageUrl: details.imageUrl || "",
           price: BigInt(details.price.toString()),
           isActive: details.isActive,
         });
       } catch (error) {
-        console.error('Error getting property details:', error);
+        console.error("Error getting property details:", error);
       }
-
-      // Get total supply
-      const supply = await propertyTokenContract.totalSupply();
-      setTotalSupply(BigInt(supply.toString()));
     } catch (error) {
-      console.error('Error fetching on-chain details:', error);
+      console.error("Error fetching on-chain details:", error);
     }
   };
 
   const handlePurchaseTokens = async () => {
-    if (!address || !propertyTokenContract || !eurcContract || !tokenAmount || !eurcAmount) {
+    if (
+      !address ||
+      !propertyTokenContract ||
+      !eurcContract ||
+      !tokenAmount ||
+      !eurcAmount
+    ) {
       return;
     }
 
     setIsLoading(true);
 
     try {
-      console.log('Starting purchase process...');
-      console.log('User address:', address);
-      console.log('Property token address:', tokenAddress);
+      console.log("Starting purchase process...");
+      console.log("User address:", address);
+      console.log("Property token address:", tokenAddress);
 
       // Get signer first
       const signer = await getSigner();
       if (!signer) {
-        throw new Error('No signer available');
+        throw new Error("No signer available");
       }
-      console.log('Got signer');
+      console.log("Got signer");
 
       // Get fresh contract instances with signer
       const propertyTokenWithSigner = await getPropertyTokenContract(tokenAddress as string, true);
       const eurcWithSigner = await getEURCContract(EURC_TOKEN_ADDRESS, true);
-      console.log('Got property token contract with signer');
+      console.log("Got contracts with signer");
 
-      // Calculate the total cost in EURC (with proper decimals)
-      const amount = parseFloat(tokenAmount);
-      const totalCost = onChainDetails.price * BigInt(amount);
+      // Check if property is active
+      const propertyDetails = await propertyTokenWithSigner.propertyDetails();
+      if (!propertyDetails.isActive) {
+        throw new Error("Property is not active for trading");
+      }
+
+      // Calculate amounts in proper decimals
+      const amountInWei = parseUnits(tokenAmount, 18); // Convert to 18 decimals for ERC20
+      const eurcAmountNeeded = (amountInWei * price) / parseUnits("1", 18);
+      console.log("EURC amount needed:", eurcAmountNeeded.toString());
+
+      // Check EURC balance
+      const eurcBalance = await eurcWithSigner.balanceOf(address);
+      if (eurcBalance < eurcAmountNeeded) {
+        throw new Error("Insufficient EURC balance");
+      }
+
+      // Check if owner has enough tokens
+      const ownerAddress = await propertyTokenWithSigner.owner();
+      const ownerBalance = await propertyTokenWithSigner.balanceOf(ownerAddress);
+      if (ownerBalance < amountInWei) {
+        throw new Error("Owner does not have enough tokens to sell");
+      }
 
       // Get the current nonce
       const provider = await getProvider();
       const currentNonce = await provider.getTransactionCount(address);
-      console.log('Current nonce:', currentNonce);
+      console.log("Current nonce:", currentNonce);
 
-      // First approve EURC spending with current nonce
-      console.log('Approving EURC spending...');
-      const approveTx = await eurcWithSigner.approve(tokenAddress, totalCost, {
-        nonce: currentNonce
-      });
+      // First approve EURC spending to the property token contract
+      console.log("Approving EURC spend:", eurcAmountNeeded.toString());
+      const approveTx = await eurcWithSigner.approve(
+        tokenAddress as string,
+        eurcAmountNeeded,
+        {
+          nonce: currentNonce,
+        }
+      );
       await approveTx.wait();
-      console.log('EURC spending approved');
+      console.log("EURC approved");
 
-      // Then purchase tokens with incremented nonce
-      console.log('Purchasing tokens...');
-      const purchaseTx = await propertyTokenWithSigner.purchaseTokens(parseUnits(tokenAmount, 18), {
-        nonce: currentNonce + 1
-      });
+      // Purchase tokens directly from the property token contract
+      console.log("Purchasing tokens:", amountInWei.toString());
+      const purchaseTx = await propertyTokenWithSigner.purchaseTokens(
+        amountInWei,
+        {
+          nonce: currentNonce + 1,
+        }
+      );
+
       await purchaseTx.wait();
-      console.log('Tokens purchased successfully');
+      console.log("Purchase complete");
 
       toast({
-        title: 'Success',
+        title: "Success",
         description: `Successfully purchased ${tokenAmount} tokens`,
       });
 
       // Refresh balances
       await fetchEURCBalance();
       await fetchOnChainDetails();
-      
+
       // Reset amount inputs
-      setTokenAmount('');
-      setEurcAmount('');
+      setTokenAmount("");
+      setEurcAmount("");
     } catch (error: any) {
-      console.error('Error purchasing tokens:', error);
-      
+      console.error("Error purchasing tokens:", error);
+
       // Try to get more detailed error message
-      let errorMessage = 'Failed to purchase tokens';
-      
+      let errorMessage = "Failed to purchase tokens";
+
       // Handle known error types from the contract
-      if (error.message?.includes('NotWhitelisted')) {
-        errorMessage = 'Your address is not whitelisted. Please complete KYC first.';
-      } else if (error.message?.includes('InsufficientBalance')) {
-        errorMessage = 'Insufficient EURC balance for purchase';
-      } else if (error.message?.includes('PropertyInactive')) {
-        errorMessage = 'Property token is not currently active';
-      } else if (error.message?.includes('InsufficientAllowance')) {
-        errorMessage = 'Not enough EURC allowance for purchase';
-      } else if (error.message?.includes('TransferFailed')) {
-        errorMessage = 'EURC transfer failed';
+      if (error.message?.includes("NotWhitelisted")) {
+        errorMessage =
+          "Your address is not whitelisted. Please complete KYC first.";
+      } else if (error.message?.includes("InsufficientBalance")) {
+        errorMessage = "Insufficient EURC balance for purchase";
+      } else if (error.message?.includes("PropertyInactive")) {
+        errorMessage = "Property token is not currently active";
+      } else if (error.message?.includes("InsufficientAllowance")) {
+        errorMessage = "Not enough EURC allowance for purchase";
+      } else if (error.message?.includes("TransferFailed")) {
+        errorMessage = "EURC transfer failed";
       } else if (error.reason) {
         errorMessage = error.reason;
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       if (error.data?.message) {
         errorMessage = error.data.message;
       }
@@ -284,9 +354,9 @@ export default function PurchaseProperty() {
       }
 
       toast({
-        title: 'Error',
+        title: "Error",
         description: errorMessage,
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -302,105 +372,116 @@ export default function PurchaseProperty() {
   }
 
   return (
-    <div className="max-w-[1200px] mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Purchase Property Tokens</h1>
-        <p className="text-muted-foreground">Purchase tokens for this property using EURC</p>
-      </div>
-
-      <div className="space-y-2">
-        <Label>PropertyToken Address</Label>
-        <div className="p-3 bg-[#E8F0E9] rounded-md font-mono text-sm">
-          {tokenAddress}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column - Property Image */}
-        <div className="aspect-square relative rounded-lg overflow-hidden border">
-          <Image
-            src={propertyDetails?.imageUrl || '/placeholder.jpg'}
-            alt={propertyDetails?.title}
-            fill
-            className="object-cover"
-          />
-        </div>
-
-        {/* Right Column - Token Information */}
-        <div className="space-y-6">
-          {/* Token Information Card */}
-          <div className="p-6 rounded-lg border bg-white">
-            <h2 className="text-xl font-semibold mb-6">Token Information</h2>
-            
+    <div className="container mx-auto py-8">
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Left Column - Property Image and Details */}
+          <div>
+            <div className="relative h-64 w-full mb-4">
+              <Image
+                src={onChainDetails.imageUrl || "/placeholder.jpg"}
+                alt={onChainDetails.title}
+                fill
+                className="object-cover rounded-lg"
+              />
+            </div>
             <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Your Balance</span>
-                <span>{Number(formattedTokenBalance).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2
-                })} Tokens</span>
+              <div>
+                <h3 className="font-semibold">Location</h3>
+                <p className="text-gray-600">{onChainDetails.location}</p>
               </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">EURC Balance</span>
-                <span>{formattedEURCBalance} {eurcSymbol}</span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Price per token</span>
-                <span>{Number(formatUnits(onChainDetails.price, 6)).toFixed(2)} {eurcSymbol}</span>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="tokenAmount">Amount to Purchase</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="tokenAmount"
-                    type="number"
-                    value={tokenAmount}
-                    onChange={(e) => handleTokenAmountChange(e.target.value)}
-                    className="text-right"
-                    min="0"
-                    step="0.000001"
-                  />
-                  <span className="text-muted-foreground min-w-[60px]">Tokens</span>
+              <div>
+                <h3 className="font-semibold">Investment Details</h3>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div>
+                    <p className="text-sm text-gray-500">Price per Token</p>
+                    <p className="font-medium">
+                      {Number(formatUnits(onChainDetails.price, 6)).toFixed(2)}{" "}
+                      EURC
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Total Supply</p>
+                    <p className="font-medium">
+                      {Number(totalSupply).toLocaleString()} Tokens
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Your Balance</p>
+                    <p className="font-medium">{tokenBalance} Tokens</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">EURC Balance</p>
+                    <p className="font-medium">{formattedEURCBalance} EURC</p>
+                  </div>
                 </div>
               </div>
-
-              <div className="flex justify-between items-center pt-4">
-                <span className="font-medium">Total Cost:</span>
-                <span>{eurcAmount ? `${eurcAmount} ${eurcSymbol}` : `0.0 ${eurcSymbol}`}</span>
-              </div>
-
-              <Button 
-                className="w-full bg-[#1E2A4A] hover:bg-[#2A3B66]"
-                onClick={handlePurchaseTokens}
-                disabled={!isConnected || isLoading || !tokenAmount || parseFloat(tokenAmount) <= 0}
-              >
-                {isLoading ? (
-                  <span>Processing...</span>
-                ) : !isConnected ? (
-                  <span>Connect Wallet</span>
-                ) : (
-                  <span>Purchase Tokens</span>
-                )}
-              </Button>
             </div>
           </div>
 
-          {/* Property Details Card */}
-          <div className="p-6 rounded-lg border bg-white">
-            <h2 className="text-xl font-semibold mb-6">Property Details</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-medium">{propertyDetails?.title}</h3>
-                <p className="text-muted-foreground mt-1">{propertyDetails?.description}</p>
-              </div>
+          {/* Right Column - Purchase Form */}
+          <div className="space-y-6">
+            <div className="bg-secondary/50 p-6 rounded-lg space-y-4">
+              <h3 className="font-semibold text-lg">Purchase Tokens</h3>
 
-              <div className="flex items-start gap-2">
-                <MapPinIcon className="w-5 h-5 mt-0.5 text-muted-foreground flex-shrink-0" />
-                <p className="text-sm text-muted-foreground">{propertyDetails?.location}</p>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="tokenAmount">Amount to Purchase</Label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      id="tokenAmount"
+                      type="number"
+                      min="0"
+                      value={tokenAmount}
+                      onChange={(e) => handleTokenAmountChange(e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">
+                      Price per token
+                    </span>
+                    <span>
+                      {Number(formatUnits(onChainDetails.price, 6)).toFixed(2)}{" "}
+                      EURC
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Total Cost</span>
+                    <span className="font-medium">{eurcAmount} EURC</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">
+                      Your EURC Balance
+                    </span>
+                    <span>{formattedEURCBalance} EURC</span>
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <Button
+                    className="w-full"
+                    onClick={handlePurchaseTokens}
+                    disabled={
+                      !isConnected ||
+                      !tokenAmount ||
+                      parseFloat(tokenAmount) <= 0
+                    }
+                  >
+                    {isLoading ? (
+                      <span>Processing...</span>
+                    ) : !isConnected ? (
+                      <span>Connect Wallet</span>
+                    ) : (
+                      <span>Purchase Tokens</span>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

@@ -16,7 +16,6 @@ export const propertyFactoryABI = [
   
   // Property management
   'function createProperty(string title, string description, string location, string imageUrl, uint256 price, uint256 totalSupply, string tokenName, string tokenSymbol) returns (address)',
-  'function purchasePropertyTokens(address propertyToken, uint256 amount) returns (bool)',
   'function paymentToken() view returns (address)',
   'function getAllProperties() view returns (address[])',
   
@@ -44,19 +43,15 @@ export const propertyTokenABI = [
   'function approve(address spender, uint256 amount) returns (bool)',
   'function transferFrom(address from, address to, uint256 amount) returns (bool)',
   
-  // Property specific functions
-  'function propertyDetails() view returns (string title, string description, string location, string imageUrl, uint256 price, bool isActive)',
+  // Property-specific functions
+  'function propertyDetails() view returns (string title, string description, string location, string imageUrl, uint256 price, address owner, bool isApproved)',
+  'function purchaseTokens(uint256 _amount) external',
   'function owner() view returns (address)',
-  'function isActive() view returns (bool)',
-  'function price() view returns (uint256)',
   
   // Events
-  'event Transfer(address indexed from, address indexed to, uint256 value)',
-  'event Approval(address indexed owner, address indexed spender, uint256 value)',
-  'event PropertyTokenized(string title, string location, uint256 price, address indexed owner)',
-  'event TokensPurchased(address indexed buyer, uint256 amount, uint256 eurcPaid)',
-  'event TokensSold(address indexed seller, uint256 amount, uint256 eurcReceived)',
-  'event PropertyStatusUpdated(bool isActive)'
+  'event PropertyDetailsUpdated(string title, string description, string location, string imageUrl, uint256 price)',
+  'event TokensPurchased(address indexed buyer, uint256 amount, uint256 cost)',
+  'event TokensSold(address indexed seller, uint256 amount, uint256 payment)'
 ] as const;
 
 export const eurcABI = [
@@ -119,6 +114,31 @@ export const stakingABI = [
 ] as const;
 
 // Contract Interfaces
+export interface PropertyDetails {
+  title: string;
+  description: string;
+  location: string;
+  imageUrl: string;
+  price: bigint;
+  owner: string;
+  isApproved: boolean;
+}
+
+export interface PropertyToken extends BaseContract {
+  propertyDetails(): Promise<PropertyDetails>;
+  purchaseTokens(amount: bigint): Promise<ContractTransaction>;
+  owner(): Promise<string>;
+  name(): Promise<string>;
+  symbol(): Promise<string>;
+  decimals(): Promise<number>;
+  totalSupply(): Promise<bigint>;
+  balanceOf(account: string): Promise<bigint>;
+  transfer(to: string, amount: bigint): Promise<boolean>;
+  allowance(owner: string, spender: string): Promise<bigint>;
+  approve(spender: string, amount: bigint): Promise<boolean>;
+  transferFrom(from: string, to: string, amount: bigint): Promise<boolean>;
+}
+
 export interface StakingFactory extends Contract {
   createStakingRewards(
     stakingToken: string,
