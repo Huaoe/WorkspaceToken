@@ -24,6 +24,7 @@ import { LocationField } from "./components/LocationField";
 import { StatusField } from "./components/StatusField";
 import { CreateTokenButton } from "./components/CreateTokenButton";
 import { StakingInitButton } from "./components/StakingInitButton";
+import { ApproveTokenButton } from "./components/ApproveTokenButton";
 import { ClientOnly } from "./components/ClientOnly";
 import { PropertyStatus } from "@/lib/constants";
 
@@ -257,7 +258,13 @@ export default function ReviewRequest({
                         form={form}
                       />
                     )}
-                    {isConnected && (form.getValues("status") === "onchain" || form.getValues("status") === "funding") && (
+                    {isConnected && form.getValues("status") === "onchain" && (
+                      <ApproveTokenButton
+                        propertyId={id}
+                        form={form}
+                      />
+                    )}
+                    {isConnected && form.getValues("status") === "active" && (
                       <StakingInitButton
                         propertyId={id}
                         form={form}

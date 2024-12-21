@@ -273,6 +273,9 @@ export function CreateTokenButton({ propertyId, form }: CreateTokenButtonProps) 
         throw new Error('Error updating database');
       }
 
+      // Update form with token address
+      form.setValue('token_address', propertyToken);
+
       toast({
         title: 'Success',
         description: 'Property token created successfully',

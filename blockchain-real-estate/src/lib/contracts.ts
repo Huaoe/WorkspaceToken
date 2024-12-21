@@ -13,22 +13,30 @@ export const propertyFactoryABI = [
   // Admin functions
   'function owner() view returns (address)',
   'function transferOwnership(address newOwner)',
+  'function initialize(string _name, string _symbol, address _paymentToken, address _admin, address _validator)',
+  'function renounceOwnership()',
   
   // Property management
   'function createProperty(string title, string description, string location, string imageUrl, uint256 price, uint256 totalSupply, string tokenName, string tokenSymbol) returns (address)',
-  'function paymentToken() view returns (address)',
-  'function getAllProperties() view returns (address[])',
+  'function approveProperty(address _propertyAddress)',
+  'function rejectProperty(address _propertyAddress)',
+  'function getPropertyStatus(address _propertyAddress) view returns (bool)',
+  'function getUserProperties(address _user) view returns (tuple(address tokenAddress, bool isApproved)[])',
+  'function getPropertyCreators() view returns (address[])',
   
-  // Staking management
-  'function createStakingRewards(address _stakingToken, uint256 _duration, uint256 _rewardRate) returns (address)',
-  'function getStakingRewards(address propertyToken) view returns (address)',
-  'function hasStakingRewards(address propertyToken) view returns (bool)',
-  'function getAllStakingContracts() view returns (address[])',
+  // Token management
+  'function paymentToken() view returns (address)',
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
+  'function eurcTokenAddress() view returns (address)',
   
   // Events
   'event PropertyCreated(address indexed propertyToken, address indexed creator, string title, string location, uint256 price)',
+  'event PropertyApproved(address indexed tokenAddress)',
+  'event PropertyRejected(address indexed tokenAddress)',
   'event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)',
-  'event StakingRewardsCreated(address indexed stakingToken, address indexed stakingRewards)'
+  'event EURCTokenUpdated(address indexed newAddress)',
+  'event Initialized(uint64 version)'
 ] as const;
 
 export const propertyTokenABI = [
