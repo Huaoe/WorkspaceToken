@@ -30,6 +30,7 @@ interface PropertyDetails {
   location: string;
   imageUrl: string;
   price: bigint;
+  owner: string;
   isActive: boolean;
 }
 
@@ -52,6 +53,7 @@ export default function PurchaseProperty() {
     location: "",
     imageUrl: "",
     price: BigInt(0),
+    owner: "",
     isActive: false,
   });
   const [ownerBalance, setOwnerBalance] = useState("0");
@@ -212,11 +214,12 @@ export default function PurchaseProperty() {
         console.log("Raw property details:", details);
 
         setOnChainDetails({
-          title: details.title || "",
-          description: details.description || "",
-          location: details.location || "",
-          imageUrl: details.imageUrl || "",
+          title: details.title,
+          description: details.description,
+          location: details.location,
+          imageUrl: details.imageUrl,
           price: BigInt(details.price.toString()),
+          owner: details.owner || "",
           isActive: details.isActive,
         });
       } catch (error) {
@@ -253,15 +256,40 @@ export default function PurchaseProperty() {
       console.log("Got signer");
 
       // Get fresh contract instances with signer
-      const propertyTokenWithSigner = await getPropertyTokenContract(tokenAddress as string, true);
+      const propertyTokenWithSigner = await getPropertyTokenContract(
+        tokenAddress as string,
+        true
+      );
       const eurcWithSigner = await getEURCContract(EURC_TOKEN_ADDRESS, true);
+      const factory = await getPropertyFactoryContract(true);
       console.log("Got contracts with signer");
 
-      // Check if property is active
-      const propertyDetails = await propertyTokenWithSigner.propertyDetails();
-      if (!propertyDetails.isActive) {
-        throw new Error("Property is not active for trading");
+      // Check if property is approved in both factory and token contract
+      const factoryProps = await factory.getAllProperties();
+      let isApprovedInFactory = false;
+
+      // Find the property in factory's list and check its approval
+      for (const prop of factoryProps) {
+        if (prop.tokenAddress.toLowerCase() === tokenAddress.toLowerCase()) {
+          isApprovedInFactory = prop.isApproved;
+          break;
+        }
       }
+
+      // Check token's internal approval status
+      const propertyDetails = await propertyTokenWithSigner.propertyDetails();
+
+      console.log("Property approval status:", {
+        factoryApproval: isApprovedInFactory,
+        tokenActive: propertyDetails.isActive,
+      });
+
+      if (!isApprovedInFactory || !propertyDetails.isActive) {
+        throw new Error("Property is not approved for trading");
+      }
+
+      // Get the price from property details
+      const price = propertyDetails.price;
 
       // Calculate amounts in proper decimals
       const amountInWei = parseUnits(tokenAmount, 18); // Convert to 18 decimals for ERC20
@@ -276,7 +304,9 @@ export default function PurchaseProperty() {
 
       // Check if owner has enough tokens
       const ownerAddress = await propertyTokenWithSigner.owner();
-      const ownerBalance = await propertyTokenWithSigner.balanceOf(ownerAddress);
+      const ownerBalance = await propertyTokenWithSigner.balanceOf(
+        ownerAddress
+      );
       if (ownerBalance < amountInWei) {
         throw new Error("Owner does not have enough tokens to sell");
       }

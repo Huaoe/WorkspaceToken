@@ -20,9 +20,11 @@ export const propertyFactoryABI = [
   'function createProperty(string title, string description, string location, string imageUrl, uint256 price, uint256 totalSupply, string tokenName, string tokenSymbol) returns (address)',
   'function approveProperty(address _propertyAddress)',
   'function rejectProperty(address _propertyAddress)',
-  'function getPropertyStatus(address _propertyAddress) view returns (bool)',
+  'function properties(uint256) view returns (address tokenAddress, bool isApproved)',
+  'function getAllProperties() view returns (tuple(address tokenAddress, bool isApproved)[])',
   'function getUserProperties(address _user) view returns (tuple(address tokenAddress, bool isApproved)[])',
   'function getPropertyCreators() view returns (address[])',
+  'function getPropertyCount() view returns (uint256)',
   
   // Token management
   'function paymentToken() view returns (address)',
@@ -50,16 +52,24 @@ export const propertyTokenABI = [
   'function allowance(address owner, address spender) view returns (uint256)',
   'function approve(address spender, uint256 amount) returns (bool)',
   'function transferFrom(address from, address to, uint256 amount) returns (bool)',
-  
-  // Property-specific functions
-  'function propertyDetails() view returns (string title, string description, string location, string imageUrl, uint256 price, address owner, bool isApproved)',
-  'function purchaseTokens(uint256 _amount) external',
+
+  // Property token specific functions
+  'function initialize(tuple(string name, string symbol, string title, string description, string location, string imageUrl, uint256 price, uint256 totalSupply, address initialOwner, address eurcTokenAddress, address whitelistContract) params)',
   'function owner() view returns (address)',
-  
+  'function purchaseTokens(uint256 _amount)',
+  'function sellTokens(uint256 _amount)',
+  'function eurcToken() view returns (address)',
+
+  // Property details
+  'function propertyDetails() view returns (string title, string description, string location, string imageUrl, uint256 price, bool isActive)',
+
   // Events
-  'event PropertyDetailsUpdated(string title, string description, string location, string imageUrl, uint256 price)',
-  'event TokensPurchased(address indexed buyer, uint256 amount, uint256 cost)',
-  'event TokensSold(address indexed seller, uint256 amount, uint256 payment)'
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+  'event Approval(address indexed owner, address indexed spender, uint256 value)',
+  'event TokensPurchased(address indexed buyer, uint256 amount, uint256 eurcAmount)',
+  'event TokensSold(address indexed seller, uint256 amount, uint256 eurAmount)',
+  'event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)',
+  'event Initialized(uint64 version)'
 ] as const;
 
 export const eurcABI = [

@@ -16,6 +16,7 @@
     "test:pt": "npx hardhat test test/PropertyToken.test.ts",
     "test:pf": "npx hardhat test test/PropertyFactory.test.ts",
     "whitelist": "npx hardhat whitelist-address --network localhost --address",
+    "approve": "npx hardhat approve-property --network localhost --address",
     "show-addresses": "npx hardhat run scripts/show-addresses.ts --network localhost",
     "fund:factory": "npx hardhat run scripts/fund-staking-factory.ts --network localhost",
     "get:factory-owner": "npx hardhat run scripts/get-property-factory-owner.ts --network localhost"

@@ -15,6 +15,15 @@ task("whitelist-address", "Whitelist an address")
     await script.main(address);
   });
 
+// Task to approve a property
+task("approve-property", "Approve a property token")
+  .addParam("address", "The property token address to approve")
+  .setAction(async (taskArgs, hre) => {
+    const { address } = taskArgs;
+    const script = require("./scripts/approve-property");
+    await script.main(address);
+  });
+
 const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.26",
