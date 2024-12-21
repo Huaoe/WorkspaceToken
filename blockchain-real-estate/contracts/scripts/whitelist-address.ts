@@ -5,7 +5,7 @@ import * as fs from "fs";
 
 export async function main(addressToWhitelist: string) {
   // Load environment variables from the correct .env.local file
-  const envLocalPath = path.join(process.cwd(), '../..', '.env.local');
+  const envLocalPath = path.join(process.cwd(), '..', '.env.local');
   if (fs.existsSync(envLocalPath)) {
     dotenv.config({ path: envLocalPath });
   } else {
@@ -21,8 +21,8 @@ export async function main(addressToWhitelist: string) {
   const [deployer] = await ethers.getSigners();
   console.log("Whitelisting address with account:", deployer.address);
 
-  // Get the Whitelist contract instance
-  const whitelist = await ethers.getContractAt("Whitelist", whitelistAddress);
+  // Get the Whitelist contract instance using IWhitelist interface
+  const whitelist = await ethers.getContractAt("IWhitelist", whitelistAddress);
 
   // Validate the address
   if (!ethers.isAddress(addressToWhitelist)) {
@@ -30,23 +30,12 @@ export async function main(addressToWhitelist: string) {
   }
 
   try {
-    // Check if address is already whitelisted
-    const isWhitelisted = await whitelist.isWhitelisted(addressToWhitelist);
-    if (isWhitelisted) {
-      console.log(`Address ${addressToWhitelist} is already whitelisted`);
-      return;
-    }
-
     // Add to whitelist
     console.log(`Adding ${addressToWhitelist} to whitelist...`);
     const tx = await whitelist.addToWhitelist(addressToWhitelist);
     await tx.wait();
     
     console.log(`Successfully whitelisted address: ${addressToWhitelist}`);
-    
-    // Verify the address was whitelisted
-    const verifyWhitelisted = await whitelist.isWhitelisted(addressToWhitelist);
-    console.log(`Verification - Address whitelisted: ${verifyWhitelisted}`);
   } catch (error) {
     console.error(`Error whitelisting address ${addressToWhitelist}:`, error);
     throw error;

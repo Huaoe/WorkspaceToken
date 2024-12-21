@@ -3,29 +3,24 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "./interfaces/IWhitelist.sol";
 import "hardhat/console.sol";
 
 /// @title Whitelist
 /// @notice This contract manages whitelisted addresses that can interact with other contracts
 /// @dev Inherits from Initializable and OwnableUpgradeable for proxy support
-contract Whitelist is Initializable, OwnableUpgradeable {
+contract Whitelist is IWhitelist, Initializable, OwnableUpgradeable {
     // Custom errors
     error InvalidAddress();
     error AddressAlreadyWhitelisted();
     error AddressNotWhitelisted();
 
     // Mapping of whitelisted addresses
-    mapping(address => bool) private _isWhitelisted;
+    mapping(address => bool) private _whitelisted;
     
     // Array to keep track of all whitelisted addresses
-    address[] public whitelistedAddresses;
+    address[] private _whitelistedAddresses;
     
-    // Events
-    event AddressWhitelisted(address indexed account);
-    event AddressRemovedFromWhitelist(address indexed account);
-    event BatchWhitelistAdded(address[] accounts);
-    event BatchWhitelistRemoved(address[] accounts);
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -38,14 +33,21 @@ contract Whitelist is Initializable, OwnableUpgradeable {
         console.log("Initializing Whitelist contract with owner:", initialOwner);
     }
 
+    /// @notice Checks if an address is whitelisted
+    /// @param account The address to check
+    /// @return bool True if the address is whitelisted, false otherwise
+    function isWhitelisted(address account) external view override returns (bool) {
+        return _whitelisted[account];
+    }
+
     /// @notice Adds a single address to the whitelist
     /// @param account The address to whitelist
-    function addToWhitelist(address account) public onlyOwner {
+    function addToWhitelist(address account) external override onlyOwner {
         if (account == address(0)) revert InvalidAddress();
-        if (_isWhitelisted[account]) revert AddressAlreadyWhitelisted();
+        if (_whitelisted[account]) revert AddressAlreadyWhitelisted();
 
-        _isWhitelisted[account] = true;
-        whitelistedAddresses.push(account);
+        _whitelisted[account] = true;
+        _whitelistedAddresses.push(account);
         
         emit AddressWhitelisted(account);
         console.log("Added to whitelist:", account);
@@ -53,16 +55,16 @@ contract Whitelist is Initializable, OwnableUpgradeable {
 
     /// @notice Removes a single address from the whitelist
     /// @param account The address to remove from whitelist
-    function removeFromWhitelist(address account) public onlyOwner {
-        if (!_isWhitelisted[account]) revert AddressNotWhitelisted();
+    function removeFromWhitelist(address account) external override onlyOwner {
+        if (!_whitelisted[account]) revert AddressNotWhitelisted();
 
-        _isWhitelisted[account] = false;
+        _whitelisted[account] = false;
         
         // Remove address from whitelistedAddresses array
-        for (uint256 i = 0; i < whitelistedAddresses.length; i++) {
-            if (whitelistedAddresses[i] == account) {
-                whitelistedAddresses[i] = whitelistedAddresses[whitelistedAddresses.length - 1];
-                whitelistedAddresses.pop();
+        for (uint256 i = 0; i < _whitelistedAddresses.length; i++) {
+            if (_whitelistedAddresses[i] == account) {
+                _whitelistedAddresses[i] = _whitelistedAddresses[_whitelistedAddresses.length - 1];
+                _whitelistedAddresses.pop();
                 break;
             }
         }
@@ -72,13 +74,13 @@ contract Whitelist is Initializable, OwnableUpgradeable {
     }
 
     /// @notice Adds multiple addresses to the whitelist
-    /// @param accounts Array of addresses to whitelist
-    function addBatchToWhitelist(address[] memory accounts) public onlyOwner {
+    /// @param accounts Array of addresses to add to whitelist
+    function addBatchToWhitelist(address[] calldata accounts) external override onlyOwner {
         for (uint256 i = 0; i < accounts.length; i++) {
             if (accounts[i] == address(0)) revert InvalidAddress();
-            if (!_isWhitelisted[accounts[i]]) {
-                _isWhitelisted[accounts[i]] = true;
-                whitelistedAddresses.push(accounts[i]);
+            if (!_whitelisted[accounts[i]]) {
+                _whitelisted[accounts[i]] = true;
+                _whitelistedAddresses.push(accounts[i]);
                 emit AddressWhitelisted(accounts[i]);
             }
         }
@@ -88,15 +90,15 @@ contract Whitelist is Initializable, OwnableUpgradeable {
 
     /// @notice Removes multiple addresses from the whitelist
     /// @param accounts Array of addresses to remove from whitelist
-    function removeBatchFromWhitelist(address[] memory accounts) public onlyOwner {
+    function removeBatchFromWhitelist(address[] calldata accounts) external override onlyOwner {
         for (uint256 i = 0; i < accounts.length; i++) {
-            if (!_isWhitelisted[accounts[i]]) revert AddressNotWhitelisted();
-            _isWhitelisted[accounts[i]] = false;
+            if (!_whitelisted[accounts[i]]) revert AddressNotWhitelisted();
+            _whitelisted[accounts[i]] = false;
             // Remove from whitelistedAddresses array
-            for (uint256 j = 0; j < whitelistedAddresses.length; j++) {
-                if (whitelistedAddresses[j] == accounts[i]) {
-                    whitelistedAddresses[j] = whitelistedAddresses[whitelistedAddresses.length - 1];
-                    whitelistedAddresses.pop();
+            for (uint256 j = 0; j < _whitelistedAddresses.length; j++) {
+                if (_whitelistedAddresses[j] == accounts[i]) {
+                    _whitelistedAddresses[j] = _whitelistedAddresses[_whitelistedAddresses.length - 1];
+                    _whitelistedAddresses.pop();
                     break;
                 }
             }
@@ -106,22 +108,9 @@ contract Whitelist is Initializable, OwnableUpgradeable {
         console.log("Removed batch from whitelist, count:", accounts.length);
     }
 
-    /// @notice Checks if an address is whitelisted
-    /// @param account The address to check
-    /// @return bool True if the address is whitelisted, false otherwise
-    function isWhitelisted(address account) external view returns (bool) {
-        return _isWhitelisted[account];
-    }
-
     /// @notice Gets all whitelisted addresses
     /// @return address[] Array of all whitelisted addresses
-    function getWhitelistedAddresses() public view returns (address[] memory) {
-        return whitelistedAddresses;
-    }
-
-    /// @notice Gets the count of whitelisted addresses
-    /// @return uint256 Number of whitelisted addresses
-    function getWhitelistedCount() public view returns (uint256) {
-        return whitelistedAddresses.length;
+    function getWhitelistedAddresses() external view override returns (address[] memory) {
+        return _whitelistedAddresses;
     }
 }

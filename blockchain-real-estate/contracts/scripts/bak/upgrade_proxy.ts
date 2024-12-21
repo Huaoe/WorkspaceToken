@@ -27,7 +27,7 @@ async function main() {
     console.log("New implementation address:", newImplementationAddress);
 
     // Update both .env files
-    const envLocalPath = path.join(__dirname, "../../.env.local");
+    const envLocalPath = path.join(__dirname, "../.env.local");
     const envPath = path.join(__dirname, "../.env");
 
     let envLocalContent = '';

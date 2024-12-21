@@ -32,7 +32,7 @@ async function main() {
     console.log("Whitelist ProxyAdmin deployed to:", whitelistAdminAddress);
 
     // Update both .env files
-    const envLocalPath = path.join(__dirname, "../../.env.local");
+    const envLocalPath = path.join(__dirname, "../.env.local");
     const envPath = path.join(__dirname, "../.env");
 
     let envLocalContent = '';

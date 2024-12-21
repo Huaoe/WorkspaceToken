@@ -102,7 +102,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
       console.log('Fetching token data for address:', property.token_address);
 
       try {
-        const propertyToken = getPropertyTokenContract(property.token_address);
+        const propertyToken = await getPropertyTokenContract(property.token_address);
 
         // Fetch all token data in parallel
         const [totalSupply, propertyDetails, name, symbol] = await Promise.all([
@@ -314,21 +314,23 @@ export default function PropertyList() {
 
   // Check if connected address is admin
   useEffect(() => {
-    async function checkAdmin() {
-      if (!mounted || !isConnected || !address) {
-        setIsAdmin(false);
-        return;
-      }
-
+    const checkAdmin = async () => {
       try {
-        const contract = getPropertyFactoryContract();
-        const owner = await contract.owner();
-        setIsAdmin(address.toLowerCase() === owner.toLowerCase());
+        const factory = await getPropertyFactoryContract();
+        const ownerAddress = await factory.owner();
+        console.log('Contract owner:', ownerAddress);
+        console.log('Current address:', address);
+        
+        if (address && ownerAddress.toLowerCase() === address.toLowerCase()) {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+        }
       } catch (error) {
         console.error('Error checking admin status:', error);
         setIsAdmin(false);
       }
-    }
+    };
 
     checkAdmin();
   }, [address, isConnected, mounted]);

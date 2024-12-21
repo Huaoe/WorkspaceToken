@@ -26,6 +26,11 @@ export default function PropertyDetailsPage() {
 
   useEffect(() => {
     const fetchPropertyDetails = async () => {
+      if (!tokenAddress || !isConnected || !address) {
+        setLoading(false);
+        return;
+      }
+
       try {
         // Get property details from Supabase
         const { data, error } = await supabase
@@ -38,17 +43,48 @@ export default function PropertyDetailsPage() {
         setProperty(data);
 
         // Get token details from blockchain
-        if (isConnected && address) {
-          const tokenContract = getPropertyTokenContract(tokenAddress as Address);
-          const [balance, supply, available] = await Promise.all([
-            tokenContract.balanceOf(address),
-            tokenContract.totalSupply(),
-            tokenContract.availableSupply()
-          ]);
+        try {
+          console.log('Initializing contract for address:', tokenAddress);
+          const tokenContract = await getPropertyTokenContract(tokenAddress as string, true);
+          console.log('Token contract initialized:', tokenContract);
 
-          setTokenBalance(formatEther(balance));
-          setTotalSupply(formatEther(supply));
-          setAvailableSupply(formatEther(available));
+          // Get contract functions
+          const functions = Object.keys(tokenContract.interface.functions);
+          console.log('Available contract functions:', functions);
+
+          // Get balance
+          try {
+            const balance = await tokenContract.balanceOf(address);
+            console.log('Balance fetched:', balance.toString());
+            setTokenBalance(formatEther(balance));
+          } catch (error) {
+            console.error('Error fetching balance:', error);
+          }
+
+          // Get total supply
+          try {
+            const supply = await tokenContract.totalSupply();
+            console.log('Total supply fetched:', supply.toString());
+            setTotalSupply(formatEther(supply));
+          } catch (error) {
+            console.error('Error fetching total supply:', error);
+          }
+
+          // Get available supply if it exists
+          try {
+            const available = await tokenContract.availableSupply();
+            setAvailableSupply(formatEther(available));
+          } catch (error) {
+            console.log('availableSupply not available on this contract');
+            setAvailableSupply('0');
+          }
+        } catch (error) {
+          console.error('Error fetching blockchain data:', error);
+          toast({
+            title: 'Warning',
+            description: 'Failed to load blockchain data',
+            variant: 'destructive',
+          });
         }
       } catch (error) {
         console.error('Error fetching property details:', error);

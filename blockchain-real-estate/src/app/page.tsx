@@ -35,7 +35,7 @@ export default function Home() {
 
       try {
         const contract = await getWhitelistContract();
-        const isVerified = await contract.isAddressWhitelisted(address);
+        const isVerified = await contract.isWhitelisted(address);
         setIsKYCVerified(isVerified);
       } catch (error) {
         console.error('Error checking KYC status:', error);

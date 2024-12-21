@@ -1,6 +1,8 @@
-import { Web3Provider } from '@ethersproject/providers';
-import { Contract, Signer } from 'ethers';
+'use client';
+
+import { Contract, Signer, ethers } from 'ethers';
 import { propertyFactoryABI, propertyTokenABI, eurcABI, whitelistABI } from './contracts';
+import { PROPERTY_FACTORY_ADDRESS, WHITELIST_ADDRESS, EURC_TOKEN_ADDRESS } from './contracts';
 
 declare global {
   interface Window {
@@ -8,72 +10,95 @@ declare global {
   }
 }
 
-let _provider: Web3Provider | null = null;
-let _signer: Signer | null = null;
+let _provider: ethers.BrowserProvider | null = null;
 
-export const getSigner = async (): Promise<Signer> => {
+const initializeProvider = async () => {
   if (!window.ethereum) {
     throw new Error('No ethereum provider found. Please install MetaMask.');
   }
 
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  await window.ethereum.request({ method: 'eth_requestAccounts' });
+  return provider;
+};
+
+export const getProvider = async () => {
+  if (typeof window === 'undefined') return null;
+  
   try {
     if (!_provider) {
-      _provider = new Web3Provider(window.ethereum);
-      await _provider.send('eth_requestAccounts', []);
+      _provider = await initializeProvider();
     }
-    if (!_signer) {
-      _signer = _provider.getSigner();
-    }
-    return _signer;
+    return _provider;
   } catch (error) {
-    console.error('Error getting signer:', error);
+    console.error('Error initializing provider:', error);
     throw error;
   }
 };
 
-const getProvider = async (): Promise<Web3Provider> => {
-  if (!window.ethereum) {
-    throw new Error('No ethereum provider found. Please install MetaMask.');
-  }
-
-  if (!_provider) {
-    _provider = new Web3Provider(window.ethereum);
-    await _provider.send('eth_requestAccounts', []);
-  }
-  return _provider;
-};
-
-export const getContract = async (address: string, abi: any[], needsSigner = false): Promise<Contract> => {
-  if (!address) {
-    throw new Error('Contract address is not defined');
-  }
-
+export const getSigner = async (): Promise<Signer> => {
   const provider = await getProvider();
-  if (needsSigner) {
-    const signer = await getSigner();
-    return new Contract(address, abi, signer);
+  if (!provider) throw new Error('No provider available');
+  return provider.getSigner();
+};
+
+const getContract = async (address: string, abi: any[], withSigner = false) => {
+  console.log('Initializing contract at address:', address);
+  console.log('Using ABI:', abi);
+
+  try {
+    // Get provider
+    const provider = await getProvider();
+    if (!provider) {
+      throw new Error('Failed to initialize provider');
+    }
+
+    // Check if contract exists
+    const code = await provider.getCode(address);
+    if (code === '0x') {
+      throw new Error(`No contract found at address ${address}`);
+    }
+
+    // Create contract instance with provider first
+    const contract = new ethers.Contract(address, abi, provider);
+
+    // Return contract with signer if requested
+    if (withSigner) {
+      const signer = await provider.getSigner();
+      return contract.connect(signer);
+    }
+
+    return contract;
+  } catch (error) {
+    console.error('Error initializing contract:', error);
+    throw error;
   }
-  return new Contract(address, abi, provider);
 };
 
-export const getPropertyFactoryContract = async (needsSigner = false): Promise<Contract> => {
-  const address = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS;
-  if (!address) throw new Error('Property factory address not found');
-  return getContract(address, propertyFactoryABI, needsSigner);
+export const getEURCContract = async (address: string, withSigner = false) => {
+  console.log('Getting EURC contract at address:', address);
+  return getContract(address, eurcABI, withSigner);
 };
 
-export const getPropertyTokenContract = async (address: string, needsSigner = false): Promise<Contract> => {
-  return getContract(address, propertyTokenABI, needsSigner);
+export const getPropertyFactoryContract = async (withSigner = false) => {
+  if (!PROPERTY_FACTORY_ADDRESS) {
+    throw new Error('Property factory address not configured');
+  }
+  console.log('Getting property factory contract at address:', PROPERTY_FACTORY_ADDRESS);
+  return getContract(PROPERTY_FACTORY_ADDRESS, propertyFactoryABI, withSigner);
 };
 
-export const getEURCContract = async (address: string, needsSigner = false): Promise<Contract> => {
-  return getContract(address, eurcABI, needsSigner);
+export const getPropertyTokenContract = async (address: string, withSigner = false) => {
+  console.log('Getting property token contract at address:', address);
+  return getContract(address, propertyTokenABI, withSigner);
 };
 
-export const getWhitelistContract = async (needsSigner = false): Promise<Contract> => {
-  const address = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS;
-  if (!address) throw new Error('Whitelist proxy address not found');
-  return getContract(address, whitelistABI, needsSigner);
+export const getWhitelistContract = async (withSigner = false) => {
+  if (!WHITELIST_ADDRESS) {
+    throw new Error('Whitelist address not configured');
+  }
+  console.log('Getting whitelist contract at address:', WHITELIST_ADDRESS);
+  return getContract(WHITELIST_ADDRESS, whitelistABI, withSigner);
 };
 
 export const getStakingFactoryContract = async (needsSigner = false) => {

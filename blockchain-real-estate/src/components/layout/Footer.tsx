@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { FaFacebookF, FaTwitter, FaLinkedinIn, FaPinterestP, FaRss } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
 
-
 function Footer() {
   const [mounted, setMounted] = useState(false);
 
@@ -40,6 +39,7 @@ function Footer() {
                 src={partner.src}
                 alt={partner.alt}
                 fill
+                sizes="(max-width: 768px) 96px, 96px"
                 className="object-contain filter dark:brightness-0 dark:invert"
               />
             </div>
