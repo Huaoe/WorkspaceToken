@@ -71,6 +71,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
     totalValue: "0",
     soldValue: "0"
   });
+  const [userTokens, setUserTokens] = useState<string>("0");
   const [onChainDetails, setOnChainDetails] = useState<PropertyDetails>({
     title: '',
     description: '',
@@ -94,7 +95,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
     } else if (num >= 1000) {
       return `${(num / 1000).toFixed(1)}K`;
     }
-    return num.toFixed(2);
+    return num.toLocaleString(undefined, { maximumFractionDigits: 0 });
   };
 
   const formatPrice = (price: bigint) => {
@@ -102,6 +103,18 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     });
+  };
+
+  const calculateLogProgress = (sold: number, total: number): number => {
+    if (sold <= 0) return 0;
+    if (sold >= total) return 100;
+    
+    // Use natural log (ln) for the calculation
+    // Add 1 to avoid ln(0)
+    const progress = Math.log(sold + 1) / Math.log(total + 1) * 100;
+    
+    // Ensure the progress is between 0 and 100
+    return Math.min(Math.max(progress, 0), 100);
   };
 
   useEffect(() => {
@@ -115,7 +128,6 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
       try {
         setIsLoadingStats(true);
         const propertyToken = await getPropertyTokenContract(property.token_address);
-        const eurcContract = await getEURCContract(EURC_TOKEN_ADDRESS);
 
         // Get total supply
         const totalSupply = await propertyToken.totalSupply();
@@ -129,42 +141,61 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
         const ownerBalance = await propertyToken.balanceOf(contractOwner);
         console.log('Owner balance:', ownerBalance.toString());
 
-        // Get total holders count (if available in contract)
-        let holdersCount = 1; // Default to 1 (owner)
-        try {
-          const holders = await propertyToken.getHoldersCount?.();
-          if (holders) {
-            holdersCount = Number(holders);
-          }
-        } catch (error) {
-          console.log('Holders count not available in contract');
+        // Get the connected user's balance
+        let userBalance = BigInt(0);
+        if (address) {
+          userBalance = await propertyToken.balanceOf(address);
+          console.log('User balance:', userBalance.toString());
         }
-
-        // Get property details
-        const details = await propertyToken.propertyDetails();
-        console.log('Property details:', details);
 
         // Calculate token stats with proper decimal handling
         const total = Number(formatUnits(totalSupply, 18));
         const remaining = Number(formatUnits(ownerBalance, 18));
-        const sold = total - remaining;
+        const userTokenAmount = Number(formatUnits(userBalance, 18));
+        
+        // Calculate sold tokens (total - owner's balance)
+        const soldToOthers = total - remaining;
+        const totalSold = soldToOthers + (address !== contractOwner ? userTokenAmount : 0);
+
+        console.log('Token stats:', {
+          total,
+          remaining,
+          userTokens: userTokenAmount,
+          soldToOthers,
+          totalSold,
+          isOwner: address === contractOwner
+        });
         
         // Get price from property details
+        const details = await propertyToken.propertyDetails();
         const pricePerToken = property.price_per_token ? 
           Number(formatUnits(BigInt(property.price_per_token), 6)) : 
           Number(formatUnits(details.price, 6));
         
-        console.log('Price per token:', pricePerToken);
-
         // Calculate total value
         const totalValue = total * pricePerToken;
-        const soldValue = sold * pricePerToken;
+        const soldValue = totalSold * pricePerToken;
+
+        // Calculate logarithmic progress
+        const logProgress = calculateLogProgress(totalSold, total);
+        console.log('Progress calculation:', {
+          totalSold,
+          total,
+          linearProgress: (totalSold / total) * 100,
+          logProgress
+        });
+
+        setUserTokens(userTokenAmount.toString());
+        setTokenProgress(logProgress);
+        
+        // Get holders count
+        const holdersCount = address && userBalance > 0 ? 2 : 1;
 
         setTokenStats({
           total: total.toString(),
           remaining: remaining.toString(),
-          sold: sold.toString(),
-          holders: Math.max(holdersCount, sold > 0 ? 2 : 1),
+          sold: totalSold.toString(),
+          holders: holdersCount,
           price: pricePerToken.toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
@@ -190,10 +221,6 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
           isActive: details.isApproved
         });
 
-        // Calculate progress
-        const progress = (sold / total) * 100;
-        setTokenProgress(progress);
-
       } catch (error) {
         console.error('Error fetching token data:', error);
         toast({
@@ -208,7 +235,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
     };
 
     fetchTokenSupply();
-  }, [property.token_address, property.owner, property.price_per_token, toast, property.title, property.description, property.location, property.image_url, property.token_name, property.token_symbol]);
+  }, [property.token_address, property.owner, property.price_per_token, toast, property.title, property.description, property.location, property.image_url, property.token_name, property.token_symbol, address]);
 
   const getStatusBadgeProps = (status: string) => {
     switch (status) {
@@ -266,6 +293,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
             fill
             className="object-cover"
             priority
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
         </div>
         <div className="absolute top-2 right-2">
@@ -303,32 +331,59 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Token Sales Progress</span>
-                <span>{tokenProgress.toFixed(1)}%</span>
-              </div>
-              <Progress 
-                value={tokenProgress} 
-                className={cn(
-                  "h-2",
-                  tokenProgress >= 90 ? "bg-green-200" :
-                  tokenProgress >= 50 ? "bg-blue-200" :
-                  "bg-gray-200"
-                )} 
-              />
-            </div>
-
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-gray-500">Available</p>
-                <p className="font-medium">{formatTokenAmount(tokenStats.remaining)} tokens</p>
-                <p className="text-xs text-gray-400">€{(Number(tokenStats.remaining) * Number(tokenStats.price)).toLocaleString()}</p>
+                <p className="font-medium">{formatTokenAmount(tokenStats.remaining) || '0'} tokens</p>
+                <p className="text-xs text-gray-400">€{(Number(tokenStats.remaining || 0) * Number(tokenStats.price)).toLocaleString()}</p>
               </div>
               <div>
                 <p className="text-gray-500">Total Supply</p>
-                <p className="font-medium">{formatTokenAmount(tokenStats.total)} tokens</p>
+                <p className="font-medium">{formatTokenAmount(tokenStats.total) || '0'} tokens</p>
                 <p className="text-xs text-gray-400">€{tokenStats.totalValue}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Token Sales Progress</span>
+                <span>{(Number(tokenStats.sold) / Number(tokenStats.total) * 100).toFixed(1)}%</span>
+              </div>
+              <div className="relative">
+                <Progress 
+                  value={tokenProgress} 
+                  className={cn(
+                    "h-2",
+                    tokenProgress >= 90 ? "bg-green-200" :
+                    tokenProgress >= 50 ? "bg-blue-200" :
+                    "bg-gray-200"
+                  )} 
+                />
+                {Number(userTokens) > 0 && (
+                  <div 
+                    className="absolute top-0 h-2 bg-blue-500 opacity-50"
+                    style={{
+                      width: `${(Number(userTokens) / Number(tokenStats.total)) * 100}%`,
+                      left: `${((Number(tokenStats.sold) - Number(userTokens)) / Number(tokenStats.total)) * 100}%`
+                    }}
+                  />
+                )}
+              </div>
+              {Number(userTokens) > 0 && (
+                <p className="text-xs text-gray-500">
+                  You own {formatTokenAmount(userTokens)} tokens
+                </p>
+              )}
+            </div>
+
+            <div className="mt-2 space-y-2">
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Sold Tokens</span>
+                <span>{formatTokenAmount(tokenStats.sold) || '0'} tokens</span>
+              </div>
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Total Value Sold</span>
+                <span>€{tokenStats.soldValue}</span>
               </div>
             </div>
 
@@ -337,7 +392,6 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
                 className="flex-1"
                 variant="outline"
                 asChild
-                onClick={handleViewDetails}
               >
                 <Link href={`/property/${property.token_address}`}>
                   View Details
@@ -350,7 +404,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
                   asChild
                 >
                   <Link href={`/property/stake/${property.token_address}`}>
-                    Stake Tokens
+                    Stake
                   </Link>
                 </Button>
               )}
