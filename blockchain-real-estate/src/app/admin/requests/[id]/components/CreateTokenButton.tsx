@@ -152,27 +152,27 @@ export function CreateTokenButton({ propertyId, form }: CreateTokenButtonProps) 
 
       // Check if PropertyFactory is approved to spend EURC
       const factoryAddress = await factory.getAddress();
-      const allowance = await eurcContract.allowance(userAddress, factoryAddress);
-      const allowanceBigInt = BigInt(allowance.toString());
-      console.log('Current EURC allowance:', formatUnits(allowanceBigInt, 6));
+      // const allowance = await eurcContract.allowance(userAddress, factoryAddress);
+      // const allowanceBigInt = BigInt(allowance.toString());
+      // console.log('Current EURC allowance:', formatUnits(allowanceBigInt, 6));
 
-      if (allowanceBigInt < expectedPriceBigInt) {
-        console.log('Approving EURC spend...');
+      // if (allowanceBigInt < expectedPriceBigInt) {
+      //   console.log('Approving EURC spend...');
         
-        // Prepare approval transaction
-        const approveTx = await eurcContract.approve(
-          factoryAddress,
-          expectedPriceBigInt,
-          {
-            gasLimit: 100000, // Set a reasonable gas limit
-            nonce: await signer.getNonce()
-          }
-        );
+      //   // Prepare approval transaction
+      //   const approveTx = await eurcContract.approve(
+      //     factoryAddress,
+      //     expectedPriceBigInt,
+      //     {
+      //       gasLimit: 100000, // Set a reasonable gas limit
+      //       nonce: await signer.getNonce()
+      //     }
+      //   );
         
-        console.log('Approval transaction sent:', approveTx.hash);
-        await approveTx.wait();
-        console.log('EURC approved for PropertyFactory');
-      }
+      //   console.log('Approval transaction sent:', approveTx.hash);
+      //   await approveTx.wait();
+      //   console.log('EURC approved for PropertyFactory');
+      // }
 
       // Validate string lengths
       const validateStringLength = (str: string, maxLength: number, fieldName: string) => {
@@ -262,20 +262,47 @@ export function CreateTokenButton({ propertyId, form }: CreateTokenButtonProps) 
         price: formatUnits(BigInt(price.toString()), 6)
       });
 
-      // Update database
-      const { error: dbError } = await supabase
+      // Validate property token address
+      if (!propertyToken || propertyToken === '0x0000000000000000000000000000000000000000') {
+        throw new Error('Invalid property token address received from event');
+      }
+
+      console.log('Updating database with token address:', propertyToken);
+      
+      // Update database with token address and status
+      const { data: updateData, error: dbError } = await supabase
         .from('property_requests')
-        .update({ status: 'onchain', token_address: propertyToken })
-        .eq('id', propertyId);
+        .update({ 
+          status: 'onchain', 
+          token_address: propertyToken,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', propertyId)
+        .select()
+        .single();
 
       if (dbError) {
         console.error('Error updating database:', dbError);
-        throw new Error('Error updating database');
+        throw new Error(`Error updating database: ${dbError.message}`);
       }
+
+      console.log('Database updated successfully:', updateData);
+
+      // Update form values
+      form.setValue('status', 'onchain');
+      form.setValue('token_address', propertyToken);
+
+      // Verify form values were updated
+      const formStatus = form.getValues('status');
+      const formTokenAddress = form.getValues('token_address');
+      console.log('Form values after update:', {
+        status: formStatus,
+        token_address: formTokenAddress
+      });
 
       toast({
         title: 'Success',
-        description: 'Property token created successfully',
+        description: `Property token created successfully at address: ${propertyToken}`,
       });
 
     } catch (error: any) {

@@ -23,6 +23,7 @@ import { PropertyDetailsFields } from "./components/PropertyDetailsFields";
 import { LocationField } from "./components/LocationField";
 import { StatusField } from "./components/StatusField";
 import { CreateTokenButton } from "./components/CreateTokenButton";
+import { ApproveTokenButton } from "./components/ApproveTokenButton"; // Added import statement
 import { StakingInitButton } from "./components/StakingInitButton";
 import { ClientOnly } from "./components/ClientOnly";
 import { PropertyStatus } from "@/lib/constants";
@@ -251,13 +252,19 @@ export default function ReviewRequest({
 
                 <div className="flex space-x-4">
                   <ClientOnly>
-                    {isConnected && form.getValues("status") === "approved" && (
+                    {isConnected && form.getValues("status") === "pending" && (
                       <CreateTokenButton
                         propertyId={id}
                         form={form}
                       />
                     )}
-                    {isConnected && (form.getValues("status") === "onchain" || form.getValues("status") === "funding") && (
+                    {isConnected && form.getValues("status") === "onchain" && (
+                      <ApproveTokenButton
+                        propertyId={id}
+                        form={form}
+                      />
+                    )}
+                    {isConnected && form.getValues("status") === "funding" && (
                       <StakingInitButton
                         propertyId={id}
                         form={form}

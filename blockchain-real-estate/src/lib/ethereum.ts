@@ -43,20 +43,11 @@ export const getSigner = async (): Promise<Signer> => {
 };
 
 const getContract = async <T extends BaseContract>(address: string, abi: any[], withSigner = false): Promise<T> => {
-  console.log('Initializing contract at address:', address);
-  console.log('Using ABI:', abi);
-
   try {
     // Get provider
     const provider = await getProvider();
     if (!provider) {
       throw new Error('Failed to initialize provider');
-    }
-
-    // Check if contract exists
-    const code = await provider.getCode(address);
-    if (code === '0x') {
-      throw new Error(`No contract found at address ${address}`);
     }
 
     // Create contract instance with provider first
@@ -65,7 +56,7 @@ const getContract = async <T extends BaseContract>(address: string, abi: any[], 
     // Return contract with signer if requested
     if (withSigner) {
       const signer = await provider.getSigner();
-      return contract.connect(signer);
+      return contract.connect(signer) as T;
     }
 
     return contract;
@@ -90,7 +81,10 @@ export const getPropertyFactoryContract = async (withSigner = false) => {
 
 export const getPropertyTokenContract = async (address: string, withSigner = false): Promise<PropertyToken> => {
   console.log('Getting property token contract at address:', address);
-  return getContract(address, propertyTokenABI, withSigner);
+  if (!address || !ethers.isAddress(address)) {
+    throw new Error('Invalid property token address');
+  }
+  return getContract<PropertyToken>(address, propertyTokenABI, withSigner);
 };
 
 export const getWhitelistContract = async (withSigner = false) => {

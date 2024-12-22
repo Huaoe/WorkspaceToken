@@ -26,8 +26,11 @@ const Navbar = () => {
       if (!mounted || !isConnected) return;
       
       try {
-        const contract = await getPropertyFactoryContract();
+        // Use withSigner=true to ensure proper contract interaction
+        const contract = await getPropertyFactoryContract(true);
         const owner = await contract.owner();
+        console.log('Contract owner:', owner);
+        console.log('Connected address:', address);
         setContractOwner(owner);
       } catch (error) {
         console.error('Error getting contract owner:', error);
@@ -36,17 +39,19 @@ const Navbar = () => {
     }
 
     getContractOwner();
-  }, [mounted, isConnected]);
+  }, [mounted, isConnected, address]);
 
   // Check if connected address is admin
   useEffect(() => {
-    if (!mounted || !isConnected) {
+    if (!mounted || !isConnected || !address) {
       setIsAdmin(false);
       return;
     }
 
-    if (address && contractOwner) {
-      setIsAdmin(address.toLowerCase() === contractOwner.toLowerCase());
+    if (contractOwner) {
+      const isOwner = address.toLowerCase() === contractOwner.toLowerCase();
+      console.log('Is admin check:', { address, contractOwner, isOwner });
+      setIsAdmin(isOwner);
     } else {
       setIsAdmin(false);
     }
@@ -90,6 +95,17 @@ const Navbar = () => {
               >
                 Comment ça marche ?
               </Link>
+              {isConnected && (
+                <Link
+                  href="/dashboard"
+                  className={cn(
+                    "text-sm font-medium transition-colors hover:text-primary",
+                    pathname === "/dashboard" ? "text-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  Dashboard
+                </Link>
+              )}
               {isAdmin && (
                 <>
                   <Link

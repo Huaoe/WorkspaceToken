@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
 import { useWalletEvents } from "@/app/wallet-events-provider";
-import { getPropertyFactoryContract, getSigner, getPropertyTokenContract } from "@/lib/ethereum";
+import { getPropertyFactoryContract, getSigner, getPropertyTokenContract, getEURCContract, getWhitelistContract } from "@/lib/ethereum";
 import { UseFormReturn } from "react-hook-form";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@/lib/supabase/types";
+import { EURC_TOKEN_ADDRESS } from "@/lib/contracts";
+import { ethers } from "ethers";
 
 interface ApproveTokenButtonProps {
   propertyId: string;
@@ -37,10 +39,20 @@ export function ApproveTokenButton({ propertyId, form }: ApproveTokenButtonProps
       const tokenAddress = form.getValues('token_address');
       console.log('Token address from form:', tokenAddress);
 
-      if (!tokenAddress || tokenAddress.trim() === '') {
+      if (!tokenAddress || tokenAddress.trim() === '' || tokenAddress === '0x0000000000000000000000000000000000000000') {
         toast({
           title: "Error",
-          description: "Please create the token first before approving",
+          description: "Invalid token address. Please ensure the token was created successfully.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate token address format
+      if (!ethers.isAddress(tokenAddress)) {
+        toast({
+          title: "Error",
+          description: "Invalid token address format",
           variant: "destructive",
         });
         return;
@@ -95,19 +107,25 @@ export function ApproveTokenButton({ propertyId, form }: ApproveTokenButtonProps
 
         // Get initial approval status for logging
         const initialTokenDetails = await propertyToken.propertyDetails();
-        console.log('Initial token status:', {
-          isActive: initialTokenDetails.isActive
-        });
+        console.log('Initial token status:', initialTokenDetails);
 
+        // Get factory with signer
+        const signer = await getSigner();
+        const factoryWithSigner = await getPropertyFactoryContract(true);
+        
         // Approve the property with explicit gas configuration
         console.log('Approving property in factory...');
-        const approveTx = await factory.approveProperty(tokenAddress, {
-          gasLimit: 500000 // Explicit gas limit
-        });
+        const approveTx = await factoryWithSigner.approveProperty(
+          tokenAddress,
+          {
+            gasLimit: 1000000, // Increased gas limit
+            nonce: await signer.provider.getTransactionCount(address)
+          }
+        );
         
-        console.log('Waiting for approval transaction...');
+        console.log('Approval transaction sent:', approveTx.hash);
         const receipt = await approveTx.wait();
-        console.log('Approval transaction receipt:', receipt);
+        console.log('Approval transaction confirmed:', receipt.hash);
 
         // Look for the PropertyApproved event
         const approvedEvent = receipt.logs.find(
@@ -118,42 +136,114 @@ export function ApproveTokenButton({ propertyId, form }: ApproveTokenButtonProps
           throw new Error('Property approval transaction did not emit PropertyApproved event');
         }
 
-        // Verify final approval status
-        const finalTokenDetails = await propertyToken.propertyDetails();
-        
-        // Check final factory approval status
-        const finalFactoryProps = await factory.getAllProperties();
-        let finalFactoryApproval = false;
-        for (const prop of finalFactoryProps) {
-          if (prop.tokenAddress.toLowerCase() === tokenAddress.toLowerCase()) {
-            finalFactoryApproval = prop.isApproved;
-            break;
-          }
-        }
-
-        console.log('Final status:', {
-          factoryApproval: finalFactoryApproval,
-          tokenActive: finalTokenDetails.isActive
-        });
-
-        if (!finalFactoryApproval || !finalTokenDetails.isActive) {
-          throw new Error('Property approval failed - not fully approved');
-        }
-
         // Update database status
         const { error: dbError } = await supabase
           .from('property_requests')
-          .update({ status: 'active' })
+          .update({ 
+            status: 'funding',
+            updated_at: new Date().toISOString()
+          })
           .eq('id', propertyId);
 
         if (dbError) {
           console.error('Error updating database:', dbError);
-          throw new Error('Failed to update database status');
+          throw new Error(`Error updating database: ${dbError.message}`);
         }
 
+        // Update form values
+        form.setValue('status', 'funding');
+
         toast({
-          title: "Success",
-          description: "Property approved for trading",
+          title: 'Success',
+          description: 'Property has been approved for funding',
+        });
+
+        // Get EURC contract and check balance/allowance
+        const eurcContract = await getEURCContract(EURC_TOKEN_ADDRESS!, true);
+        const eurcBalance = await eurcContract.balanceOf(address);
+        console.log('EURC Balance:', ethers.formatUnits(eurcBalance, 6));
+
+        // Get property token with signer
+        const propertyTokenWithSigner = await getPropertyTokenContract(tokenAddress, true);
+        
+        // Check whitelist status
+        const whitelistContract = await getWhitelistContract(true);
+        const isWhitelisted = await whitelistContract.isWhitelisted(address);
+        console.log('Is whitelisted:', isWhitelisted);
+        
+        if (!isWhitelisted) {
+          throw new Error('Address is not whitelisted. Please get whitelisted first.');
+        }
+        
+        // Get property details and owner
+        const details = await propertyTokenWithSigner.propertyDetails();
+        console.log('Property details:', {
+          price: ethers.formatUnits(details.price, 6),
+          isActive: details.isActive
+        });
+
+        if (!details.isActive) {
+          throw new Error('Property is not active for purchase');
+        }
+
+        // Calculate token amount and check owner's balance
+        const tokenAmount = BigInt(form.getValues('number_of_tokens')) * BigInt(10 ** 18);
+        
+        // Calculate EURC amount needed
+        const eurcNeeded = (details.price * tokenAmount) / BigInt(10 ** 18);
+        console.log('EURC needed:', ethers.formatUnits(eurcNeeded, 6));
+
+        // Check EURC balance
+        if (eurcBalance < eurcNeeded) {
+          throw new Error(`Insufficient EURC balance. Need ${ethers.formatUnits(eurcNeeded, 6)} EURC but have ${ethers.formatUnits(eurcBalance, 6)} EURC`);
+        }
+
+        // Check EURC allowance for the property token contract (not the owner)
+        const allowance = await eurcContract.allowance(address, tokenAddress);
+        console.log('Current EURC allowance for token contract:', ethers.formatUnits(allowance, 6));
+
+        if (allowance < eurcNeeded) {
+          console.log('Approving EURC spend for token contract:', ethers.formatUnits(eurcNeeded, 6));
+          const approveTx = await eurcContract.approve(tokenAddress, eurcNeeded, {
+            gasLimit: 100000
+          });
+          console.log('Approval transaction sent:', approveTx.hash);
+          await approveTx.wait();
+          console.log('EURC approved');
+        }
+
+        // Get current nonce
+        const nonce = await signer.provider.getTransactionCount(address);
+        console.log('Current nonce:', nonce);
+
+        // Purchase tokens with explicit gas configuration
+        console.log('Purchasing tokens:', ethers.formatUnits(tokenAmount, 18));
+        const purchaseTx = await propertyTokenWithSigner.purchaseTokens(
+          tokenAmount,
+          {
+            gasLimit: 500000,
+            nonce: nonce
+          }
+        );
+
+        console.log('Purchase transaction sent:', purchaseTx.hash);
+        const purchaseReceipt = await purchaseTx.wait();
+        console.log('Purchase confirmed:', purchaseReceipt.hash);
+
+        // Verify the purchase event
+        const purchaseEvent = purchaseReceipt.logs.find(
+          (log: any) => log.fragment?.name === 'TokensPurchased'
+        );
+
+        if (!purchaseEvent) {
+          throw new Error('Token purchase did not emit TokensPurchased event');
+        }
+
+        const [buyer, amount, eurcAmount] = purchaseEvent.args;
+        console.log('Tokens purchased:', {
+          buyer,
+          amount: ethers.formatUnits(amount, 18),
+          eurcAmount: ethers.formatUnits(eurcAmount, 6)
         });
 
       } catch (error: any) {

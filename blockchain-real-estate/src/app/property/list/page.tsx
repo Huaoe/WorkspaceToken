@@ -19,12 +19,14 @@ import { Spinner } from "@/components/ui/spinner";
 import { useKYCStatus } from '@/hooks/useKYCStatus';
 import { useRouter } from 'next/navigation';
 import { Progress } from "@/components/ui/progress"
-import { formatUnits, parseAbiItem, parseUnits } from "ethers"
+import { formatEther, parseAbiItem, parseUnits } from "ethers"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import Image from "next/image";
 import { useWalletEvents } from '@/app/wallet-events-provider';
-import { getPropertyFactoryContract, getPropertyTokenContract } from '@/lib/ethereum';
+import { getPropertyFactoryContract, getPropertyTokenContract, getEURCContract } from '@/lib/ethereum';
+import { EURC_TOKEN_ADDRESS } from '@/lib/constants';
+import { formatUnits } from 'viem';
 
 interface PropertyCardProps {
   property: PropertyRequest;
@@ -47,6 +49,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
   const router = useRouter();
   const [tokenProgress, setTokenProgress] = useState<number>(0);
   const [isLoadingProgress, setIsLoadingProgress] = useState(true);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [tokenStats, setTokenStats] = useState<{
     total: string;
     remaining: string;
@@ -55,6 +58,8 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
     price: string;
     name: string;
     symbol: string;
+    totalValue: string;
+    soldValue: string;
   }>({
     total: "0",
     remaining: "0",
@@ -62,7 +67,9 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
     holders: 0,
     price: "0",
     name: "",
-    symbol: ""
+    symbol: "",
+    totalValue: "0",
+    soldValue: "0"
   });
   const [onChainDetails, setOnChainDetails] = useState<PropertyDetails>({
     title: '',
@@ -81,9 +88,13 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
   };
 
   const formatTokenAmount = (amount: string) => {
-    if (!amount || isNaN(Number(amount))) return "0";
-    const num = parseFloat(amount);
-    return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    const num = Number(amount);
+    if (num >= 1000000) {
+      return `${(num / 1000000).toFixed(1)}M`;
+    } else if (num >= 1000) {
+      return `${(num / 1000).toFixed(1)}K`;
+    }
+    return num.toFixed(2);
   };
 
   const formatPrice = (price: bigint) => {
@@ -97,51 +108,92 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
     const fetchTokenSupply = async () => {
       if (!property.token_address) {
         setIsLoadingProgress(false);
+        setIsLoadingStats(false);
         return;
       }
 
       try {
+        setIsLoadingStats(true);
         const propertyToken = await getPropertyTokenContract(property.token_address);
+        const eurcContract = await getEURCContract(EURC_TOKEN_ADDRESS);
 
         // Get total supply
         const totalSupply = await propertyToken.totalSupply();
-        console.log('Total supply:', totalSupply);
+        console.log('Total supply:', totalSupply.toString());
+
+        // Get contract owner
+        const contractOwner = await propertyToken.owner();
+        console.log('Contract owner:', contractOwner);
+
+        // Get owner's balance for remaining tokens
+        const ownerBalance = await propertyToken.balanceOf(contractOwner);
+        console.log('Owner balance:', ownerBalance.toString());
+
+        // Get total holders count (if available in contract)
+        let holdersCount = 1; // Default to 1 (owner)
+        try {
+          const holders = await propertyToken.getHoldersCount?.();
+          if (holders) {
+            holdersCount = Number(holders);
+          }
+        } catch (error) {
+          console.log('Holders count not available in contract');
+        }
 
         // Get property details
         const details = await propertyToken.propertyDetails();
         console.log('Property details:', details);
 
-        // Set fixed price of 56 EURC
-        const priceInEurc = parseUnits("56", 6);
-
-        setOnChainDetails({
-          title: details.title,
-          description: details.description,
-          location: details.location,
-          imageUrl: details.imageUrl || PLACEHOLDER_IMAGE,
-          price: priceInEurc,
-          isActive: details.isApproved
-        });
-
-        // Calculate token stats
+        // Calculate token stats with proper decimal handling
         const total = Number(formatUnits(totalSupply, 18));
-        const sold = total * (Math.random() * 0.3); // Simulated sold amount for demo
-        const remaining = total - sold;
+        const remaining = Number(formatUnits(ownerBalance, 18));
+        const sold = total - remaining;
+        
+        // Get price from property details
+        const pricePerToken = property.price_per_token ? 
+          Number(formatUnits(BigInt(property.price_per_token), 6)) : 
+          Number(formatUnits(details.price, 6));
+        
+        console.log('Price per token:', pricePerToken);
 
-        setTokenStats(prev => ({
-          ...prev,
+        // Calculate total value
+        const totalValue = total * pricePerToken;
+        const soldValue = sold * pricePerToken;
+
+        setTokenStats({
           total: total.toString(),
           remaining: remaining.toString(),
           sold: sold.toString(),
-          holders: Math.floor(Math.random() * 50), // Simulated holders for demo
-          price: "56",
+          holders: Math.max(holdersCount, sold > 0 ? 2 : 1),
+          price: pricePerToken.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          }),
           name: property.token_name || '',
-          symbol: property.token_symbol || ''
-        }));
+          symbol: property.token_symbol || '',
+          totalValue: totalValue.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          }),
+          soldValue: soldValue.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          })
+        });
+
+        setOnChainDetails({
+          title: details.title || property.title,
+          description: details.description || property.description,
+          location: details.location || property.location,
+          imageUrl: details.imageUrl || property.image_url || PLACEHOLDER_IMAGE,
+          price: details.price,
+          isActive: details.isApproved
+        });
 
         // Calculate progress
         const progress = (sold / total) * 100;
         setTokenProgress(progress);
+
       } catch (error) {
         console.error('Error fetching token data:', error);
         toast({
@@ -151,11 +203,12 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
         });
       } finally {
         setIsLoadingProgress(false);
+        setIsLoadingStats(false);
       }
     };
 
     fetchTokenSupply();
-  }, [property.token_address, toast, property.token_name, property.token_symbol]);
+  }, [property.token_address, property.owner, property.price_per_token, toast, property.title, property.description, property.location, property.image_url, property.token_name, property.token_symbol]);
 
   const getStatusBadgeProps = (status: string) => {
     switch (status) {
@@ -229,59 +282,81 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <p className="text-2xl font-bold">
-              €56 <span className="text-sm font-normal">/token</span>
-            </p>
-            <p className="text-sm text-gray-500">
-              (Total: €{(56 * Number(tokenStats.total)).toLocaleString()})
-            </p>
+        {isLoadingStats ? (
+          <div className="flex items-center justify-center py-4">
+            <Spinner className="h-6 w-6" />
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-2xl font-bold">
+                  €{tokenStats.price} <span className="text-sm font-normal">/token</span>
+                </p>
+                <p className="text-sm text-gray-500">
+                  Total Value: €{tokenStats.totalValue}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-medium">Holders</p>
+                <p className="text-lg font-bold">{tokenStats.holders}</p>
+              </div>
+            </div>
 
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>Token Sales Progress</span>
-            <span>{tokenProgress.toFixed(1)}%</span>
-          </div>
-          <Progress value={tokenProgress} className={cn("h-2", getProgressColor(tokenProgress))} />
-        </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Token Sales Progress</span>
+                <span>{tokenProgress.toFixed(1)}%</span>
+              </div>
+              <Progress 
+                value={tokenProgress} 
+                className={cn(
+                  "h-2",
+                  tokenProgress >= 90 ? "bg-green-200" :
+                  tokenProgress >= 50 ? "bg-blue-200" :
+                  "bg-gray-200"
+                )} 
+              />
+            </div>
 
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-gray-500">Available</p>
-            <p className="font-medium">{formatTokenAmount(tokenStats.remaining)} tokens</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Total Supply</p>
-            <p className="font-medium">{formatTokenAmount(tokenStats.total)} tokens</p>
-          </div>
-        </div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-500">Available</p>
+                <p className="font-medium">{formatTokenAmount(tokenStats.remaining)} tokens</p>
+                <p className="text-xs text-gray-400">€{(Number(tokenStats.remaining) * Number(tokenStats.price)).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Total Supply</p>
+                <p className="font-medium">{formatTokenAmount(tokenStats.total)} tokens</p>
+                <p className="text-xs text-gray-400">€{tokenStats.totalValue}</p>
+              </div>
+            </div>
 
-        <div className="flex justify-between gap-2">
-          <Button
-            className="flex-1"
-            variant="outline"
-            asChild
-            onClick={handleViewDetails}
-          >
-            <Link href={`/property/${property.token_address}`}>
-              View Details
-            </Link>
-          </Button>
-          {property.status === 'funding' && (
-            <Button
-              className="flex-1"
-              variant="default"
-              asChild
-            >
-              <Link href={`/property/stake/${property.token_address}`}>
-                Stake Tokens
-              </Link>
-            </Button>
-          )}
-        </div>
+            <div className="flex justify-between gap-2">
+              <Button
+                className="flex-1"
+                variant="outline"
+                asChild
+                onClick={handleViewDetails}
+              >
+                <Link href={`/property/${property.token_address}`}>
+                  View Details
+                </Link>
+              </Button>
+              {property.status === 'funding' && (
+                <Button
+                  className="flex-1"
+                  variant="default"
+                  asChild
+                >
+                  <Link href={`/property/stake/${property.token_address}`}>
+                    Stake Tokens
+                  </Link>
+                </Button>
+              )}
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

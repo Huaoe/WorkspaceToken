@@ -4,7 +4,7 @@ import * as fs from "fs";
 
 async function main() {
   // Load environment variables from the correct .env.local file
-  const envLocalPath = path.join(process.cwd(), '../..', '.env.local');
+  const envLocalPath = path.join(process.cwd(), '..', '.env.local');
   if (fs.existsSync(envLocalPath)) {
     dotenv.config({ path: envLocalPath });
   } else {

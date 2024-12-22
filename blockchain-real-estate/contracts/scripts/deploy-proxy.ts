@@ -160,7 +160,7 @@ async function main() {
 
   // Update frontend .env.local
   console.log("\nUpdating frontend .env.local with NEXT_PUBLIC_ values");
-  const envLocalPath = path.resolve(__dirname, '../.env.local');
+  const envLocalPath = path.resolve(__dirname, '../../.env.local');
   updateEnvLocalFile(envLocalPath, frontendAddresses);
 
   console.log("\nDeployment complete! Environment variables have been updated in .env.local");
