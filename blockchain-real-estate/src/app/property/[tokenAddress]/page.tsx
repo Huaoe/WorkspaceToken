@@ -13,6 +13,8 @@ import { useWalletEvents } from '@/app/wallet-events-provider';
 import { getPropertyFactoryContract, getPropertyTokenContract } from '@/lib/ethereum';
 import { formatEther, parseEther, formatUnits } from 'ethers';
 import { propertyTokenABI } from '@/lib/contracts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Card as TremorCard, Title, BarChart, Subtitle } from "@tremor/react";
 
 export default function PropertyDetailsPage() {
   const { tokenAddress } = useParams();
@@ -42,6 +44,16 @@ export default function PropertyDetailsPage() {
   });
   const [pricePerToken, setPricePerToken] = useState<bigint>(BigInt(0));
   const [tokenContract, setTokenContract] = useState<any>(null);
+
+  const [analytics, setAnalytics] = useState<{
+    monthlyReturns: { month: string; return: number }[];
+    tokenHistory: { date: string; value: number }[];
+    marketAnalysis: string;
+  }>({
+    monthlyReturns: [],
+    tokenHistory: [],
+    marketAnalysis: ''
+  });
 
   const fetchOnChainDetails = async () => {
     if (!address || !tokenContract) {
@@ -161,6 +173,51 @@ export default function PropertyDetailsPage() {
     }
   }, [tokenContract, address]);
 
+  useEffect(() => {
+    // Simulate fetching historical data
+    const generateHistoricalData = () => {
+      const last30Days = Array.from({ length: 30 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (29 - i));
+        return {
+          date: date.toISOString().split('T')[0],
+          value: 23 + Math.random() * 2 // Simulate price fluctuation around €23
+        };
+      });
+
+      const monthlyReturns = [
+        { month: 'Jan', return: 8.2 },
+        { month: 'Feb', return: 7.9 },
+        { month: 'Mar', return: 8.3 },
+        { month: 'Apr', return: 8.0 },
+        { month: 'May', return: 8.1 },
+        { month: 'Jun', return: 8.4 }
+      ];
+
+      const marketAnalysis = `
+        Property Analysis (AI-Generated):
+        - Location Quality: Excellent
+        - Market Trend: Upward
+        - Risk Assessment: Low
+        - Growth Potential: High
+        - Rental Demand: Strong
+        
+        Recommendations:
+        - Optimal holding period: 3-5 years
+        - Expected annual appreciation: 5-7%
+        - Suggested portfolio allocation: 15-20%
+      `;
+
+      setAnalytics({
+        tokenHistory: last30Days,
+        monthlyReturns,
+        marketAnalysis
+      });
+    };
+
+    generateHistoricalData();
+  }, []);
+
   // Format price with proper decimals
   const formattedPrice = useMemo(() => {
     if (!pricePerToken) return '0.00';
@@ -197,7 +254,7 @@ export default function PropertyDetailsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto px-4 py-8">
       <Card>
         <CardHeader>
           <CardTitle>{onChainDetails.title || property.title}</CardTitle>
@@ -272,6 +329,94 @@ export default function PropertyDetailsPage() {
           </Button>
         </CardFooter>
       </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        {/* Token Price History */}
+        <TremorCard>
+          <Title>Token Price History</Title>
+          <Subtitle>Last 30 days performance</Subtitle>
+          <div className="h-72 mt-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={analytics.tokenHistory}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis domain={['auto', 'auto']} />
+                <Tooltip />
+                <Area 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="#2563eb" 
+                  fill="#93c5fd" 
+                  name="Token Price (€)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </TremorCard>
+
+        {/* Monthly Returns */}
+        <TremorCard>
+          <Title>Monthly Returns</Title>
+          <Subtitle>Historical ROI performance</Subtitle>
+          <BarChart
+            className="mt-4 h-72"
+            data={analytics.monthlyReturns}
+            index="month"
+            categories={["return"]}
+            colors={["blue"]}
+            valueFormatter={(number) => `${number.toFixed(1)}%`}
+          />
+        </TremorCard>
+
+        {/* Market Analysis */}
+        <TremorCard className="md:col-span-2">
+          <Title>Market Analysis</Title>
+          <Subtitle>AI-Generated Insights</Subtitle>
+          <div className="mt-4 whitespace-pre-line text-gray-600">
+            {analytics.marketAnalysis}
+          </div>
+        </TremorCard>
+
+        {/* Token Distribution */}
+        <TremorCard className="md:col-span-2">
+          <Title>Token Distribution</Title>
+          <div className="mt-4">
+            <div className="relative pt-1">
+              <div className="flex mb-2 items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
+                    Token Allocation
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-semibold inline-block text-blue-600">
+                    {((Number(tokenBalance) / Number(totalSupply)) * 100).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+              <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
+                <div
+                  className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"
+                  style={{ width: `${(Number(tokenBalance) / Number(totalSupply)) * 100}%` }}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div>
+                <p className="text-gray-500">Total Supply</p>
+                <p className="font-medium">{totalSupply} tokens</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Available</p>
+                <p className="font-medium">{Number(totalSupply) - Number(tokenBalance)} tokens</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Your Holdings</p>
+                <p className="font-medium">{tokenBalance} tokens</p>
+              </div>
+            </div>
+          </div>
+        </TremorCard>
+      </div>
     </div>
   );
 }
