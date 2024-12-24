@@ -17,7 +17,8 @@ import {
   getSigner,
 } from "@/lib/ethereum";
 import { formatUnits, parseUnits, formatEther } from "viem";
-import { PROPERTY_FACTORY_ADDRESS, EURC_TOKEN_ADDRESS } from "@/lib/constants";
+import { PROPERTY_FACTORY_ADDRESS } from "@/lib/contracts";
+import { EURC_TOKEN_ADDRESS } from '@/lib/contracts';
 import { formatEURCAmount } from "@/lib/utils";
 import { MapPin as MapPinIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -67,10 +68,14 @@ export default function PurchaseProperty() {
     setTokenAmount(value);
     if (value && onChainDetails.price) {
       try {
-        const amount = Number(value);
-        const pricePerToken = Number(formatUnits(onChainDetails.price, 6));
-        const totalCost = amount * pricePerToken;
-        setEurcAmount(totalCost.toString());
+        // Convert token amount to BigInt with 18 decimals
+        const tokenAmountInWei = parseUnits(value, 18);
+        
+        // Calculate total cost in EURC (6 decimals)
+        // totalCost = (tokenAmount * price) / 10^18
+        const totalCostInEURC = (tokenAmountInWei * onChainDetails.price) / parseUnits("1", 18);
+        
+        setEurcAmount(formatUnits(totalCostInEURC, 6));
       } catch (error) {
         console.error("Error calculating EURC amount:", error);
         setEurcAmount("0");
@@ -231,162 +236,82 @@ export default function PurchaseProperty() {
   };
 
   const handlePurchaseTokens = async () => {
-    if (
-      !address ||
-      !propertyTokenContract ||
-      !eurcContract ||
-      !tokenAmount ||
-      !eurcAmount
-    ) {
+    if (!address || !propertyTokenContract || !eurcContract || !tokenAmount || !eurcAmount) {
       return;
     }
 
     setIsLoading(true);
 
     try {
-      console.log("Starting purchase process...");
-      console.log("User address:", address);
-      console.log("Property token address:", tokenAddress);
-
-      // Get signer first
-      const signer = await getSigner();
-      if (!signer) {
-        throw new Error("No signer available");
-      }
-      console.log("Got signer");
-
       // Get fresh contract instances with signer
-      const propertyTokenWithSigner = await getPropertyTokenContract(
-        tokenAddress as string,
-        true
-      );
-      const eurcWithSigner = await getEURCContract(EURC_TOKEN_ADDRESS, true);
-      const factory = await getPropertyFactoryContract(true);
-      console.log("Got contracts with signer");
-
-      // Check if property is approved in both factory and token contract
-      const factoryProps = await factory.getAllProperties();
-      let isApprovedInFactory = false;
-
-      // Find the property in factory's list and check its approval
-      for (const prop of factoryProps) {
-        if (prop.tokenAddress.toLowerCase() === tokenAddress.toLowerCase()) {
-          isApprovedInFactory = prop.isApproved;
-          break;
-        }
-      }
-
-      // Check token's internal approval status
-      const propertyDetails = await propertyTokenWithSigner.propertyDetails();
-
-      console.log("Property approval status:", {
-        factoryApproval: isApprovedInFactory,
-        tokenActive: propertyDetails.isActive,
-      });
-
-      if (!isApprovedInFactory || !propertyDetails.isActive) {
-        throw new Error("Property is not approved for trading");
-      }
-
-      // Get the price from property details
-      const price = propertyDetails.price;
-
-      // Calculate amounts in proper decimals
-      const amountInWei = parseUnits(tokenAmount, 18); // Convert to 18 decimals for ERC20
-      const eurcAmountNeeded = (amountInWei * price) / parseUnits("1", 18);
-      console.log("EURC amount needed:", eurcAmountNeeded.toString());
-
-      // Check EURC balance
-      const eurcBalance = await eurcWithSigner.balanceOf(address);
-      if (eurcBalance < eurcAmountNeeded) {
-        throw new Error("Insufficient EURC balance");
-      }
-
-      // Check if owner has enough tokens
-      const ownerAddress = await propertyTokenWithSigner.owner();
-      const ownerBalance = await propertyTokenWithSigner.balanceOf(
-        ownerAddress
-      );
-      if (ownerBalance < amountInWei) {
-        throw new Error("Owner does not have enough tokens to sell");
-      }
-
-      // Get the current nonce
+      const propertyToken = await getPropertyTokenContract(tokenAddress as string, true);
+      const eurc = await getEURCContract(EURC_TOKEN_ADDRESS, true);
+      const whitelist = await getWhitelistContract(true);
+      
+      // Get current nonce for transaction ordering
       const provider = await getProvider();
       const currentNonce = await provider.getTransactionCount(address);
-      console.log("Current nonce:", currentNonce);
+      console.log('Current nonce:', currentNonce);
+      
+      // Check whitelist status
+      const isWhitelisted = await whitelist.isWhitelisted(address);
+      if (!isWhitelisted) {
+        throw new Error('Address is not whitelisted. Please get whitelisted first.');
+      }
 
-      // First approve EURC spending to the property token contract
-      console.log("Approving EURC spend:", eurcAmountNeeded.toString());
-      const approveTx = await eurcWithSigner.approve(
-        tokenAddress as string,
-        eurcAmountNeeded,
-        {
-          nonce: currentNonce,
-        }
+      // Calculate amounts
+      const tokenAmountWei = parseUnits(tokenAmount, 18);
+      const eurcAmountWei = parseUnits(eurcAmount, 6);
+
+      // Check EURC balance
+      const eurcBalance = await eurc.balanceOf(address);
+      if (eurcBalance < eurcAmountWei) {
+        throw new Error(`Insufficient EURC balance. Need ${eurcAmount} EURC.`);
+      }
+
+      // Check and set EURC allowance
+      const allowance = await eurc.allowance(address, propertyToken.target);
+      if (allowance < eurcAmountWei) {
+        console.log('Approving EURC...');
+        const approveTx = await eurc.approve(
+          propertyToken.target,
+          eurcAmountWei,
+          { nonce: currentNonce }
+        );
+        await approveTx.wait();
+        console.log('EURC approved');
+      }
+
+      // Purchase tokens
+      console.log('Purchasing tokens...');
+      const purchaseTx = await propertyToken.purchaseTokens(
+        tokenAmountWei,
+        { nonce: allowance < eurcAmountWei ? currentNonce + 1 : currentNonce }
       );
-      await approveTx.wait();
-      console.log("EURC approved");
-
-      // Purchase tokens directly from the property token contract
-      console.log("Purchasing tokens:", amountInWei.toString());
-      const purchaseTx = await propertyTokenWithSigner.purchaseTokens(
-        amountInWei,
-        {
-          nonce: currentNonce + 1,
-        }
-      );
-
       await purchaseTx.wait();
-      console.log("Purchase complete");
+      console.log('Purchase complete');
+
+      // Update UI
+      await Promise.all([
+        fetchEURCBalance(),
+        fetchOnChainDetails()
+      ]);
 
       toast({
         title: "Success",
-        description: `Successfully purchased ${tokenAmount} tokens`,
+        description: `Purchased ${tokenAmount} property tokens`
       });
 
-      // Refresh balances
-      await fetchEURCBalance();
-      await fetchOnChainDetails();
-
-      // Reset amount inputs
+      // Reset form
       setTokenAmount("");
       setEurcAmount("");
+
     } catch (error: any) {
-      console.error("Error purchasing tokens:", error);
-
-      // Try to get more detailed error message
-      let errorMessage = "Failed to purchase tokens";
-
-      // Handle known error types from the contract
-      if (error.message?.includes("NotWhitelisted")) {
-        errorMessage =
-          "Your address is not whitelisted. Please complete KYC first.";
-      } else if (error.message?.includes("InsufficientBalance")) {
-        errorMessage = "Insufficient EURC balance for purchase";
-      } else if (error.message?.includes("PropertyInactive")) {
-        errorMessage = "Property token is not currently active";
-      } else if (error.message?.includes("InsufficientAllowance")) {
-        errorMessage = "Not enough EURC allowance for purchase";
-      } else if (error.message?.includes("TransferFailed")) {
-        errorMessage = "EURC transfer failed";
-      } else if (error.reason) {
-        errorMessage = error.reason;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      if (error.data?.message) {
-        errorMessage = error.data.message;
-      }
-      if (error.error?.message) {
-        errorMessage = error.error.message;
-      }
-
+      console.error('Purchase error:', error);
       toast({
         title: "Error",
-        description: errorMessage,
-        variant: "destructive",
+        description: error.message || "Failed to purchase tokens",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);

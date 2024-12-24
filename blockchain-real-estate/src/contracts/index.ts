@@ -4,6 +4,7 @@ import propertyFactoryJSON from '../../contracts/abis/PropertyFactory.json';
 import mockEURCJSON from '../../contracts/abis/MockEURC.json';
 import stakingRewardsJSON from '../../contracts/abis/StakingRewards.json';
 import stakingFactoryJSON from '../../contracts/abis/StakingFactory.json';
+import whitelistJSON from '../../contracts/abis/Whitelist.json';
 
 // Export ABIs
 export const propertyTokenABI = propertyTokenJSON.abi;
@@ -11,6 +12,7 @@ export const propertyFactoryABI = propertyFactoryJSON.abi;
 export const mockEURCABI = mockEURCJSON.abi;
 export const stakingRewardsABI = stakingRewardsJSON.abi;
 export const stakingFactoryABI = stakingFactoryJSON.abi;
+export const whitelistABI = whitelistJSON.abi;
 
 // Export contract addresses
 export const PROPERTY_FACTORY_ADDRESS = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS;

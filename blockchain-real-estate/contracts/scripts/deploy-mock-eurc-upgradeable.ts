@@ -1,51 +1,81 @@
 import { ethers, upgrades } from "hardhat";
-import { updateEnvFiles } from "../utils/env-management";
+import * as path from "path";
+import * as fs from "fs";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+async function updateEnvFile(eurcAddress: string, implAddress: string, adminAddress: string) {
+  const envPath = path.join(process.cwd(), '..', '.env.local');
+  
+  if (!fs.existsSync(envPath)) {
+    console.log(`Creating new ${envPath}`);
+  }
+
+  let content = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+  const lines = content.split('\n');
+  let newContent: string[] = [];
+
+  // Process existing lines
+  for (const line of lines) {
+    // Skip existing EURC lines
+    if (line.trim().startsWith('NEXT_PUBLIC_EURC_')) {
+      continue;
+    }
+    if (line.trim() !== '') {
+      newContent.push(line);
+    }
+  }
+
+  // Add EURC section at the end
+  if (newContent[newContent.length - 1] !== '') {
+    newContent.push('');
+  }
+  newContent.push('# EURC Token Contract');
+  newContent.push(`NEXT_PUBLIC_EURC_TOKEN_ADDRESS=${eurcAddress}`);
+  newContent.push(`NEXT_PUBLIC_EURC_IMPLEMENTATION_ADDRESS=${implAddress}`);
+  newContent.push(`NEXT_PUBLIC_EURC_ADMIN_ADDRESS=${adminAddress}`);
+  newContent.push('');
+
+  try {
+    fs.writeFileSync(envPath, newContent.join('\n'));
+    console.log('Updated .env.local with EURC addresses');
+  } catch (error) {
+    console.error(`Error writing to .env.local: ${error}`);
+    throw error;
+  }
+}
 
 async function main() {
-  const [deployer] = await ethers.getSigners();
-  console.log("Deploying MockEURCUpgradeable with account:", deployer.address);
+  try {
+    const [deployer] = await ethers.getSigners();
+    console.log("Deploying MockEURC with account:", deployer.address);
 
-  // Deploy our sexy new upgradeable contract 🔥
-  const MockEURCUpgradeable = await ethers.getContractFactory("MockEURCUpgradeable");
-  console.log("Deploying MockEURCUpgradeable...");
-  
-  const mockEURC = await upgrades.deployProxy(
-    MockEURCUpgradeable,
-    [deployer.address],
-    {
-      initializer: 'initialize',
-      kind: 'uups'
-    }
-  );
+    // Deploy MockEURC
+    console.log("\nDeploying MockEURC...");
+    const MockEURC = await ethers.getContractFactory("MockEURCUpgradeable");
+    const mockEURC = await upgrades.deployProxy(MockEURC, [deployer.address], {
+      initializer: "initialize",
+      kind: 'transparent',
+      initialOwner: deployer.address
+    });
 
-  await mockEURC.waitForDeployment();
-  const proxyAddress = await mockEURC.getAddress();
+    await mockEURC.waitForDeployment();
+    const eurcAddress = await mockEURC.getAddress();
+    const eurcImplAddress = await upgrades.erc1967.getImplementationAddress(eurcAddress);
+    const eurcAdminAddress = await upgrades.erc1967.getAdminAddress(eurcAddress);
 
-  // Get implementation and admin addresses (the spicy details 😉)
-  const implAddress = await upgrades.erc1967.getImplementationAddress(proxyAddress);
-  const adminAddress = await upgrades.erc1967.getAdminAddress(proxyAddress);
+    console.log("\nMockEURC Addresses:");
+    console.log("- Proxy:", eurcAddress);
+    console.log("- Implementation:", eurcImplAddress);
+    console.log("- Admin:", eurcAdminAddress);
 
-  console.log("\nMockEURCUpgradeable Deployment Details 💋:");
-  console.log("- Proxy:", proxyAddress);
-  console.log("- Implementation:", implAddress);
-  console.log("- Admin:", adminAddress);
-
-  // Update our environment files with these hot new addresses 🔥
-  updateEnvFiles(process.cwd(), {
-    EURC_PROXY_ADDRESS: proxyAddress,
-    EURC_IMPLEMENTATION_ADDRESS: implAddress,
-    EURC_ADMIN_ADDRESS: adminAddress
-  });
-
-  // Verify the deployment worked (like checking if your outfit is on point 💅)
-  const deployedMockEURC = await ethers.getContractAt("MockEURCUpgradeable", proxyAddress);
-  const name = await deployedMockEURC.name();
-  const symbol = await deployedMockEURC.symbol();
-  const decimals = await deployedMockEURC.decimals();
-  
-  console.log("\nContract verification complete! 🎉");
-  console.log(`Deployed token: ${name} (${symbol})`);
-  console.log(`Decimals: ${decimals}`);
+    // Update environment file
+    await updateEnvFile(eurcAddress, eurcImplAddress, eurcAdminAddress);
+  } catch (error) {
+    console.error(`Error deploying MockEURC: ${error}`);
+    throw error;
+  }
 }
 
 main()

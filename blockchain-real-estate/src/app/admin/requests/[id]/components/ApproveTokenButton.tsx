@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
 import { useWalletEvents } from "@/app/wallet-events-provider";
-import { getPropertyFactoryContract, getSigner, getPropertyTokenContract, getEURCContract, getWhitelistContract } from "@/lib/ethereum";
+import { getPropertyFactoryContract, getSigner, getPropertyTokenContract, getEURCContract, getWhitelistContract, getProvider } from "@/lib/ethereum";
 import { UseFormReturn } from "react-hook-form";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@/lib/supabase/types";
@@ -50,213 +50,108 @@ export function ApproveTokenButton({ propertyId, form }: ApproveTokenButtonProps
 
       // Validate token address format
       if (!ethers.isAddress(tokenAddress)) {
-        toast({
-          title: "Error",
-          description: "Invalid token address format",
-          variant: "destructive",
-        });
-        return;
+        throw new Error('Invalid token address format');
       }
 
       console.log('Approving token for trading:', tokenAddress);
 
-      // Get factory contract
+      // Get contracts
+      const signer = await getSigner();
       const factory = await getPropertyFactoryContract(true);
-      if (!factory) {
-        throw new Error('Failed to get factory contract');
-      }
+      
+      // Check if signer is validator
+      const validator = await factory.validator();
+      const signerAddress = await signer.getAddress();
+      console.log('Validator check:', {
+        validator,
+        signer: signerAddress,
+        isValidator: validator.toLowerCase() === signerAddress.toLowerCase()
+      });
 
-      try {
-        // First check if the property is already approved
-        const factoryProps = await factory.getAllProperties();
-        let isApproved = false;
-        
-        // Find the property in factory's list and check its approval
-        for (const prop of factoryProps) {
-          if (prop.tokenAddress.toLowerCase() === tokenAddress.toLowerCase()) {
-            isApproved = prop.isApproved;
-            break;
-          }
-        }
-
-        if (isApproved) {
-          toast({
-            title: "Already Approved",
-            description: "This property is already approved for trading",
-            variant: "default",
-          });
-          return;
-        }
-
-        // Verify ownership
+      if (validator.toLowerCase() !== signerAddress.toLowerCase()) {
+        // If not validator, try to get validator role
         const factoryOwner = await factory.owner();
-        if (factoryOwner.toLowerCase() !== address.toLowerCase()) {
-          toast({
-            title: "Error",
-            description: "Only the factory owner can approve properties",
-            variant: "destructive",
-          });
-          return;
+        if (factoryOwner.toLowerCase() === signerAddress.toLowerCase()) {
+          console.log('Signer is factory owner, updating validator...');
+          const tx = await factory.setValidator(signerAddress);
+          await tx.wait();
+          console.log('Updated validator to:', signerAddress);
+        } else {
+          throw new Error(`Not authorized. Only validator (${validator}) can approve properties. Please connect with the validator wallet.`);
         }
-
-        // Get property token contract first
-        const propertyToken = await getPropertyTokenContract(tokenAddress, true);
-        if (!propertyToken) {
-          throw new Error('Failed to get property token contract');
-        }
-
-        // Get initial approval status for logging
-        const initialTokenDetails = await propertyToken.propertyDetails();
-        console.log('Initial token status:', initialTokenDetails);
-
-        // Get factory with signer
-        const signer = await getSigner();
-        const factoryWithSigner = await getPropertyFactoryContract(true);
-        
-        // Approve the property with explicit gas configuration
-        console.log('Approving property in factory...');
-        const approveTx = await factoryWithSigner.approveProperty(
-          tokenAddress,
-          {
-            gasLimit: 1000000, // Increased gas limit
-            nonce: await signer.provider.getTransactionCount(address)
-          }
-        );
-        
-        console.log('Approval transaction sent:', approveTx.hash);
-        const receipt = await approveTx.wait();
-        console.log('Approval transaction confirmed:', receipt.hash);
-
-        // Look for the PropertyApproved event
-        const approvedEvent = receipt.logs.find(
-          (log: any) => log.fragment?.name === 'PropertyApproved'
-        );
-
-        if (!approvedEvent) {
-          throw new Error('Property approval transaction did not emit PropertyApproved event');
-        }
-
-        // Update database status
-        const { error: dbError } = await supabase
-          .from('property_requests')
-          .update({ 
-            status: 'funding',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', propertyId);
-
-        if (dbError) {
-          console.error('Error updating database:', dbError);
-          throw new Error(`Error updating database: ${dbError.message}`);
-        }
-
-        // Update form values
-        form.setValue('status', 'funding');
-
-        toast({
-          title: 'Success',
-          description: 'Property has been approved for funding',
-        });
-
-        // Get EURC contract and check balance/allowance
-        const eurcContract = await getEURCContract(EURC_TOKEN_ADDRESS!, true);
-        const eurcBalance = await eurcContract.balanceOf(address);
-        console.log('EURC Balance:', ethers.formatUnits(eurcBalance, 6));
-
-        // Get property token with signer
-        const propertyTokenWithSigner = await getPropertyTokenContract(tokenAddress, true);
-        
-        // Check whitelist status
-        const whitelistContract = await getWhitelistContract(true);
-        const isWhitelisted = await whitelistContract.isWhitelisted(address);
-        console.log('Is whitelisted:', isWhitelisted);
-        
-        if (!isWhitelisted) {
-          throw new Error('Address is not whitelisted. Please get whitelisted first.');
-        }
-        
-        // Get property details and owner
-        const details = await propertyTokenWithSigner.propertyDetails();
-        console.log('Property details:', {
-          price: ethers.formatUnits(details.price, 6),
-          isActive: details.isActive
-        });
-
-        if (!details.isActive) {
-          throw new Error('Property is not active for purchase');
-        }
-
-        // Calculate token amount and check owner's balance
-        const tokenAmount = BigInt(form.getValues('number_of_tokens')) * BigInt(10 ** 18);
-        
-        // Calculate EURC amount needed
-        const eurcNeeded = (details.price * tokenAmount) / BigInt(10 ** 18);
-        console.log('EURC needed:', ethers.formatUnits(eurcNeeded, 6));
-
-        // Check EURC balance
-        if (eurcBalance < eurcNeeded) {
-          throw new Error(`Insufficient EURC balance. Need ${ethers.formatUnits(eurcNeeded, 6)} EURC but have ${ethers.formatUnits(eurcBalance, 6)} EURC`);
-        }
-
-        // Check EURC allowance for the property token contract (not the owner)
-        const allowance = await eurcContract.allowance(address, tokenAddress);
-        console.log('Current EURC allowance for token contract:', ethers.formatUnits(allowance, 6));
-
-        if (allowance < eurcNeeded) {
-          console.log('Approving EURC spend for token contract:', ethers.formatUnits(eurcNeeded, 6));
-          const approveTx = await eurcContract.approve(tokenAddress, eurcNeeded, {
-            gasLimit: 100000
-          });
-          console.log('Approval transaction sent:', approveTx.hash);
-          await approveTx.wait();
-          console.log('EURC approved');
-        }
-
-        // Get current nonce
-        const nonce = await signer.provider.getTransactionCount(address);
-        console.log('Current nonce:', nonce);
-
-        // Purchase tokens with explicit gas configuration
-        console.log('Purchasing tokens:', ethers.formatUnits(tokenAmount, 18));
-        const purchaseTx = await propertyTokenWithSigner.purchaseTokens(
-          tokenAmount,
-          {
-            gasLimit: 500000,
-            nonce: nonce
-          }
-        );
-
-        console.log('Purchase transaction sent:', purchaseTx.hash);
-        const purchaseReceipt = await purchaseTx.wait();
-        console.log('Purchase confirmed:', purchaseReceipt.hash);
-
-        // Verify the purchase event
-        const purchaseEvent = purchaseReceipt.logs.find(
-          (log: any) => log.fragment?.name === 'TokensPurchased'
-        );
-
-        if (!purchaseEvent) {
-          throw new Error('Token purchase did not emit TokensPurchased event');
-        }
-
-        const [buyer, amount, eurcAmount] = purchaseEvent.args;
-        console.log('Tokens purchased:', {
-          buyer,
-          amount: ethers.formatUnits(amount, 18),
-          eurcAmount: ethers.formatUnits(eurcAmount, 6)
-        });
-
-      } catch (error: any) {
-        console.error('Error in approval process:', error);
-        toast({
-          title: "Error",
-          description: error.message || "Failed to approve property",
-          variant: "destructive",
-        });
       }
+
+      // Get property count for debugging
+      const propertyCount = await factory.getPropertyCount();
+      console.log('Property count:', propertyCount.toString());
+
+      // Check if property exists and get its index
+      let propertyIndex = -1;
+      const count = parseInt(propertyCount.toString());
+      console.log('Checking properties...');
+      for (let i = 0; i < count; i++) {
+        const prop = await factory.properties(i);
+        console.log(`Property ${i}:`, {
+          tokenAddress: prop.tokenAddress,
+          isApproved: prop.isApproved
+        });
+        if (prop.tokenAddress.toLowerCase() === tokenAddress.toLowerCase()) {
+          propertyIndex = i;
+          if (prop.isApproved) {
+            throw new Error('Property is already approved');
+          }
+          break;
+        }
+      }
+
+      if (propertyIndex === -1) {
+        throw new Error(`Property token ${tokenAddress} not found in factory`);
+      }
+
+      console.log('Found property at index:', propertyIndex);
+
+      // Call approveProperty on the factory
+      console.log('Approving property token:', tokenAddress);
+      const tx = await factory.approveProperty(tokenAddress);
+      console.log('Approval transaction sent:', tx.hash);
+      
+      const receipt = await tx.wait();
+      console.log('Property approved:', receipt.hash);
+
+      // Get updated property state
+      const propertyToken = await getPropertyTokenContract(tokenAddress, true);
+      const [newOwner, newIsApproved] = await Promise.all([
+        propertyToken.owner(),
+        factory.properties(propertyIndex).then((prop: any) => prop.isApproved)
+      ]);
+
+      console.log('Updated property state:', {
+        address: tokenAddress,
+        owner: newOwner,
+        isApproved: newIsApproved
+      });
+
+      // Update the database status
+      const { error: updateError } = await supabase
+        .from('property_requests')
+        .update({
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+        })
+        .eq('id', propertyId);
+
+      if (updateError) {
+        console.error('Error updating database:', updateError);
+        throw new Error('Failed to update database status');
+      }
+
+      toast({
+        title: "Success",
+        description: "Property has been approved for trading",
+      });
 
     } catch (error: any) {
-      console.error('Error approving property:', error);
+      console.error('Error in approval process:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to approve property",

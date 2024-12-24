@@ -1,427 +1,716 @@
 'use client';
 
 import { useParams } from "next/navigation";
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { useAccount, usePublicClient, useWalletClient } from "wagmi";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { formatUnits, parseUnits } from "ethers";
-import { InitializeStaking } from "./components/InitializeStaking";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { propertyTokenABI, stakingRewardsABI } from "@/contracts";
+import { stakingFactoryABI } from "@/lib/contracts";
+import { formatUnits, parseUnits, parseEther, formatEther } from "ethers";
 import { Spinner } from "@/components/ui/spinner";
-import TokenMetrics from '@/components/staking/token-metrics';
-import { useWalletEvents } from "@/app/wallet-events-provider";
-import { getPropertyTokenContract, getStakingContract, getStakingFactoryContract } from "@/lib/ethereum";
+import { Progress } from "@/components/ui/progress";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ArrowUpIcon, ArrowDownIcon, CoinsIcon, TimerIcon } from "lucide-react";
+import { parseAbiItem } from "viem";
+import { whitelistABI } from "@/contracts";
 
 export default function StakeProperty() {
   const params = useParams();
+  const tokenAddress = params.tokenAddress as string;
+  const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient();
+  const { data: walletClient } = useWalletClient();
+  const { toast } = useToast();
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
-  const [tokenBalance, setTokenBalance] = useState<bigint>(BigInt(0));
-  const [stakedBalance, setStakedBalance] = useState<bigint>(BigInt(0));
-  const [earnedRewards, setEarnedRewards] = useState<bigint>(BigInt(0));
-  const [mounted, setMounted] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [stakingAddress, setStakingAddress] = useState<string | null>(null);
-  const [stakingMetrics, setStakingMetrics] = useState<{
-    totalStaked: bigint;
-    rewardRate: bigint;
-    duration: bigint;
-  } | null>(null);
+  const [tokenBalance, setTokenBalance] = useState<bigint>(0n);
+  const [stakedBalance, setStakedBalance] = useState<bigint>(0n);
+  const [earnedRewards, setEarnedRewards] = useState<bigint>(0n);
+  const [stakingHistory, setStakingHistory] = useState<any[]>([]);
+  const [apr, setApr] = useState<number>(0);
+  const [endDateStr, setEndDateStr] = useState<string>("");
+  const [isActive, setIsActive] = useState<boolean>(false);
+  const [isWhitelistAdmin, setIsWhitelistAdmin] = useState(false);
+  const [isUserWhitelisted, setIsUserWhitelisted] = useState(false);
 
-  const { address, isConnected } = useWalletEvents();
-  const { toast } = useToast();
-
-  const tokenAddress = params.tokenAddress as string;
-
-  // Get staking address from factory
   useEffect(() => {
-    const getStakingAddress = async () => {
+    const fetchData = async () => {
+      if (!tokenAddress || !isConnected || !address || !publicClient) return;
+
       try {
-        const factory = await getStakingFactoryContract();
-        const address = await factory.propertyToStaking(tokenAddress);
-        console.log("Found staking contract:", address);
-        setStakingAddress(address);
-      } catch (error) {
-        console.error("Error getting staking address:", error);
-        toast({
-          title: "Error",
-          description: "Failed to get staking contract. Please contact admin to create one.",
+        // Get staking factory address
+        const stakingFactory = process.env.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS;
+        if (!stakingFactory) {
+          throw new Error("Staking factory address not configured");
+        }
+
+        // Get staking contract info from factory
+        const [contractAddress, rewardRate, duration, isActive] = await publicClient.readContract({
+          address: stakingFactory as `0x${string}`,
+          abi: stakingFactoryABI,
+          functionName: "stakingContracts",
+          args: [tokenAddress],
+        }) as [string, bigint, bigint, boolean];
+
+        console.log("Staking Contract Info:", {
+          contractAddress,
+          rewardRate: rewardRate.toString(),
+          duration: duration.toString(),
+          isActive
         });
-      }
-    };
 
-    if (tokenAddress) {
-      getStakingAddress();
-    }
-  }, [tokenAddress, toast]);
+        if (!isActive || contractAddress === '0x0000000000000000000000000000000000000000') {
+          console.log("No active staking contract found for this property token");
+          setStakingAddress(null);
+          return;
+        }
 
-  // Read balances and metrics
-  useEffect(() => {
-    const fetchBalances = async () => {
-      if (!isConnected || !address || !stakingAddress) return;
+        setStakingAddress(contractAddress);
+        setIsActive(isActive);
+        
+        // Set APR directly from rewardRate (70000 = 7%)
+        setApr(Number(rewardRate) / 10000); // Convert basis points to percentage
 
-      try {
-        const propertyToken = await getPropertyTokenContract(tokenAddress);
-        const stakingContract = await getStakingContract(stakingAddress);
+        // Calculate end date
+        const periodEndDate = new Date();
+        periodEndDate.setSeconds(periodEndDate.getSeconds() + Number(duration));
+        const endDateStr = periodEndDate.toLocaleDateString();
+        setEndDateStr(endDateStr);
 
-        const [balance, staked, earned, totalStaked, rewardRate, duration] = await Promise.all([
-          propertyToken.balanceOf(address),
-          stakingContract.balanceOf(address),
-          stakingContract.earned(address),
-          stakingContract.totalSupply(),
-          stakingContract.rewardRate(),
-          stakingContract.duration()
+        console.log("Staking period ends:", endDateStr);
+
+        // Check if property is active
+        const propertyDetails = await publicClient.readContract({
+          address: tokenAddress,
+          abi: propertyTokenABI,
+          functionName: "propertyDetails",
+          args: [],
+        });
+        setIsActive(propertyDetails[5]); // isActive is at index 5
+
+        // Get token balance
+        const balance = await publicClient.readContract({
+          address: tokenAddress,
+          abi: propertyTokenABI,
+          functionName: "balanceOf",
+          args: [address],
+        });
+        setTokenBalance(balance);
+
+        // Get staked balance and rewards
+        const [staked, earned] = await Promise.all([
+          publicClient.readContract({
+            address: contractAddress,
+            abi: stakingRewardsABI,
+            functionName: "balanceOf",
+            args: [address],
+          }),
+          publicClient.readContract({
+            address: contractAddress,
+            abi: stakingRewardsABI,
+            functionName: "earned",
+            args: [address],
+          })
         ]);
 
-        setTokenBalance(balance);
         setStakedBalance(staked);
         setEarnedRewards(earned);
-        setStakingMetrics({
-          totalStaked,
-          rewardRate,
-          duration
-        });
+
+        if (contractAddress) {
+          // Get staking history
+          const fromBlock = BigInt(0); // Or use a more recent block for efficiency
+          const toBlock = await publicClient.getBlockNumber();
+
+          const stakingFilter = await publicClient.createEventFilter({
+            address: contractAddress,
+            event: parseAbiItem('event Staked(address indexed user, uint256 amount)'),
+            fromBlock,
+            toBlock,
+          });
+
+          const events = await publicClient.getFilterLogs({ filter: stakingFilter });
+          const history = events.map(event => ({
+            timestamp: new Date(Number(event.args.timestamp || 0) * 1000).toLocaleDateString(),
+            stakedAmount: formatEther(event.args.amount || 0n),
+            rewards: formatEther(event.args.reward || 0n)
+          }));
+
+          setStakingHistory(history);
+        }
       } catch (error) {
-        console.error("Error fetching balances:", error);
+        console.error("Error fetching data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch staking data",
+          variant: "destructive",
+        });
       }
     };
 
-    fetchBalances();
-    const interval = setInterval(fetchBalances, 15000); // Refresh every 15 seconds
+    fetchData();
+  }, [tokenAddress, isConnected, address, publicClient]);
 
-    return () => clearInterval(interval);
-  }, [address, isConnected, stakingAddress, tokenAddress]);
-
-  // Check if staking contract is initialized
   useEffect(() => {
-    const checkInitialization = async () => {
-      if (!stakingAddress || !isConnected) return;
+    const checkAdmin = async () => {
+      if (!address || !publicClient) return;
 
       try {
-        const stakingContract = await getStakingContract(stakingAddress);
-        const [rewardRate, duration] = await Promise.all([
-          stakingContract.rewardRate(),
-          stakingContract.duration()
-        ]);
-
-        setIsInitialized(rewardRate > BigInt(0) && duration > BigInt(0));
-        setIsLoading(false);
+        const whitelistContract = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS as `0x${string}`;
+        const owner = await publicClient.readContract({
+          address: whitelistContract,
+          abi: whitelistABI,
+          functionName: "owner",
+          args: [],
+        });
+        setIsWhitelistAdmin(owner.toLowerCase() === address.toLowerCase());
       } catch (error) {
-        console.error("Error checking initialization:", error);
-        setIsLoading(false);
+        console.error("Error checking whitelist admin:", error);
       }
     };
 
-    checkInitialization();
-  }, [stakingAddress, isConnected]);
+    checkAdmin();
+  }, [address, publicClient]);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    const checkWhitelist = async () => {
+      if (!address || !publicClient) return;
 
+      try {
+        const whitelistContract = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS as `0x${string}`;
+        
+        // Check if user is admin
+        const owner = await publicClient.readContract({
+          address: whitelistContract,
+          abi: whitelistABI,
+          functionName: "owner",
+          args: [],
+        });
+        setIsWhitelistAdmin(owner.toLowerCase() === address.toLowerCase());
+
+        // Check if user is whitelisted
+        const isWhitelisted = await publicClient.readContract({
+          address: whitelistContract,
+          abi: whitelistABI,
+          functionName: "isWhitelisted",
+          args: [address],
+        });
+        setIsUserWhitelisted(isWhitelisted);
+      } catch (error) {
+        console.error("Error checking whitelist:", error);
+      }
+    };
+
+    checkWhitelist();
+  }, [address, publicClient]);
+
+  // Handle staking
   const handleStake = async () => {
-    if (!isConnected || !address || !amount) {
+    if (!stakingAddress || !amount || !isConnected || !address || !walletClient || !isUserWhitelisted) {
       toast({
         title: "Error",
-        description: "Please connect your wallet and enter an amount",
+        description: "Please connect your wallet, enter an amount and ensure you are whitelisted",
+        variant: "destructive",
       });
       return;
     }
 
     try {
       setLoading(true);
-      const amountToStake = parseUnits(amount, 18);
+      console.log("Token address:", tokenAddress);
+      console.log("Staking address:", stakingAddress);
+      console.log("User address:", address);
 
-      console.log("\n=== Starting stake transaction ===");
-      console.log("Basic info:", {
-        userAddress: address,
-        tokenAddress,
-        stakingAddress,
-        amount,
-        amountToStake: amountToStake.toString(),
+      // Check if property is active
+      const propertyDetails = await publicClient.readContract({
+        address: tokenAddress,
+        abi: propertyTokenABI,
+        functionName: "propertyDetails",
+        args: [],
       });
 
-      const propertyToken = await getPropertyTokenContract(tokenAddress);
-      const stakingContract = await getStakingContract(stakingAddress);
+      console.log("Property details:", propertyDetails);
+      
+      if (!propertyDetails[5]) { // isActive is at index 5
+        toast({
+          title: "Error",
+          description: "This property token is not active",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if user is whitelisted
+      const isWhitelisted = await publicClient.readContract({
+        address: process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS as `0x${string}`,
+        abi: whitelistABI,
+        functionName: "isWhitelisted",
+        args: [address],
+      });
+
+      console.log("Is user whitelisted:", isWhitelisted);
+
+      if (!isWhitelisted) {
+        toast({
+          title: "Error",
+          description: "You need to be whitelisted to interact with this token",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const amountToStake = parseEther(amount);
+      console.log("Amount to stake:", formatEther(amountToStake), "tokens");
 
       // Check token balance
-      const balance = await propertyToken.balanceOf(address);
-      console.log("\nToken balance check:", {
-        balance: balance.toString(),
-        formattedBalance: formatUnits(balance, 18),
-        requiredAmount: amount,
-        hasEnoughTokens: balance >= amountToStake,
+      const balance = await publicClient.readContract({
+        address: tokenAddress,
+        abi: propertyTokenABI,
+        functionName: "balanceOf",
+        args: [address],
       });
+
+      console.log("User balance:", formatEther(balance), "tokens");
 
       if (balance < amountToStake) {
-        throw new Error(`Insufficient token balance. You have ${formatUnits(balance, 18)} tokens but trying to stake ${amount} tokens`);
+        toast({
+          title: "Error",
+          description: `Insufficient balance. You have ${formatEther(balance)} tokens`,
+          variant: "destructive",
+        });
+        return;
       }
 
-      // Check contract state
-      const [rewardRate, duration, updatedAt, finishAt, totalSupply, rewardsToken] = await Promise.all([
-        stakingContract.rewardRate(),
-        stakingContract.duration(),
-        stakingContract.updatedAt(),
-        stakingContract.finishAt(),
-        stakingContract.totalSupply(),
-        stakingContract.rewardsToken()
-      ]);
+      // Try transferFrom directly
+      console.log("Attempting transferFrom...");
+      try {
+        const { request } = await publicClient.simulateContract({
+          account: address,
+          address: tokenAddress,
+          abi: propertyTokenABI,
+          functionName: "transferFrom",
+          args: [address, stakingAddress, amountToStake],
+        });
 
-      console.log("\nStaking contract state:", {
-        rewardRate: rewardRate.toString(),
-        duration: duration.toString(),
-        updatedAt: updatedAt.toString(),
-        finishAt: finishAt.toString(),
-        totalSupply: totalSupply.toString(),
-        rewardsToken,
-        currentTime: Math.floor(Date.now() / 1000),
+        console.log("Sending transferFrom transaction...");
+        const hash = await walletClient.writeContract(request);
+        console.log("Waiting for transferFrom receipt...");
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        console.log("TransferFrom receipt:", receipt);
+
+        toast({
+          title: "Success",
+          description: `Successfully transferred ${amount} tokens to staking contract`,
+        });
+      } catch (error: any) {
+        console.error("Error with transferFrom:", error);
+        const errorMessage = error?.cause?.reason || error?.message || "Unknown error";
+        toast({
+          title: "Error",
+          description: `Failed to transfer tokens: ${errorMessage}`,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Now stake
+      console.log("Staking tokens...");
+      const { request: stakeRequest } = await publicClient.simulateContract({
+        account: address,
+        address: stakingAddress,
+        abi: stakingRewardsABI,
+        functionName: "stake",
+        args: [amountToStake],
       });
 
-      // Check rewards token balance
-      const eurcToken = await getPropertyTokenContract(rewardsToken);
-      const rewardsBalance = await eurcToken.balanceOf(stakingAddress);
-
-      console.log("\nRewards token balance:", {
-        balance: rewardsBalance.toString(),
-        formattedBalance: formatUnits(rewardsBalance, 6), // EURC has 6 decimals
-        requiredRewards: formatUnits(rewardRate * duration, 6),
-        hasEnoughRewards: rewardsBalance >= rewardRate * duration,
-      });
-
-      // Verify contract is properly initialized
-      if (rewardRate === BigInt(0) || duration === BigInt(0) || updatedAt === BigInt(0)) {
-        throw new Error("Staking contract not properly initialized");
-      }
-
-      // Check if staking period is active
-      const currentTime = BigInt(Math.floor(Date.now() / 1000));
-      if (finishAt <= currentTime) {
-        throw new Error(`Staking period has ended. Finish time: ${new Date(Number(finishAt) * 1000).toLocaleString()}`);
-      }
-
-      // Check approval
-      const allowance = await propertyToken.allowance(address, stakingAddress);
-      console.log("\nToken approval check:", {
-        currentAllowance: allowance.toString(),
-        formattedAllowance: formatUnits(allowance, 18),
-        requiredAmount: amount,
-        needsApproval: allowance < amountToStake,
-      });
-
-      // Approve if needed
-      if (allowance < amountToStake) {
-        console.log("\nApproving tokens...");
-        const approveTx = await propertyToken.approve(stakingAddress, amountToStake);
-        console.log("Approval transaction hash:", approveTx.hash);
-        const approveReceipt = await approveTx.wait();
-
-        if (approveReceipt.status !== 1) {
-          throw new Error('Token approval failed');
-        }
-        console.log("Approval successful");
-      }
-
-      // Stake tokens
-      console.log("\nStaking tokens...");
-      const stakeTx = await stakingContract.stake(amountToStake);
-      console.log("Staking transaction hash:", stakeTx.hash);
-      const stakeReceipt = await stakeTx.wait();
-
-      if (stakeReceipt.status !== 1) {
-        throw new Error('Staking transaction failed');
-      }
+      const stakeTx = await walletClient.writeContract(stakeRequest);
+      const stakeReceipt = await publicClient.waitForTransactionReceipt({ hash: stakeTx });
+      console.log("Stake receipt:", stakeReceipt);
 
       toast({
         title: "Success",
         description: `Successfully staked ${amount} tokens`,
       });
 
+      // Refresh balances
+      const [newStaked, newEarned, newBalance] = await Promise.all([
+        publicClient.readContract({
+          address: stakingAddress,
+          abi: stakingRewardsABI,
+          functionName: "balanceOf",
+          args: [address],
+        }),
+        publicClient.readContract({
+          address: stakingAddress,
+          abi: stakingRewardsABI,
+          functionName: "earned",
+          args: [address],
+        }),
+        publicClient.readContract({
+          address: tokenAddress,
+          abi: propertyTokenABI,
+          functionName: "balanceOf",
+          args: [address],
+        })
+      ]);
+
+      setStakedBalance(newStaked);
+      setEarnedRewards(newEarned);
+      setTokenBalance(newBalance);
       setAmount("");
+
     } catch (error: any) {
-      console.error("\nStaking error:", error);
+      console.error("Error staking:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to stake tokens",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
+  // Handle withdraw
   const handleWithdraw = async () => {
-    if (!isConnected || !address || !amount) return;
+    if (!stakingAddress || !amount || !isConnected || !isUserWhitelisted) return;
 
     try {
       setLoading(true);
-      const amountToWithdraw = parseUnits(amount, 18);
+      const amountToWithdraw = parseEther(amount);
 
-      const stakingContract = await getStakingContract(stakingAddress);
-      const tx = await stakingContract.withdraw(amountToWithdraw);
-      const receipt = await tx.wait();
+      const withdrawTx = await walletClient?.writeContract({
+        address: stakingAddress,
+        abi: stakingRewardsABI,
+        functionName: "withdraw",
+        args: [amountToWithdraw],
+      });
 
-      if (receipt.status === 1) {
+      if (withdrawTx) {
+        await publicClient.waitForTransactionReceipt({ hash: withdrawTx });
         toast({
           title: "Success",
           description: `Successfully withdrawn ${amount} tokens`,
         });
         setAmount("");
-      } else {
-        throw new Error('Withdrawal failed');
       }
-    } catch (error: any) {
-      console.error('Withdrawal error:', error);
+    } catch (error) {
+      console.error("Error withdrawing:", error);
       toast({
-        variant: "destructive",
         title: "Error",
-        description: error?.message || "Failed to withdraw tokens",
+        description: "Failed to withdraw tokens",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
+  // Handle claim rewards
   const handleClaimRewards = async () => {
-    if (!isConnected || !address) return;
+    if (!stakingAddress || !isConnected || !isUserWhitelisted) return;
 
     try {
       setLoading(true);
-      const stakingContract = await getStakingContract(stakingAddress);
-      const tx = await stakingContract.getReward();
-      const receipt = await tx.wait();
+      const claimTx = await walletClient?.writeContract({
+        address: stakingAddress,
+        abi: stakingRewardsABI,
+        functionName: "getReward",
+      });
 
-      if (receipt.status === 1) {
+      if (claimTx) {
+        await publicClient.waitForTransactionReceipt({ hash: claimTx });
         toast({
           title: "Success",
           description: "Successfully claimed rewards",
         });
-      } else {
-        throw new Error('Failed to claim rewards');
       }
-    } catch (error: any) {
-      console.error('Claim rewards error:', error);
+    } catch (error) {
+      console.error("Error claiming rewards:", error);
       toast({
-        variant: "destructive",
         title: "Error",
-        description: error?.message || "Failed to claim rewards",
+        description: "Failed to claim rewards",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  // Calculate APY from reward rate
-  const calculateAPY = (rewardRate: bigint, totalStaked: bigint): number => {
-    if (totalStaked === BigInt(0)) return 0;
-    const annualRewards = rewardRate * BigInt(365 * 24 * 60 * 60); // Rewards per year
-    return Number((annualRewards * BigInt(100)) / totalStaked);
-  };
-
-  const currentAPY = stakingMetrics?.totalStaked && stakingMetrics?.rewardRate 
-    ? calculateAPY(stakingMetrics.rewardRate, stakingMetrics.totalStaked)
-    : 0;
-
-  if (!mounted) return null;
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[200px]">
-        <Spinner />
-      </div>
-    );
-  }
-
-  if (!isInitialized && stakingAddress) {
-    return <InitializeStaking stakingAddress={stakingAddress} tokenAddress={tokenAddress} />;
-  }
-
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex flex-col gap-6">
-        <div className="container mx-auto p-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Stake Property Tokens</CardTitle>
-              <CardDescription>Stake your tokens to earn rewards</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label>Available Balance</Label>
-                    <p className="text-xl font-bold">{formatUnits(tokenBalance, 18)}</p>
-                  </div>
-                  <div>
-                    <Label>Staked Balance</Label>
-                    <p className="text-xl font-bold">{formatUnits(stakedBalance, 18)}</p>
-                  </div>
-                  <div>
-                    <Label>Earned Rewards</Label>
-                    <p className="text-xl font-bold">{formatUnits(earnedRewards, 18)}</p>
-                  </div>
+    <div className="container mx-auto p-6">
+      {/* Contract Info Card */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Staking Contract Info</CardTitle>
+          <CardDescription>
+            Stake your property tokens to earn EURC rewards
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Property Token Address</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="flex-1 p-2 bg-muted rounded-md text-sm break-all">
+                  {tokenAddress}
+                </code>
+              </div>
+            </div>
+            <div>
+              <Label>Staking Contract Address</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="flex-1 p-2 bg-muted rounded-md text-sm break-all">
+                  {stakingAddress}
+                </code>
+              </div>
+            </div>
+            <div>
+              <Label>Property Status</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <div className={`px-2 py-1 rounded-full text-sm ${isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  {isActive ? 'Active' : 'Inactive'}
                 </div>
+              </div>
+            </div>
+          </div>
 
+          {isWhitelistAdmin && (
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    if (!stakingAddress || !address || !walletClient) return;
+
+                    const whitelistContract = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS as `0x${string}`;
+                    
+                    // Check if already whitelisted
+                    const isWhitelisted = await publicClient.readContract({
+                      address: whitelistContract,
+                      abi: whitelistABI,
+                      functionName: "isWhitelisted",
+                      args: [stakingAddress],
+                    });
+
+                    if (isWhitelisted) {
+                      toast({
+                        title: "Info",
+                        description: "Staking contract is already whitelisted",
+                      });
+                      return;
+                    }
+
+                    const { request } = await publicClient.simulateContract({
+                      account: address,
+                      address: whitelistContract,
+                      abi: whitelistABI,
+                      functionName: "addToWhitelist",
+                      args: [stakingAddress],
+                    });
+
+                    const hash = await walletClient.writeContract(request);
+                    await publicClient.waitForTransactionReceipt({ hash });
+
+                    toast({
+                      title: "Success",
+                      description: "Staking contract has been whitelisted",
+                    });
+                  } catch (error: any) {
+                    console.error("Error whitelisting:", error);
+                    toast({
+                      title: "Error",
+                      description: error.message || "Failed to whitelist staking contract",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                Whitelist Staking Contract
+              </Button>
+            </div>
+          )}
+
+          {!isUserWhitelisted && isWhitelistAdmin && (
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    if (!address || !walletClient) return;
+
+                    const whitelistContract = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS as `0x${string}`;
+
+                    const { request } = await publicClient.simulateContract({
+                      account: address,
+                      address: whitelistContract,
+                      abi: whitelistABI,
+                      functionName: "addToWhitelist",
+                      args: [address],
+                    });
+
+                    const hash = await walletClient?.writeContract(request);
+                    await publicClient.waitForTransactionReceipt({ hash });
+
+                    setIsUserWhitelisted(true);
+                    toast({
+                      title: "Success",
+                      description: "Your address has been whitelisted",
+                    });
+                  } catch (error: any) {
+                    console.error("Error whitelisting:", error);
+                    toast({
+                      title: "Error",
+                      description: error.message || "Failed to whitelist your address",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                Whitelist My Address
+              </Button>
+            </div>
+          )}
+
+          {!isUserWhitelisted && !isWhitelistAdmin && (
+            <div className="mt-4 p-4 border rounded-lg bg-yellow-50">
+              <p className="text-yellow-800">
+                Your address needs to be whitelisted before you can stake tokens. Please contact the whitelist admin at {process.env.NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS}.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Staking Stats */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Staking Overview</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>APR</Label>
+              <div className="text-2xl font-bold">{apr}%</div>
+              <div className="text-sm text-muted-foreground">
+                Period ends: {endDateStr}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Your Stake</Label>
+              <div className="text-2xl font-bold">
+                {formatEther(stakedBalance)}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Earned Rewards</Label>
+              <div className="text-2xl font-bold text-green-600">
+                {formatEther(earnedRewards)} EURC
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Available Balance</Label>
+              <div className="text-2xl font-bold">
+                {formatEther(tokenBalance)}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Staking Actions */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Staking Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="stake">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="stake">Stake</TabsTrigger>
+              <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
+            </TabsList>
+            <TabsContent value="stake">
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="amount">Amount</Label>
+                  <Label>Amount to Stake</Label>
                   <Input
-                    id="amount"
-                    type="number"
+                    type="text"
+                    placeholder="Enter amount"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    placeholder="Enter amount to stake/withdraw"
                   />
                 </div>
-
-                <div className="flex space-x-4">
-                  <Button 
-                    onClick={handleStake} 
-                    disabled={loading || !amount || Number(amount) <= 0}
-                    className="flex-1"
-                  >
-                    {loading ? "Processing..." : "Stake"}
-                  </Button>
-                  <Button 
-                    onClick={handleWithdraw}
-                    disabled={loading || !amount || Number(amount) <= 0}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    {loading ? "Processing..." : "Withdraw"}
-                  </Button>
-                </div>
-
-                <Button 
-                  onClick={handleClaimRewards}
-                  disabled={loading || earnedRewards <= 0}
-                  variant="secondary"
+                <Button
                   className="w-full"
+                  onClick={handleStake}
+                  disabled={loading || !isConnected || !isUserWhitelisted}
                 >
-                  {loading ? "Processing..." : "Claim Rewards"}
+                  {loading ? <Spinner className="mr-2 h-4 w-4" /> : <ArrowUpIcon className="mr-2 h-4 w-4" />}
+                  Stake Tokens
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </TabsContent>
+            <TabsContent value="withdraw">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Amount to Withdraw</Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter amount"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={handleWithdraw}
+                  disabled={loading || !isConnected || !isUserWhitelisted}
+                >
+                  {loading ? <Spinner className="mr-2 h-4 w-4" /> : <ArrowDownIcon className="mr-2 h-4 w-4" />}
+                  Withdraw Tokens
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+        <CardFooter>
+          <Button
+            className="w-full"
+            onClick={handleClaimRewards}
+            disabled={loading || !isConnected || earnedRewards <= BigInt(0) || !isUserWhitelisted}
+          >
+            {loading ? <Spinner className="mr-2 h-4 w-4" /> : <CoinsIcon className="mr-2 h-4 w-4" />}
+            Claim Rewards
+          </Button>
+        </CardFooter>
+      </Card>
 
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-4">Token Metrics & History</h2>
-          <TokenMetrics 
-            tokenAddress={tokenAddress}
-            stakingHistory={[
-              {
-                timestamp: Math.floor(Date.now() / 1000),
-                amount: Number(formatUnits(stakingMetrics?.totalStaked || BigInt(0), 18)),
-                apy: currentAPY
-              }
-            ]}
-            totalStaked={Number(formatUnits(stakingMetrics?.totalStaked || BigInt(0), 18))}
-            averageStakingPeriod={Number(stakingMetrics?.duration || 0) / (24 * 60 * 60)} // Convert seconds to days
-            currentAPY={currentAPY}
-          />
-        </div>
-      </div>
+      {/* Staking History Chart */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Staking History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={stakingHistory}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="timestamp" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="stakedAmount" stroke="#8884d8" />
+                <Line type="monotone" dataKey="rewards" stroke="#82ca9d" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

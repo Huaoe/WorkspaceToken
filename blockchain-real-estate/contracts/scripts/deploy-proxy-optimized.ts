@@ -8,63 +8,55 @@ import { Contract } from "ethers";
 dotenv.config();
 
 async function getExistingAddresses() {
-  const envLocalPath = "C:/Users/thoma/Desktop/WorkspacesToken/blockchain-real-estate/.env.local";
-  if (!fs.existsSync(envLocalPath)) {
-    return {};
-  }
-  
-  const envContent = fs.readFileSync(envLocalPath, 'utf8');
-  const addresses: { [key: string]: string } = {};
-  
-  envContent.split('\n').forEach(line => {
-    const match = line.match(/^NEXT_PUBLIC_(.+)_ADDRESS=(.+)$/);
-    if (match) {
-      addresses[match[1]] = match[2];
-    }
-  });
-  
-  return addresses;
-}
+  const envLocalPath = path.join(process.cwd(), '..', '.env.local');
+  let addresses: { [key: string]: string } = {};
 
-async function hasCodeChanged(contractName: string, existingAddress: string) {
-  if (!existingAddress) return true;
-  
-  try {
-    const provider = ethers.provider;
-    const deployedBytecode = await provider.getCode(existingAddress);
-    const factory = await ethers.getContractFactory(contractName);
-    const newBytecode = factory.bytecode;
+  if (fs.existsSync(envLocalPath)) {
+    const content = fs.readFileSync(envLocalPath, 'utf8');
+    const lines = content.split('\n');
     
-    return deployedBytecode !== newBytecode;
-  } catch (error) {
-    console.log(`Error checking bytecode for ${contractName}:`, error);
-    return true;
+    for (const line of lines) {
+      if (line.includes('=')) {
+        const [key, value] = line.split('=').map(part => part.trim());
+        if (key && value) {
+          addresses[key] = value;
+        }
+      }
+    }
   }
+
+  return {
+    WHITELIST_PROXY_ADDRESS: addresses.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS || '',
+    PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS: addresses.NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS || '',
+    PROPERTY_FACTORY_PROXY_ADDRESS: addresses.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS || '',
+    EURC_TOKEN_ADDRESS: addresses.NEXT_PUBLIC_EURC_TOKEN_ADDRESS || '',
+    STAKING_FACTORY_ADDRESS: addresses.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS || ''
+  };
 }
 
-function updateEnvLocalFile(envPath: string, newValues: { [key: string]: string }) {
-  // Read existing content before Smart Contract Addresses section
-  let content = '';
-  if (fs.existsSync(envPath)) {
-    content = fs.readFileSync(envPath, 'utf8');
+function updateEnvFile(envPath: string, newValues: { [key: string]: string }) {
+  if (!fs.existsSync(envPath)) {
+    console.log(`Creating new ${envPath}`);
   }
 
-  // Split content into lines and find where contract addresses start
+  let content = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
   const lines = content.split('\n');
-  const newContent: string[] = [];
-  let foundContractSection = false;
+  let newContent: string[] = [];
+  let hasContractSection = false;
 
-  // Keep all lines until we find the first contract address section
+  // Keep non-contract related environment variables
   for (const line of lines) {
-    if (line.includes('_ADDRESS') || line.includes('# Smart Contract Addresses')) {
-      foundContractSection = true;
-      break;
+    if (!line.includes('_ADDRESS') && !line.includes('# Smart Contract')) {
+      newContent.push(line);
     }
-    newContent.push(line);
   }
 
-  // Add new contract addresses section
-  newContent.push('\n# Smart Contract Addresses\n');
+  // Add contract addresses section
+  if (!newContent[newContent.length - 1]?.trim()) {
+    newContent.push('');
+  }
+
+  newContent.push('# Smart Contract Addresses\n');
   
   // Add Whitelist Contract section
   newContent.push('# Whitelist Contract');
@@ -88,62 +80,28 @@ function updateEnvLocalFile(envPath: string, newValues: { [key: string]: string 
   
   // Add Staking Factory Contract section
   newContent.push('# Staking Factory Contract');
-  newContent.push(`NEXT_PUBLIC_STAKING_FACTORY_ADDRESS=${newValues.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS}\n`);
+  newContent.push(`NEXT_PUBLIC_STAKING_FACTORY_ADDRESS=${newValues.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS}`);
+  newContent.push(`NEXT_PUBLIC_STAKING_FACTORY_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_STAKING_FACTORY_IMPLEMENTATION_ADDRESS}`);
+  newContent.push(`NEXT_PUBLIC_STAKING_FACTORY_ADMIN_ADDRESS=${newValues.NEXT_PUBLIC_STAKING_FACTORY_ADMIN_ADDRESS}\n`);
 
-  // Write the updated content back to the file
   fs.writeFileSync(envPath, newContent.join('\n'));
+  console.log(`Updated ${envPath}`);
 }
 
-function updateEnvFile(envPath: string, newValues: { [key: string]: string }) {
-  // Read existing content before Smart Contract Addresses section
-  let content = '';
-  if (fs.existsSync(envPath)) {
-    content = fs.readFileSync(envPath, 'utf8');
+async function hasCodeChanged(contractName: string, existingAddress: string) {
+  if (!existingAddress) return true;
+  
+  try {
+    const provider = ethers.provider;
+    const deployedBytecode = await provider.getCode(existingAddress);
+    const factory = await ethers.getContractFactory(contractName);
+    const newBytecode = factory.bytecode;
+    
+    return deployedBytecode !== newBytecode;
+  } catch (error) {
+    console.log(`Error checking bytecode for ${contractName}:`, error);
+    return true;
   }
-
-  // Split content into lines and find where contract addresses start
-  const lines = content.split('\n');
-  const newContent: string[] = [];
-  let foundContractSection = false;
-
-  // Keep all lines until we find the first contract address section
-  for (const line of lines) {
-    if (line.includes('_ADDRESS') || line.includes('# Smart Contract Addresses')) {
-      foundContractSection = true;
-      break;
-    }
-    newContent.push(line);
-  }
-
-  // Add new contract addresses section
-  newContent.push('\n# Smart Contract Addresses\n');
-  
-  // Add Whitelist Contract section
-  newContent.push('# Whitelist Contract');
-  newContent.push(`WHITELIST_PROXY_ADDRESS=${newValues.WHITELIST_PROXY_ADDRESS}`);
-  newContent.push(`WHITELIST_IMPLEMENTATION_ADDRESS=${newValues.WHITELIST_IMPLEMENTATION_ADDRESS}`);
-  newContent.push(`WHITELIST_ADMIN_ADDRESS=${newValues.WHITELIST_ADMIN_ADDRESS}\n`);
-  
-  // Add Property Token Contract section
-  newContent.push('# Property Token Contract');
-  newContent.push(`PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS=${newValues.PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS}\n`);
-  
-  // Add Property Factory Contract section
-  newContent.push('# Property Factory Contract');
-  newContent.push(`PROPERTY_FACTORY_PROXY_ADDRESS=${newValues.PROPERTY_FACTORY_PROXY_ADDRESS}`);
-  newContent.push(`PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS=${newValues.PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS}`);
-  newContent.push(`PROPERTY_FACTORY_ADMIN_ADDRESS=${newValues.PROPERTY_FACTORY_ADMIN_ADDRESS}\n`);
-  
-  // Add EURC Token Contract section
-  newContent.push('# EURC Token Contract');
-  newContent.push(`EURC_TOKEN_ADDRESS=${newValues.EURC_TOKEN_ADDRESS}\n`);
-  
-  // Add Staking Factory Contract section
-  newContent.push('# Staking Factory Contract');
-  newContent.push(`STAKING_FACTORY_ADDRESS=${newValues.STAKING_FACTORY_ADDRESS}\n`);
-
-  // Write the updated content back to the file
-  fs.writeFileSync(envPath, newContent.join('\n'));
 }
 
 async function deployOrGetWhitelist(deployer: any, existingAddress: string) {
@@ -165,6 +123,81 @@ async function deployOrGetWhitelist(deployer: any, existingAddress: string) {
   );
   await whitelist.waitForDeployment();
   return whitelist;
+}
+
+async function deployContract(contractName: string, ...args: any[]) {
+  const contractConfigs: { [key: string]: ContractConfig } = {
+    Whitelist: {
+      envKeyPrefix: "WHITELIST",
+      constructorArgs: () => [args[0]],
+      initialize: true,
+      verify: true
+    },
+    PropertyToken: {
+      envKeyPrefix: "PROPERTY_TOKEN",
+      constructorArgs: () => [],
+      initialize: false,
+      verify: true
+    },
+    PropertyFactory: {
+      envKeyPrefix: "PROPERTY_FACTORY",
+      constructorArgs: (propertyTokenImplAddress: string, eurcTokenAddress: string, deployerAddress: string, treasuryAddress: string, whitelistAddress: string) => [
+        propertyTokenImplAddress,
+        "PT",
+        eurcTokenAddress,
+        deployerAddress,
+        treasuryAddress,
+        whitelistAddress,
+      ],
+      initialize: true,
+      verify: true
+    },
+    StakingFactory: {
+      envKeyPrefix: "STAKING_FACTORY",
+      constructorArgs: (eurcTokenAddress: string, propertyFactoryAddress: string) => [eurcTokenAddress, propertyFactoryAddress],
+      initialize: true,
+      verify: true
+    },
+  };
+
+  const contractConfig = contractConfigs[contractName];
+  if (!contractConfig) {
+    throw new Error(`Unknown contract: ${contractName}`);
+  }
+
+  let constructorArgs = contractConfig.constructorArgs(...args);
+
+  // Special handling for StakingFactory
+  if (contractName === "StakingFactory") {
+    const eurcTokenAddress = args[0];
+    const propertyFactoryAddress = args[1];
+    if (!eurcTokenAddress || !ethers.isAddress(eurcTokenAddress)) {
+      throw new Error("Invalid or missing EURC token address for StakingFactory deployment");
+    }
+    if (!propertyFactoryAddress || !ethers.isAddress(propertyFactoryAddress)) {
+      throw new Error("Invalid or missing PropertyFactory address for StakingFactory deployment");
+    }
+    constructorArgs = contractConfig.constructorArgs(eurcTokenAddress, propertyFactoryAddress);
+  }
+
+  console.log(`\nDeploying ${contractName}...`);
+  const Contract = await ethers.getContractFactory(contractName);
+  let contract;
+  if (contractConfig.initialize) {
+    contract = await upgrades.deployProxy(
+      Contract,
+      constructorArgs,
+      {
+        initializer: 'initialize',
+        kind: 'transparent',
+        initialOwner: args[0]
+      }
+    );
+  } else {
+    contract = await Contract.deploy(...constructorArgs);
+  }
+  await contract.waitForDeployment();
+  return contract;
 }
 
 async function main() {
@@ -231,17 +264,14 @@ async function main() {
   const existingFactoryAddress = existingAddresses.PROPERTY_FACTORY_PROXY_ADDRESS;
   
   if (!existingFactoryAddress || await hasCodeChanged("PropertyFactory", existingFactoryAddress)) {
-    console.log("\nDeploying new PropertyFactory...");
+    console.log("\nDeploying PropertyFactory...");
     const PropertyFactory = await ethers.getContractFactory("PropertyFactory");
     propertyFactory = await upgrades.deployProxy(
       PropertyFactory,
       [
-        "PropertyToken",
-        "PT",
-        eurcAddress,
-        deployer.address,
-        deployer.address,
-        whitelistAddress,
+        deployer.address,    // Validator
+        whitelistAddress,    // Whitelist contract
+        eurcAddress         // EURC token address
       ],
       {
         initializer: 'initialize',
@@ -259,6 +289,13 @@ async function main() {
       console.log("Updating whitelist address in PropertyFactory...");
       await propertyFactory.setWhitelistContract(whitelistAddress);
     }
+
+    // Update validator if needed
+    const currentValidator = await propertyFactory.validator();
+    if (currentValidator.toLowerCase() !== deployer.address.toLowerCase()) {
+      console.log("Updating validator address in PropertyFactory...");
+      await propertyFactory.setValidator(deployer.address);
+    }
   }
 
   await propertyFactory.waitForDeployment();
@@ -272,58 +309,60 @@ async function main() {
   console.log("- Proxy:", propertyFactoryAddress);
   console.log("- Implementation:", propertyFactoryImplAddress);
   console.log("- Admin:", propertyFactoryAdminAddress);
+  console.log("- Admin:", propertyFactoryAdminAddress);
 
-  // Deploy or update StakingFactory
-  let stakingFactoryAddress = existingAddresses.STAKING_FACTORY_ADDRESS;
-  if (!stakingFactoryAddress || await hasCodeChanged("StakingFactory", stakingFactoryAddress)) {
-    console.log("\nDeploying new StakingFactory...");
-    const StakingFactory = await ethers.getContractFactory("StakingFactory");
-    const stakingFactory = await StakingFactory.deploy(
-      eurcAddress,      // rewardsToken (EURC)
-      deployer.address  // initialOwner
-    );
-    await stakingFactory.waitForDeployment();
-    stakingFactoryAddress = await stakingFactory.getAddress();
-    console.log("StakingFactory deployed to:", stakingFactoryAddress);
-  } else {
-    console.log("\nUsing existing StakingFactory at:", stakingFactoryAddress);
-  }
+  // Deploy StakingFactory
+  console.log("\nDeploying StakingFactory...");
+  const StakingFactory = await ethers.getContractFactory("StakingFactory");
+  const stakingFactory = await upgrades.deployProxy(
+    StakingFactory,
+    [eurcAddress], // Only pass EURC token address
+    {
+      initializer: 'initialize',
+      kind: 'transparent',
+      initialOwner: deployer.address
+    }
+  );
 
-  // Update both .env and .env.local files
-  const frontendEnvPath = "C:/Users/thoma/Desktop/WorkspacesToken/blockchain-real-estate/.env.local";
-  const contractsEnvPath = path.join(process.cwd(), '.env');
+  await stakingFactory.waitForDeployment();
+  const stakingFactoryAddress = await stakingFactory.getAddress();
+  const stakingFactoryImplAddress = await upgrades.erc1967.getImplementationAddress(stakingFactoryAddress);
+  const stakingFactoryAdminAddress = await upgrades.erc1967.getAdminAddress(stakingFactoryAddress);
+
+  console.log("\nStakingFactory Addresses:");
+  console.log("- Proxy:", stakingFactoryAddress);
+  console.log("- Implementation:", stakingFactoryImplAddress);
+  console.log("- Admin:", stakingFactoryAdminAddress);
+
+  // Update only .env.local file
+  const frontendEnvPath = path.join(process.cwd(), '..', '.env.local');
   
   const addresses = {
+    // Whitelist addresses
     NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS: whitelistAddress,
     NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS: whitelistImplAddress,
     NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS: whitelistAdminAddress,
+    
+    // Property Token address
     NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS: propertyTokenImplAddress,
+    
+    // Property Factory addresses
     NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS: propertyFactoryAddress,
     NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS: propertyFactoryImplAddress,
     NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS: propertyFactoryAdminAddress,
+    
+    // EURC Token address
     NEXT_PUBLIC_EURC_TOKEN_ADDRESS: eurcAddress,
-    NEXT_PUBLIC_STAKING_FACTORY_ADDRESS: stakingFactoryAddress
+    
+    // StakingFactory addresses
+    NEXT_PUBLIC_STAKING_FACTORY_ADDRESS: stakingFactoryAddress,
+    NEXT_PUBLIC_STAKING_FACTORY_IMPLEMENTATION_ADDRESS: stakingFactoryImplAddress,
+    NEXT_PUBLIC_STAKING_FACTORY_ADMIN_ADDRESS: stakingFactoryAdminAddress
   };
 
-  // Update .env.local in frontend
-  updateEnvLocalFile(frontendEnvPath, addresses);
-  console.log("\nUpdated frontend environment variables in .env.local");
-
-  // Update .env in contracts directory
-  const contractAddresses = {
-    WHITELIST_PROXY_ADDRESS: whitelistAddress,
-    WHITELIST_IMPLEMENTATION_ADDRESS: whitelistImplAddress,
-    WHITELIST_ADMIN_ADDRESS: whitelistAdminAddress,
-    PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS: propertyTokenImplAddress,
-    PROPERTY_FACTORY_PROXY_ADDRESS: propertyFactoryAddress,
-    PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS: propertyFactoryImplAddress,
-    PROPERTY_FACTORY_ADMIN_ADDRESS: propertyFactoryAdminAddress,
-    EURC_TOKEN_ADDRESS: eurcAddress,
-    STAKING_FACTORY_ADDRESS: stakingFactoryAddress
-  };
-
-  updateEnvFile(contractsEnvPath, contractAddresses);
-  console.log("Updated contract environment variables in .env");
+  // Update only .env.local
+  updateEnvFile(frontendEnvPath, addresses);
+  console.log("\nUpdated environment variables in .env.local");
 
   console.log("\nContract Addresses:");
   console.log("\nWhitelist Addresses:");
@@ -334,7 +373,10 @@ async function main() {
   console.log("- Proxy:", propertyFactoryAddress);
   console.log("- Implementation:", propertyFactoryImplAddress);
   console.log("- Admin:", propertyFactoryAdminAddress);
-  console.log("\nStakingFactory:", stakingFactoryAddress);
+  console.log("\nStakingFactory Addresses:");
+  console.log("- Proxy:", stakingFactoryAddress);
+  console.log("- Implementation:", stakingFactoryImplAddress);
+  console.log("- Admin:", stakingFactoryAdminAddress);
 }
 
 main()

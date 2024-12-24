@@ -26,11 +26,8 @@ const Navbar = () => {
       if (!mounted || !isConnected) return;
       
       try {
-        // Use withSigner=true to ensure proper contract interaction
-        const contract = await getPropertyFactoryContract(true);
+        const contract = await getPropertyFactoryContract();
         const owner = await contract.owner();
-        console.log('Contract owner:', owner);
-        console.log('Connected address:', address);
         setContractOwner(owner);
       } catch (error) {
         console.error('Error getting contract owner:', error);
@@ -39,19 +36,17 @@ const Navbar = () => {
     }
 
     getContractOwner();
-  }, [mounted, isConnected, address]);
+  }, [mounted, isConnected]);
 
   // Check if connected address is admin
   useEffect(() => {
-    if (!mounted || !isConnected || !address) {
+    if (!mounted || !isConnected) {
       setIsAdmin(false);
       return;
     }
 
-    if (contractOwner) {
-      const isOwner = address.toLowerCase() === contractOwner.toLowerCase();
-      console.log('Is admin check:', { address, contractOwner, isOwner });
-      setIsAdmin(isOwner);
+    if (address && contractOwner) {
+      setIsAdmin(address.toLowerCase() === contractOwner.toLowerCase());
     } else {
       setIsAdmin(false);
     }

@@ -37,7 +37,10 @@ contract Whitelist is IWhitelist, Initializable, OwnableUpgradeable {
     /// @param account The address to check
     /// @return bool True if the address is whitelisted, false otherwise
     function isWhitelisted(address account) external view override returns (bool) {
-        return _whitelisted[account];
+        console.log("Checking whitelist status for:", account);
+        bool status = _whitelisted[account];
+        console.log("Whitelist status:", status);
+        return status;
     }
 
     /// @notice Adds a single address to the whitelist

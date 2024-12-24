@@ -18,12 +18,12 @@ import { Form } from "@/components/ui/form";
 import { supabase } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { propertyFormSchema } from "./components/PropertyDetailsFields";
-import { useWalletEvents } from "@/app/wallet-events-provider";
 import { PropertyDetailsFields } from "./components/PropertyDetailsFields";
+import { useWalletEvents } from "@/app/wallet-events-provider";
 import { LocationField } from "./components/LocationField";
 import { StatusField } from "./components/StatusField";
 import { CreateTokenButton } from "./components/CreateTokenButton";
-import { ApproveTokenButton } from "./components/ApproveTokenButton"; // Added import statement
+import { ApproveTokenButton } from "./components/ApproveTokenButton"; 
 import { StakingInitButton } from "./components/StakingInitButton";
 import { ClientOnly } from "./components/ClientOnly";
 import { PropertyStatus } from "@/lib/constants";

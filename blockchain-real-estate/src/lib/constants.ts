@@ -15,20 +15,15 @@ export const STATUS_COLORS = {
 
 export const STATUS_OPTIONS = ['pending', 'approved', 'rejected', 'onchain', 'funding',  'staking', 'closed', 'paused'] as const
 
-export type PropertyStatus = typeof STATUS_OPTIONS[number]
-
-export const PROPERTY_FACTORY_ADDRESS = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS;
-export const WHITELIST_ADDRESS = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS;
-export const EURC_TOKEN_ADDRESS = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS;
-
-if (!PROPERTY_FACTORY_ADDRESS) {
-  throw new Error('NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS is not defined');
+export enum PropertyStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+  ONCHAIN = 'onchain',
+  FUNDING = 'funding',
+  STAKING = 'staking',
+  CLOSED = 'closed',
+  PAUSED = 'paused'
 }
 
-if (!WHITELIST_ADDRESS) {
-  throw new Error('NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS is not defined');
-}
-
-if (!EURC_TOKEN_ADDRESS) {
-  throw new Error('NEXT_PUBLIC_EURC_TOKEN_ADDRESS is not defined');
-}
+export type PropertyStatusType = typeof STATUS_OPTIONS[number]

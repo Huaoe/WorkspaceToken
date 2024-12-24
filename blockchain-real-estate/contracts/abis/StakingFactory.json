@@ -233,8 +233,23 @@
       "outputs": [
         {
           "internalType": "address",
-          "name": "",
+          "name": "contractAddress",
           "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "rewardRate",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "duration",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "isActive",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",

@@ -7,110 +7,63 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "hardhat/console.sol";
 
-/// @title PropertyFactory
-/// @notice Factory contract for creating new PropertyToken contracts
 contract PropertyFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     error NotWhitelisted(address account);
     error NotValidator(address account);
 
     /// @notice Structure containing property token information
-    /// @param tokenAddress Address of the PropertyToken contract
-    /// @param isApproved Whether the property has been approved by the validator
-    struct PropertyInfo {
+    struct Property {
         address tokenAddress;
         bool isApproved;
     }
 
-    string public name;
-    string public symbol;
-    address public paymentToken;
-    address public admin;
     address public validator;
-    address public eurcTokenAddress;
     address public whitelistContract;
+    address public eurcTokenAddress;
+    Property[] public properties;
 
-    PropertyInfo[] public properties;
-    mapping(address => PropertyInfo[]) public userProperties;
-    address[] public propertyCreators;
-
-    event PropertyCreated(
-        address indexed propertyToken,
-        address indexed creator,
-        string title,
-        string location,
-        uint256 price
-    );
-
-    event PropertySubmitted(address indexed creator, address indexed propertyToken);
+    event PropertyCreated(address indexed propertyToken, address indexed creator);
     event PropertyApproved(address indexed propertyToken);
-    event PropertyRejected(address indexed propertyToken);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
-
-    /// @notice Initializes the PropertyFactory contract
-    /// @param _name Name of the factory
-    /// @param _symbol Symbol of the factory
-    /// @param _paymentToken Address of the EURC token contract
-    /// @param _admin Address of the admin
-    /// @param _validator Address of the validator
-    /// @param _whitelistContract Address of the whitelist contract
     function initialize(
-        string memory _name,
-        string memory _symbol,
-        address _paymentToken,
-        address _admin,
         address _validator,
-        address _whitelistContract
+        address _whitelistContract,
+        address _eurcTokenAddress
     ) public initializer {
+        require(_validator != address(0), "Validator cannot be zero address");
+        require(_whitelistContract != address(0), "Whitelist cannot be zero address");
+        require(_eurcTokenAddress != address(0), "EURC token cannot be zero address");
+
         __Ownable_init(msg.sender);
-        
-        name = _name;
-        symbol = _symbol;
-        paymentToken = _paymentToken;
-        admin = _admin;
+        __UUPSUpgradeable_init();
+
         validator = _validator;
-        eurcTokenAddress = _paymentToken;
         whitelistContract = _whitelistContract;
+        eurcTokenAddress = _eurcTokenAddress;
     }
 
-    /// @notice Creates a new PropertyToken contract
-    /// @param _title Title of the property
-    /// @param _description Description of the property
-    /// @param _location Location of the property
-    /// @param _imageUrl URL of the property image
-    /// @param _price Price of the property
-    /// @param _totalSupply Total supply of the property
-    /// @param _tokenName Name of the token
-    /// @param _tokenSymbol Symbol of the token
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
     function createProperty(
+        string memory _tokenName,
+        string memory _tokenSymbol,
         string memory _title,
         string memory _description,
         string memory _location,
         string memory _imageUrl,
         uint256 _price,
-        uint256 _totalSupply,
-        string memory _tokenName,
-        string memory _tokenSymbol
+        uint256 _totalSupply
     ) public returns (address) {
-        console.log("Creating property with title:", _title);
-        console.log("Description:", _description);
-        console.log("Location:", _location);
-        console.log("Image URL:", _imageUrl);
-        console.log("Price:", _price);
-        console.log("Total Supply:", _totalSupply);
-        console.log("Token Name:", _tokenName);
-        console.log("Token Symbol:", _tokenSymbol);
-        console.log("Sender:", msg.sender);
+        // Check if sender is whitelisted
+        bool isWhitelisted = IWhitelist(whitelistContract).isWhitelisted(msg.sender);
         
-        // Check if sender is whitelisted first
-        if (!IWhitelist(whitelistContract).isWhitelisted(msg.sender)) {
+        if (!isWhitelisted) {
             revert NotWhitelisted(msg.sender);
         }
 
@@ -124,119 +77,65 @@ contract PropertyFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             imageUrl: _imageUrl,
             price: _price,
             totalSupply: _totalSupply,
-            initialOwner: msg.sender,
+            initialOwner: address(this), // Set PropertyFactory as initial owner
             eurcTokenAddress: eurcTokenAddress,
             whitelistContract: whitelistContract
         });
 
         // Deploy new PropertyToken with proxy
-        console.log("Deploying new PropertyToken...");
+        PropertyToken implementation = new PropertyToken();
         bytes memory initData = abi.encodeWithSelector(
             PropertyToken.initialize.selector,
             initParams
         );
 
-        PropertyToken propertyToken = new PropertyToken();
         address proxy = address(new ERC1967Proxy(
-            address(propertyToken),
+            address(implementation),
             initData
         ));
 
-        console.log("PropertyToken created at:", proxy);
-
-        // Add property to storage
-        properties.push(PropertyInfo({
+        // Store property information
+        properties.push(Property({
             tokenAddress: proxy,
             isApproved: false
         }));
 
-        userProperties[msg.sender].push(PropertyInfo({
-            tokenAddress: proxy,
-            isApproved: false
-        }));
-
-        propertyCreators.push(msg.sender);
-
-        emit PropertyCreated(
-            proxy,
-            msg.sender,
-            _title,
-            _location,
-            _price
-        );
-
-        emit PropertySubmitted(msg.sender, proxy);
-        
-        console.log("Property creation complete");
+        emit PropertyCreated(proxy, msg.sender);
         return proxy;
     }
 
-    /// @notice Approves a property token
-    /// @param propertyToken Address of the property token to approve
     function approveProperty(address propertyToken) public {
-        if (msg.sender != validator) {
-            revert NotValidator(msg.sender);
-        }
+        require(msg.sender == validator, "Only validator can approve properties");
 
+        bool found = false;
+        address creator;
         for (uint256 i = 0; i < properties.length; i++) {
             if (properties[i].tokenAddress == propertyToken) {
+                require(!properties[i].isApproved, "Property already approved");
                 properties[i].isApproved = true;
+                found = true;
+
+                // Activate the property token
+                PropertyToken(propertyToken).updatePropertyStatus(true);
                 
-                // Update in user properties as well
-                address creator = propertyCreators[i];
-                PropertyInfo[] storage userProps = userProperties[creator];
-                for (uint256 j = 0; j < userProps.length; j++) {
-                    if (userProps[j].tokenAddress == propertyToken) {
-                        userProps[j].isApproved = true;
-                        break;
-                    }
-                }
+                // Get the creator from the event
+                creator = PropertyToken(propertyToken).owner();
+                
+                // Transfer ownership to the creator
+                PropertyToken(propertyToken).transferOwnership(creator);
                 
                 emit PropertyApproved(propertyToken);
-                return;
+                break;
             }
         }
-        revert("Property not found");
+        require(found, "Property not found");
     }
 
-    /// @notice Get a human-readable description of a Solidity panic code
-    /// @param code The panic code
-    /// @return A string describing the panic
-    function getPanicReason(uint code) internal pure returns (string memory) {
-        if (code == 0x01) return "Assertion failed";
-        if (code == 0x11) return "Arithmetic overflow/underflow";
-        if (code == 0x12) return "Division or modulo by zero";
-        if (code == 0x21) return "Invalid enum value";
-        if (code == 0x22) return "Storage slot out of bounds";
-        if (code == 0x31) return "Pop on empty array";
-        if (code == 0x32) return "Array index out of bounds";
-        if (code == 0x41) return "Memory allocation failed";
-        if (code == 0x51) return "Zero-initialized variable";
-        return "Unknown panic code";
-    }
-
-    /// @notice Get the total number of properties
-    /// @return The number of properties
-    function getPropertyCount() public view returns (uint256) {
-        return properties.length;
-    }
-
-    /// @notice Get all properties
-    /// @return Array of PropertyInfo structs
-    function getAllProperties() public view returns (PropertyInfo[] memory) {
+    function getProperties() public view returns (Property[] memory) {
         return properties;
     }
 
-    /// @notice Get properties created by a specific user
-    /// @param user Address of the user
-    /// @return Array of PropertyInfo structs
-    function getUserProperties(address user) public view returns (PropertyInfo[] memory) {
-        return userProperties[user];
-    }
-
-    /// @notice Get all property creators
-    /// @return Array of addresses of property creators
-    function getPropertyCreators() public view returns (address[] memory) {
-        return propertyCreators;
+    function getPropertyCount() public view returns (uint256) {
+        return properties.length;
     }
 }

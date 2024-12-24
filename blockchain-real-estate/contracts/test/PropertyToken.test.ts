@@ -125,7 +125,7 @@ describe("PropertyToken", function () {
 
   describe("Token Sale", function () {
     it("Should allow token holder to sell tokens", async function () {
-      const { propertyToken, mockEURC, whitelist, buyer1, propertyPrice } = await loadFixture(deployTokenFixture);
+      const { propertyToken, mockEURC, whitelist, buyer1, owner, propertyPrice } = await loadFixture(deployTokenFixture);
       
       // Add buyer to whitelist
       await whitelist.addToWhitelist(buyer1.address);
@@ -133,12 +133,12 @@ describe("PropertyToken", function () {
       const purchaseAmount = ethers.parseUnits("10", 18);
       const totalCost = (purchaseAmount * propertyPrice) / ethers.parseUnits("1", 18);
       
-      // Approve EURC spending
-      await mockEURC.connect(buyer1).approve(await propertyToken.getAddress(), totalCost);
-      
       // First purchase tokens
       await propertyToken.connect(buyer1).purchaseTokens(purchaseAmount);
 
+      // Owner needs to approve EURC for selling
+      await mockEURC.connect(owner).approve(await propertyToken.getAddress(), totalCost);
+      
       // Then sell them back
       await expect(propertyToken.connect(buyer1).sellTokens(purchaseAmount))
         .to.not.be.reverted;

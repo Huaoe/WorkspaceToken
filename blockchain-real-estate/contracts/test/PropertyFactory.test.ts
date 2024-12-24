@@ -29,12 +29,9 @@ describe("PropertyFactory", function () {
     // Deploy PropertyFactory
     const PropertyFactory = await ethers.getContractFactory("PropertyFactory");
     const propertyFactory = await upgrades.deployProxy(PropertyFactory, [
-      "RealEstateToken",  // _name
-      "RET",             // _symbol
-      await mockEURC.getAddress(),  // _paymentToken (EURC)
-      owner.address,     // _admin
-      validator.address, // _validator
-      await whitelist.getAddress()  // _whitelistContract
+      validator.address,         // _validator
+      await whitelist.getAddress(), // _whitelistContract
+      await mockEURC.getAddress()   // _eurcTokenAddress
     ]);
     await propertyFactory.waitForDeployment();
 
@@ -58,23 +55,18 @@ describe("PropertyFactory", function () {
 
   describe("Initialization", function () {
     it("should initialize with correct values", async function () {
-      const { mockEURC, propertyFactory, whitelist, owner } = await loadFixture(deployContractsFixture);
-      expect(await propertyFactory.name()).to.equal("RealEstateToken");
-      expect(await propertyFactory.symbol()).to.equal("RET");
-      expect(await propertyFactory.paymentToken()).to.equal(await mockEURC.getAddress());
-      expect(await propertyFactory.admin()).to.equal(owner.address);
+      const { mockEURC, propertyFactory, whitelist, validator } = await loadFixture(deployContractsFixture);
+      expect(await propertyFactory.validator()).to.equal(validator.address);
       expect(await propertyFactory.whitelistContract()).to.equal(await whitelist.getAddress());
+      expect(await propertyFactory.eurcTokenAddress()).to.equal(await mockEURC.getAddress());
     });
 
     it("should not allow reinitialization", async function () {
-      const { propertyFactory, mockEURC, owner, validator, whitelist } = await loadFixture(deployContractsFixture);
+      const { propertyFactory, mockEURC, validator, whitelist } = await loadFixture(deployContractsFixture);
       await expect(propertyFactory.initialize(
-        "RealEstateToken",
-        "RET",
-        await mockEURC.getAddress(),
-        owner.address,
         validator.address,
-        await whitelist.getAddress()
+        await whitelist.getAddress(),
+        await mockEURC.getAddress()
       )).to.be.reverted;
     });
   });
@@ -83,30 +75,30 @@ describe("PropertyFactory", function () {
     it("should not allow non-whitelisted addresses to create properties", async function () {
       const { propertyFactory, nonWhitelisted } = await loadFixture(deployContractsFixture);
       
-      await expect((propertyFactory.connect(nonWhitelisted) as IPropertyFactory).createProperty(
-        "Test Property",
-        "Test Description",
-        "Test Location",
-        "https://test.com/image.jpg",
-        ethers.parseUnits("100", 6), // 100 EURC
-        ethers.parseUnits("100", 18), // 100 tokens
-        "Test Property - RET", 
-        "RET-TP" 
+      await expect(propertyFactory.connect(nonWhitelisted).createProperty(
+        "Test Property - RET",  // _tokenName
+        "RET-TP",              // _tokenSymbol
+        "Test Property",       // _title
+        "Test Description",    // _description
+        "Test Location",       // _location
+        "https://test.com/image.jpg", // _imageUrl
+        ethers.parseUnits("100", 6),  // _price (100 EURC)
+        ethers.parseUnits("100", 18)  // _totalSupply (100 tokens)
       )).to.be.revertedWithCustomError(propertyFactory, "NotWhitelisted");
     });
 
     it("should allow whitelisted addresses to create properties", async function () {
       const { propertyFactory, seller } = await loadFixture(deployContractsFixture);
       
-      const tx = await (propertyFactory.connect(seller) as IPropertyFactory).createProperty(
-        "Test Property",
-        "Test Description",
-        "Test Location",
-        "https://test.com/image.jpg",
-        ethers.parseUnits("100", 6), // 100 EURC
-        ethers.parseUnits("100", 18), // 100 tokens
-        "Test Property - RET", 
-        "RET-TP" 
+      const tx = await propertyFactory.connect(seller).createProperty(
+        "Test Property - RET",  // _tokenName
+        "RET-TP",              // _tokenSymbol
+        "Test Property",       // _title
+        "Test Description",    // _description
+        "Test Location",       // _location
+        "https://test.com/image.jpg", // _imageUrl
+        ethers.parseUnits("100", 6),  // _price (100 EURC)
+        ethers.parseUnits("100", 18)  // _totalSupply (100 tokens)
       );
 
       await tx.wait();
@@ -128,15 +120,15 @@ describe("PropertyFactory", function () {
     it("should create a new property listing", async function () {
       const { propertyFactory, seller } = await loadFixture(deployContractsFixture);
       
-      const tx = await (propertyFactory.connect(seller) as IPropertyFactory).createProperty(
-        "Test Property",
-        "Test Description",
-        "Test Location",
-        "https://test.com/image.jpg",
-        ethers.parseUnits("100", 6), // 100 EURC
-        ethers.parseUnits("100", 18), // 100 tokens
-        "Test Property - RET", 
-        "RET-TP" 
+      const tx = await propertyFactory.connect(seller).createProperty(
+        "Test Property - RET",  // _tokenName
+        "RET-TP",              // _tokenSymbol
+        "Test Property",       // _title
+        "Test Description",    // _description
+        "Test Location",       // _location
+        "https://test.com/image.jpg", // _imageUrl
+        ethers.parseUnits("100", 6),  // _price (100 EURC)
+        ethers.parseUnits("100", 18)  // _totalSupply (100 tokens)
       );
 
       await tx.wait();

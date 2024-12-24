@@ -5,33 +5,29 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { UseFormReturn } from "react-hook-form";
 import { z } from "zod";
-import { PropertyStatus, STATUS_OPTIONS } from "@/lib/constants";
+import { PropertyStatus } from "@/lib/constants";
 
 export const propertyFormSchema = z.object({
   title: z.string().min(3).max(20),
-  description: z.string().min(10).max(50),
+  description: z.string().min(10).max(500),
   expected_price: z.coerce.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
     message: "Expected price must be a positive number"
   }),
-  image_url: z.string().url({
-    message: "Please enter a valid URL"
-  }).max(100).optional(),
-  documents_url: z.string().url({
-    message: "Please enter a valid URL"
-  }).optional(),
   number_of_tokens: z.coerce.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0 && Number(val) <= 1000000000, {
     message: "Number of tokens must be between 1 and 1,000,000,000",
   }),
   token_name: z.string().min(1).max(50),
   token_symbol: z.string().min(1).max(10),
-  status: z.enum(STATUS_OPTIONS),
+  status: z.nativeEnum(PropertyStatus),
   location: z.string().min(1).max(100),
   token_address: z.string().optional(),
   roi: z.coerce.number().min(0).max(100),
   payout_duration: z.coerce.number().min(1).max(120),
+  image_url: z.string().url().max(100).optional(),
+  documents_url: z.string().url().optional(),
 });
 
-type PropertyFormValues = z.infer<typeof propertyFormSchema>;
+export type PropertyFormValues = z.infer<typeof propertyFormSchema>;
 
 interface PropertyDetailsFieldsProps {
   form: UseFormReturn<PropertyFormValues>;
@@ -62,9 +58,9 @@ export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
           <FormItem>
             <FormLabel>Description</FormLabel>
             <FormControl>
-              <Textarea placeholder="Property description" {...field} maxLength={50} />
+              <Textarea placeholder="Property description" {...field} maxLength={500} />
             </FormControl>
-            <FormDescription>Brief description of the property (max 50 characters)</FormDescription>
+            <FormDescription>Brief description of the property (max 500 characters)</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -80,36 +76,6 @@ export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
               <Input type="number" placeholder="1000000" {...field} />
             </FormControl>
             <FormDescription>The expected price in EURC (6 decimal places)</FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name="image_url"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Image URL</FormLabel>
-            <FormControl>
-              <Input placeholder="https://..." {...field} maxLength={100} />
-            </FormControl>
-            <FormDescription>URL to the property image (max 100 characters)</FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name="documents_url"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Documents URL</FormLabel>
-            <FormControl>
-              <Input placeholder="https://..." {...field} maxLength={100} />
-            </FormControl>
-            <FormDescription>URL to property documents (max 100 characters)</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -185,6 +151,21 @@ export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
 
       <FormField
         control={form.control}
+        name="status"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Status</FormLabel>
+            <FormControl>
+              <Input placeholder="Property status" {...field} />
+            </FormControl>
+            <FormDescription>Status of the property</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
         name="location"
         render={({ field }) => (
           <FormItem>
@@ -200,14 +181,29 @@ export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
 
       <FormField
         control={form.control}
+        name="token_address"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Token Address</FormLabel>
+            <FormControl>
+              <Input placeholder="Token address" {...field} />
+            </FormControl>
+            <FormDescription>Address of the property token</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
         name="roi"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Expected ROI (%)</FormLabel>
+            <FormLabel>ROI</FormLabel>
             <FormControl>
-              <Input type="number" placeholder="5" {...field} min={0} max={100} />
+              <Input type="number" placeholder="10" {...field} />
             </FormControl>
-            <FormDescription>Expected return on investment (0-100%)</FormDescription>
+            <FormDescription>Return on Investment (between 0 and 100)</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -218,11 +214,11 @@ export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
         name="payout_duration"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Payout Duration (months)</FormLabel>
+            <FormLabel>Payout Duration</FormLabel>
             <FormControl>
-              <Input type="number" placeholder="12" {...field} min={1} max={120} />
+              <Input type="number" placeholder="12" {...field} />
             </FormControl>
-            <FormDescription>Duration of payouts in months (1-120)</FormDescription>
+            <FormDescription>Payout duration in months (between 1 and 120)</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -230,14 +226,14 @@ export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
 
       <FormField
         control={form.control}
-        name="token_address"
+        name="image_url"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Token Address</FormLabel>
+            <FormLabel>Image URL</FormLabel>
             <FormControl>
-              <Input placeholder="Token address" {...field} />
+              <Input placeholder="Image URL" {...field} maxLength={100} />
             </FormControl>
-            <FormDescription>Address of the property token (optional)</FormDescription>
+            <FormDescription>URL of the property image (max 100 characters)</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -245,14 +241,14 @@ export function PropertyDetailsFields({ form }: PropertyDetailsFieldsProps) {
 
       <FormField
         control={form.control}
-        name="status"
+        name="documents_url"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Status</FormLabel>
+            <FormLabel>Documents URL</FormLabel>
             <FormControl>
-              <Input placeholder="Property status" {...field} />
+              <Input placeholder="Documents URL" {...field} />
             </FormControl>
-            <FormDescription>Status of the property</FormDescription>
+            <FormDescription>URL of the property documents</FormDescription>
             <FormMessage />
           </FormItem>
         )}

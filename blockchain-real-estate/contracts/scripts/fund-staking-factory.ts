@@ -1,56 +1,75 @@
 import { ethers } from "hardhat";
-import * as dotenv from "dotenv";
+import * as path from "path";
+import * as fs from "fs";
+import dotenv from "dotenv";
 
-dotenv.config({ path: "../.env.local" });
+dotenv.config();
 
-async function main() {
-  const stakingFactoryAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS;
-  const eurcTokenAddress = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS;
-
-  if (!stakingFactoryAddress || !eurcTokenAddress) {
-    throw new Error("Missing required environment variables");
+async function getAddresses() {
+  const envPath = path.join(process.cwd(), '..', '.env.local');
+  
+  if (!fs.existsSync(envPath)) {
+    throw new Error('.env.local file not found');
   }
 
-  console.log("Funding StakingFactory with EURC tokens...");
-  console.log("StakingFactory address:", stakingFactoryAddress);
-  console.log("EURC token address:", eurcTokenAddress);
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  const eurcMatch = envContent.match(/NEXT_PUBLIC_EURC_TOKEN_ADDRESS=(.+)/);
+  const stakingFactoryMatch = envContent.match(/NEXT_PUBLIC_STAKING_FACTORY_ADDRESS=(.+)/);
+  
+  if (!eurcMatch) {
+    throw new Error('NEXT_PUBLIC_EURC_TOKEN_ADDRESS not found in .env.local');
+  }
+  if (!stakingFactoryMatch) {
+    throw new Error('NEXT_PUBLIC_STAKING_FACTORY_ADDRESS not found in .env.local');
+  }
 
-  // Get the signer
+  return {
+    eurcAddress: eurcMatch[1],
+    stakingFactoryAddress: stakingFactoryMatch[1]
+  };
+}
+
+async function main() {
   const [deployer] = await ethers.getSigners();
-  console.log("Using account:", deployer.address);
+  console.log("Funding StakingFactory with account:", deployer.address);
+
+  const { eurcAddress, stakingFactoryAddress } = await getAddresses();
 
   // Get contract instances
-  const eurcToken = await ethers.getContractAt("IERC20", eurcTokenAddress);
-  const stakingFactory = await ethers.getContractAt("StakingFactory", stakingFactoryAddress);
+  const MockEURC = await ethers.getContractFactory("MockEURCUpgradeable");
+  const eurc = MockEURC.attach(eurcAddress);
+  
+  const StakingFactory = await ethers.getContractFactory("StakingFactory");
+  const stakingFactory = StakingFactory.attach(stakingFactoryAddress);
 
   // Amount to transfer (e.g., 1,000,000 EURC with 6 decimals)
   const amount = ethers.parseUnits("1000000", 6);
 
   // Check current balances
-  const deployerBalance = await eurcToken.balanceOf(deployer.address);
-  const factoryBalance = await eurcToken.balanceOf(stakingFactoryAddress);
+  const deployerBalance = await eurc.balanceOf(deployer.address);
+  const factoryBalance = await eurc.balanceOf(stakingFactoryAddress);
 
-  console.log("Current balances:");
+  console.log("\nCurrent balances:");
   console.log("Deployer EURC balance:", ethers.formatUnits(deployerBalance, 6));
   console.log("StakingFactory EURC balance:", ethers.formatUnits(factoryBalance, 6));
 
   // Approve StakingFactory to spend EURC
-  console.log("Approving StakingFactory to spend EURC...");
-  const approveTx = await eurcToken.approve(stakingFactoryAddress, amount);
+  console.log("\nApproving StakingFactory to spend EURC...");
+  const approveTx = await eurc.approve(stakingFactoryAddress, amount);
   await approveTx.wait();
-  console.log("Approval successful");
+  console.log("✅ Approval successful");
 
   // Transfer EURC to StakingFactory
-  console.log("Transferring EURC to StakingFactory...");
-  const transferTx = await eurcToken.transfer(stakingFactoryAddress, amount);
+  console.log("\nTransferring EURC to StakingFactory...");
+  const transferTx = await eurc.transfer(stakingFactoryAddress, amount);
   await transferTx.wait();
-  console.log("Transfer successful");
+  console.log("✅ Transfer successful");
 
   // Verify new balances
-  const newDeployerBalance = await eurcToken.balanceOf(deployer.address);
-  const newFactoryBalance = await eurcToken.balanceOf(stakingFactoryAddress);
+  const newDeployerBalance = await eurc.balanceOf(deployer.address);
+  const newFactoryBalance = await eurc.balanceOf(stakingFactoryAddress);
 
-  console.log("New balances:");
+  console.log("\nNew balances:");
   console.log("Deployer EURC balance:", ethers.formatUnits(newDeployerBalance, 6));
   console.log("StakingFactory EURC balance:", ethers.formatUnits(newFactoryBalance, 6));
 }

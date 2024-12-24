@@ -20,7 +20,7 @@ export function PropertyList() {
         console.log('Got contract:', contract.target);
         
         // Get all properties
-        const allProperties = await contract.getAllProperties();
+        const allProperties = await contract.getProperties();
         console.log('All properties:', allProperties);
         
         setProperties(allProperties);

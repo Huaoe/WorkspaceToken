@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { 
     StakingFactory,
     PropertyFactory,
-    MockEURC,
+    MockEURCUpgradeable,
     Whitelist
 } from "../typechain-types";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
@@ -12,7 +12,7 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 describe("StakingFactory", function () {
     let stakingFactory: StakingFactory;
     let propertyFactory: PropertyFactory;
-    let mockEURC: MockEURC;
+    let mockEURC: MockEURCUpgradeable;
     let propertyToken: any;
     let owner: SignerWithAddress;
     let admin: SignerWithAddress;
@@ -38,8 +38,11 @@ describe("StakingFactory", function () {
         [owner, admin, staker, addr1, addr2] = await ethers.getSigners();
 
         // Deploy MockEURC
-        const MockEURC = await ethers.getContractFactory("MockEURC");
-        mockEURC = await MockEURC.deploy(owner.address);
+        const MockEURC = await ethers.getContractFactory("MockEURCUpgradeable");
+        mockEURC = await upgrades.deployProxy(MockEURC, [owner.address], {
+            initializer: "initialize",
+            kind: 'transparent'
+        }) as unknown as MockEURCUpgradeable;
         
         // Mint initial tokens to owner for staking rewards
         await mockEURC.mint(owner.address, rewardsAmount);
@@ -51,34 +54,34 @@ describe("StakingFactory", function () {
         // Deploy PropertyFactory
         const PropertyFactory = await ethers.getContractFactory("PropertyFactory");
         propertyFactory = (await upgrades.deployProxy(PropertyFactory, [
-            "Property Token",  // name prefix
-            "PT",             // symbol prefix
-            await mockEURC.getAddress(), // payment token
-            owner.address,    // admin
             owner.address,    // validator
-            await whitelist.getAddress() // whitelist contract
+            await whitelist.getAddress(), // whitelist contract
+            await mockEURC.getAddress()  // EURC token
         ])) as unknown as PropertyFactory;
 
         // Deploy StakingFactory
         const StakingFactory = await ethers.getContractFactory("StakingFactory");
-        stakingFactory = await StakingFactory.deploy(
-            await mockEURC.getAddress(),
-            owner.address
-        );
+        stakingFactory = (await upgrades.deployProxy(StakingFactory, [
+            await mockEURC.getAddress()
+        ], {
+            initializer: "initialize",
+            kind: 'uups'
+        })) as unknown as StakingFactory;
 
-        // Add owner to whitelist
+        // Add owner and staker to whitelist
         await whitelist.addToWhitelist(owner.address);
+        await whitelist.addToWhitelist(staker.address);
 
         // Create a property token
         await propertyFactory.createProperty(
-            propertyDetails.title,
-            propertyDetails.description,
-            propertyDetails.location,
-            propertyDetails.imageUrl,
-            propertyDetails.price,
-            ethers.parseUnits("100", 18), // totalSupply
-            propertyDetails.name,
-            propertyDetails.symbol
+            propertyDetails.name,     // _tokenName
+            propertyDetails.symbol,   // _tokenSymbol
+            propertyDetails.title,    // _title
+            propertyDetails.description, // _description
+            propertyDetails.location, // _location
+            propertyDetails.imageUrl, // _imageUrl
+            propertyDetails.price,    // _price
+            ethers.parseUnits("100", 18) // _totalSupply
         );
 
         // Get the created property token
@@ -88,15 +91,28 @@ describe("StakingFactory", function () {
 
         // Approve the property
         await propertyFactory.approveProperty(propertyInfo.tokenAddress);
+
+        // Transfer some tokens to the staker for testing
+        const transferAmount = ethers.parseUnits("50", 18); // Transfer 50 tokens
+        await propertyToken.transfer(staker.address, transferAmount);
+
+        // Approve tokens for staking
+        await propertyToken.connect(staker).approve(await stakingFactory.getAddress(), transferAmount);
+
+        return { stakingFactory, propertyFactory, mockEURC, propertyToken, whitelist };
     }
 
     beforeEach(async function () {
-        await loadFixture(deployContractsFixture);
+        const { stakingFactory: sf, propertyFactory: pf, mockEURC: me, propertyToken: pt } = await loadFixture(deployContractsFixture);
+        stakingFactory = sf;
+        propertyFactory = pf;
+        mockEURC = me;
+        propertyToken = pt;
     });
 
     describe("Deployment", function () {
-        it("Should set the correct rewards token", async function () {
-            expect(await stakingFactory.rewardsToken()).to.equal(await mockEURC.getAddress());
+        it("Should set the correct EURC token", async function () {
+            expect(await stakingFactory.eurcToken()).to.equal(await mockEURC.getAddress());
         });
 
         it("Should set the correct owner", async function () {
@@ -105,141 +121,68 @@ describe("StakingFactory", function () {
     });
 
     describe("Creating Staking Rewards", function () {
+        beforeEach(async function() {
+            // Fund the factory with rewards
+            await mockEURC.approve(await stakingFactory.getAddress(), rewardsAmount);
+            await stakingFactory.fundContract(rewardsAmount);
+        });
+
         it("Should create a new StakingRewards contract", async function () {
-            // Transfer tokens to StakingFactory for rewards
-            await mockEURC.transfer(await stakingFactory.getAddress(), rewardsAmount);
-            
-            const tx = await stakingFactory.createStakingRewards(
+            // Create staking contract
+            const tx = await stakingFactory.createStakingContract(
                 await propertyToken.getAddress(),
-                rewardsDuration,
-                rewardRate
+                rewardRate,
+                rewardsDuration
             );
             const receipt = await tx.wait();
 
-            // Find StakingRewardsCreated event
+            // Get the StakingContractCreated event
             const event = receipt?.logs.find(
-                log => log.topics[0] === ethers.id("StakingRewardsCreated(address,address)")
+                (log: any) => log.fragment?.name === "StakingContractCreated"
             );
             expect(event).to.not.be.undefined;
 
-            // Verify event parameters
-            const propertyTokenAddress = await propertyToken.getAddress();
-            expect(event?.topics[1].toLowerCase()).to.equal(
-                ethers.zeroPadValue(propertyTokenAddress, 32).toLowerCase()
-            );
+            // Verify the staking contract was created correctly
+            const stakingInfo = await stakingFactory.stakingContracts(await propertyToken.getAddress());
+            expect(stakingInfo.contractAddress).to.not.equal(ethers.ZeroAddress);
 
-            // Verify the contract was created and mapped correctly
-            const stakingAddress = await stakingFactory.getStakingRewards(propertyTokenAddress);
-            expect(stakingAddress).to.not.equal(ethers.ZeroAddress);
-
-            // Verify the StakingRewards contract parameters
-            const stakingRewards = await ethers.getContractAt("StakingRewards", stakingAddress);
-            expect(await stakingRewards.stakingToken()).to.equal(propertyTokenAddress);
-            expect(await stakingRewards.rewardsToken()).to.equal(await mockEURC.getAddress());
-            expect(await stakingRewards.duration()).to.equal(rewardsDuration);
-            expect(await mockEURC.balanceOf(stakingAddress)).to.equal(rewardsAmount);
-            
-            // Verify reward rate
-            expect(await stakingRewards.rewardRate()).to.equal(rewardRate);
+            // Verify the staking contract parameters
+            const stakingContract = await ethers.getContractAt("StakingRewards", stakingInfo.contractAddress);
+            expect(await stakingContract.stakingToken()).to.equal(await propertyToken.getAddress());
+            expect(await stakingContract.rewardToken()).to.equal(await mockEURC.getAddress());
         });
 
-        it("Should not allow creating duplicate staking contracts", async function () {
-            // Transfer tokens for both attempts
-            await mockEURC.transfer(await stakingFactory.getAddress(), rewardsAmount * 2n);
-            
-            // First creation should succeed
-            await stakingFactory.createStakingRewards(
+        it("Should fail if property token is zero address", async function () {
+            await expect(stakingFactory.createStakingContract(
+                ethers.ZeroAddress,
+                rewardRate,
+                rewardsDuration
+            )).to.be.revertedWith("StakingFactory: property token is zero address");
+        });
+
+        it("Should fail if staking contract already exists", async function () {
+            // Create first staking contract
+            await stakingFactory.createStakingContract(
                 await propertyToken.getAddress(),
-                rewardsDuration,
-                1000000000n
+                rewardRate,
+                rewardsDuration
             );
 
-            // Second creation should fail
-            await expect(
-                stakingFactory.createStakingRewards(
-                    await propertyToken.getAddress(),
-                    rewardsDuration,
-                    1000000000n
-                )
-            ).to.be.revertedWith("Staking already exists");
-        });
-
-        it("Should not allow creating staking with zero duration", async function () {
-            await mockEURC.transfer(await stakingFactory.getAddress(), rewardsAmount);
-            await expect(
-                stakingFactory.createStakingRewards(
-                    await propertyToken.getAddress(),
-                    0,
-                    1000000000n
-                )
-            ).to.be.revertedWith("Duration must be greater than 0");
-        });
-
-        it("Should not allow creating staking with zero rewards", async function () {
-            await expect(
-                stakingFactory.createStakingRewards(
-                    await propertyToken.getAddress(),
-                    rewardsDuration,
-                    0  // Zero reward rate
-                )
-            ).to.be.revertedWith("Reward rate = 0");
-        });
-
-        it("Should not allow creating staking with insufficient rewards balance", async function () {
-            await expect(
-                stakingFactory.createStakingRewards(
-                    await propertyToken.getAddress(),
-                    rewardsDuration,
-                    1000000000n
-                )
-            ).to.be.revertedWith("Insufficient rewards balance");
-        });
-
-        it("Should not allow non-owner to create staking contracts", async function () {
-            await mockEURC.transfer(await stakingFactory.getAddress(), rewardsAmount);
-            await expect(
-                stakingFactory.connect(addr1).createStakingRewards(
-                    await propertyToken.getAddress(),
-                    rewardsDuration,
-                    1000000000n
-                )
-            ).to.be.revertedWithCustomError(stakingFactory, "OwnableUnauthorizedAccount")
-             .withArgs(addr1.address);
-        });
-    });
-
-    describe("View Functions", function () {
-        beforeEach(async function () {
-            // Transfer tokens before creating staking
-            await mockEURC.transfer(await stakingFactory.getAddress(), rewardsAmount);
-            
-            await stakingFactory.createStakingRewards(
+            // Try to create another staking contract for the same property token
+            await expect(stakingFactory.createStakingContract(
                 await propertyToken.getAddress(),
-                rewardsDuration,
-                1000000000n
-            );
+                rewardRate,
+                rewardsDuration
+            )).to.be.revertedWith("StakingFactory: staking contract already exists for this property token");
         });
 
-        it("Should return correct staking contract address", async function () {
-            const stakingAddress = await stakingFactory.getStakingRewards(await propertyToken.getAddress());
-            expect(stakingAddress).to.not.equal(ethers.ZeroAddress);
-        });
-
-        it("Should return all staking contracts", async function () {
-            const contracts = await stakingFactory.getAllStakingContracts();
-            expect(contracts.length).to.equal(1);
-            expect(contracts[0]).to.equal(
-                await stakingFactory.getStakingRewards(await propertyToken.getAddress())
-            );
-        });
-
-        it("Should correctly check if staking exists", async function () {
-            expect(await stakingFactory.hasStakingRewards(await propertyToken.getAddress())).to.be.true;
-            expect(await stakingFactory.hasStakingRewards(ethers.ZeroAddress)).to.be.false;
-        });
-
-        it("Should return correct contract count", async function () {
-            expect(await stakingFactory.getStakingContractsCount()).to.equal(1);
+        it("Should fail if called by non-owner", async function () {
+            await expect(stakingFactory.connect(addr1).createStakingContract(
+                await propertyToken.getAddress(),
+                rewardRate,
+                rewardsDuration
+            )).to.be.revertedWithCustomError(stakingFactory, "OwnableUnauthorizedAccount")
+              .withArgs(addr1.address);
         });
     });
 });

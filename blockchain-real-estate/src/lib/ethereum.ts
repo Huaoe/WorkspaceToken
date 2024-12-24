@@ -1,8 +1,20 @@
 'use client';
 
 import { Contract, Signer, ethers, BaseContract, ContractTransaction } from 'ethers';
-import { propertyFactoryABI, propertyTokenABI, eurcABI, whitelistABI, stakingFactoryABI, stakingABI, PropertyToken } from './contracts';
-import { PROPERTY_FACTORY_ADDRESS, WHITELIST_ADDRESS, EURC_TOKEN_ADDRESS, STAKING_FACTORY_ADDRESS } from './contracts';
+import { 
+  propertyFactoryABI, 
+  propertyTokenABI, 
+  eurcABI, 
+  whitelistABI, 
+  stakingFactoryABI, 
+  stakingABI, 
+  stakingRewardsABI, 
+  PropertyToken,
+  PROPERTY_FACTORY_ADDRESS,
+  WHITELIST_ADDRESS,
+  STAKING_FACTORY_ADDRESS,
+  EURC_TOKEN_ADDRESS
+} from './contracts';
 
 declare global {
   interface Window {
@@ -43,11 +55,18 @@ export const getSigner = async (): Promise<Signer> => {
 };
 
 const getContract = async <T extends BaseContract>(address: string, abi: any[], withSigner = false): Promise<T> => {
+
   try {
     // Get provider
     const provider = await getProvider();
     if (!provider) {
       throw new Error('Failed to initialize provider');
+    }
+
+    // Check if contract exists
+    const code = await provider.getCode(address);
+    if (code === '0x') {
+      throw new Error(`No contract found at address ${address}`);
     }
 
     // Create contract instance with provider first
@@ -56,7 +75,8 @@ const getContract = async <T extends BaseContract>(address: string, abi: any[], 
     // Return contract with signer if requested
     if (withSigner) {
       const signer = await provider.getSigner();
-      return contract.connect(signer) as T;
+      console.log('Using signer:', await signer.getAddress());
+      return contract.connect(signer);
     }
 
     return contract;
@@ -66,45 +86,151 @@ const getContract = async <T extends BaseContract>(address: string, abi: any[], 
   }
 };
 
-export const getEURCContract = async (address: string, withSigner = false) => {
-  console.log('Getting EURC contract at address:', address);
-  return getContract(address, eurcABI, withSigner);
+export async function getEURCContract(withSigner = false) {
+  const eurcAddress = EURC_TOKEN_ADDRESS;
+  if (!eurcAddress) {
+    throw new Error('EURC token address not configured');
+  }
+  console.log('Getting EURC contract at address:', eurcAddress);
+
+  const provider = await getProvider();
+  const contract = new ethers.Contract(
+    eurcAddress,
+    eurcABI,
+    provider
+  );
+
+  if (withSigner) {
+    const signer = await getSigner();
+    console.log('Using signer:', await signer.getAddress());
+    return contract.connect(signer);
+  }
+
+  return contract;
 };
 
-export const getPropertyFactoryContract = async (withSigner = false) => {
-  if (!PROPERTY_FACTORY_ADDRESS) {
+export async function getPropertyFactoryContract(withSigner = false) {
+  const factoryAddress = PROPERTY_FACTORY_ADDRESS;
+  if (!factoryAddress) {
     throw new Error('Property factory address not configured');
   }
-  console.log('Getting property factory contract at address:', PROPERTY_FACTORY_ADDRESS);
-  return getContract(PROPERTY_FACTORY_ADDRESS, propertyFactoryABI, withSigner);
-};
+  console.log('Getting property factory contract at address:', factoryAddress);
 
-export const getPropertyTokenContract = async (address: string, withSigner = false): Promise<PropertyToken> => {
-  console.log('Getting property token contract at address:', address);
-  if (!address || !ethers.isAddress(address)) {
-    throw new Error('Invalid property token address');
+  const provider = await getProvider();
+  const contract = new ethers.Contract(
+    factoryAddress,
+    propertyFactoryABI,
+    provider
+  );
+
+  if (withSigner) {
+    const signer = await getSigner();
+    console.log('Using signer:', await signer.getAddress());
+    return contract.connect(signer);
   }
-  return getContract<PropertyToken>(address, propertyTokenABI, withSigner);
+
+  return contract;
 };
 
-export const getWhitelistContract = async (withSigner = false) => {
+export async function getPropertyTokenContract(address: string, withSigner = false): Promise<PropertyToken> {
+  console.log('Getting property token contract at address:', address);
+
+  const provider = await getProvider();
+  const contract = new ethers.Contract(
+    address,
+    propertyTokenABI,
+    provider
+  );
+
+  if (withSigner) {
+    const signer = await getSigner();
+    console.log('Using signer:', await signer.getAddress());
+    return contract.connect(signer);
+  }
+
+  return contract;
+};
+
+export async function getWhitelistContract(withSigner = false) {
   if (!WHITELIST_ADDRESS) {
     throw new Error('Whitelist address not configured');
   }
   console.log('Getting whitelist contract at address:', WHITELIST_ADDRESS);
-  return getContract(WHITELIST_ADDRESS, whitelistABI, withSigner);
+
+  const provider = await getProvider();
+  const contract = new ethers.Contract(
+    WHITELIST_ADDRESS,
+    whitelistABI,
+    provider
+  );
+
+  if (withSigner) {
+    const signer = await getSigner();
+    console.log('Using signer:', await signer.getAddress());
+    return contract.connect(signer);
+  }
+
+  return contract;
 };
 
-export const getStakingFactoryContract = async (withSigner = false) => {
+export async function getStakingFactoryContract(withSigner = false) {
   if (!STAKING_FACTORY_ADDRESS) {
     throw new Error('Staking factory address not configured');
   }
   console.log('Getting staking factory contract at address:', STAKING_FACTORY_ADDRESS);
-  return getContract(STAKING_FACTORY_ADDRESS, stakingFactoryABI, withSigner);
+
+  const provider = await getProvider();
+  const contract = new ethers.Contract(
+    STAKING_FACTORY_ADDRESS,
+    stakingFactoryABI,
+    provider
+  );
+
+  if (withSigner) {
+    const signer = await getSigner();
+    console.log('Using signer:', await signer.getAddress());
+    return contract.connect(signer);
+  }
+
+  return contract;
 };
 
-export const getStakingContract = async (address: string, withSigner = false) => {
-  return getContract(address, stakingABI, withSigner);
+export async function getStakingContract(address: string, withSigner = false) {
+  console.log('Getting staking contract at address:', address);
+
+  const provider = await getProvider();
+  const contract = new ethers.Contract(
+    address,
+    stakingABI,
+    provider
+  );
+
+  if (withSigner) {
+    const signer = await getSigner();
+    console.log('Using signer:', await signer.getAddress());
+    return contract.connect(signer);
+  }
+
+  return contract;
+};
+
+export async function getStakingRewardsContract(address: string, withSigner = false) {
+  console.log('Getting staking rewards contract at address:', address);
+
+  const provider = await getProvider();
+  const contract = new ethers.Contract(
+    address,
+    stakingRewardsABI,
+    provider
+  );
+
+  if (withSigner) {
+    const signer = await getSigner();
+    console.log('Using signer:', await signer.getAddress());
+    return contract.connect(signer);
+  }
+
+  return contract;
 };
 
 export const connectWallet = async () => {

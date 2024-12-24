@@ -20,7 +20,7 @@ type FormValues = z.infer<typeof propertyFormSchema> & {
 
 interface LocationFieldProps {
   form: UseFormReturn<FormValues>;
-  defaultLocation?: { lat: number; lng: number } | null;
+  defaultLocation?: string;
 }
 
 export function LocationField({ form, defaultLocation }: LocationFieldProps) {

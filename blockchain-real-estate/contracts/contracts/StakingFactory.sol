@@ -1,109 +1,96 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./StakingRewards.sol";
-import "./PropertyToken.sol";
 
-/// @title StakingFactory
-/// @notice Factory contract for creating StakingRewards contracts for PropertyTokens
-/// @dev Creates and manages StakingRewards contracts for each PropertyToken
-contract StakingFactory is Ownable {
-    /// @notice EURC token used for rewards
-    IERC20 public immutable rewardsToken;
-
-    /// @notice Mapping from PropertyToken address to its StakingRewards contract
-    mapping(address => address) public propertyToStaking;
-    
-    /// @notice Array of all created StakingRewards contracts
-    address[] public stakingContracts;
-
-    /// @notice Emitted when a new StakingRewards contract is created
-    /// @param stakingToken Address of the PropertyToken
-    /// @param stakingRewards Address of the created StakingRewards contract
-    event StakingRewardsCreated(
-        address indexed stakingToken,
-        address indexed stakingRewards
-    );
-
-    /// @notice Constructor sets the rewards token (EURC)
-    /// @param _rewardsToken Address of the EURC token contract
-    /// @param initialOwner Address of the initial owner
-    constructor(address _rewardsToken, address initialOwner) Ownable(initialOwner) {
-        require(_rewardsToken != address(0), "Invalid rewards token");
-        rewardsToken = IERC20(_rewardsToken);
+contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+    struct StakingContractInfo {
+        address contractAddress;
+        uint256 rewardRate;
+        uint256 duration;
+        bool isActive;
     }
 
-    /// @notice Creates a new StakingRewards contract for a PropertyToken
-    /// @param _stakingToken Address of the PropertyToken contract
-    /// @param _duration Duration of the staking period
-    /// @param _rewardRate Reward rate per second
-    /// @return Address of the created StakingRewards contract
-    function createStakingRewards(
-        address _stakingToken,
-        uint256 _duration,
-        uint256 _rewardRate
+    IERC20 public eurcToken;
+    mapping(address => StakingContractInfo) public stakingContracts;
+    mapping(address => address[]) public propertyStakingContracts;
+    address[] public allStakingContracts;
+
+    event StakingContractCreated(address indexed propertyToken, address stakingContract);
+    event StakingContractFunded(address indexed stakingContract, uint256 amount);
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _eurcToken) public initializer {
+        require(_eurcToken != address(0), "StakingFactory: EURC token is zero address");
+        __Ownable_init(msg.sender);
+        __UUPSUpgradeable_init();
+        eurcToken = IERC20(_eurcToken);
+    }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    function createStakingContract(
+        address propertyToken,
+        uint256 rewardAmount,
+        uint256 rewardsDuration
     ) external onlyOwner returns (address) {
-        require(_stakingToken != address(0), "Invalid property token");
-        require(_duration > 0, "Duration must be greater than 0");
-        require(_rewardRate > 0, "Reward rate = 0");
-        require(propertyToStaking[_stakingToken] == address(0), "Staking already exists");
+        require(propertyToken != address(0), "StakingFactory: property token is zero address");
+        require(!stakingContracts[propertyToken].isActive, "StakingFactory: staking contract already exists for this property token");
 
-        // Verify it's a valid PropertyToken
-        try PropertyToken(_stakingToken).eurcToken() returns (IERC20 eurcToken) {
-            require(address(eurcToken) == address(rewardsToken), "Invalid property token");
-        } catch {
-            revert("Invalid property token");
-        }
+        // Deploy implementation
+        StakingRewards stakingImplementation = new StakingRewards();
 
-        // Calculate total rewards needed and check balance
-        uint256 totalRewards = _rewardRate * _duration;
-        require(rewardsToken.balanceOf(address(this)) >= totalRewards, "Insufficient rewards balance");
-
-        // Create new StakingRewards contract
-        StakingRewards stakingRewards = new StakingRewards(
-            _stakingToken,    // stakingToken (PropertyToken)
-            address(rewardsToken),      // rewardsToken (EURC)
-            _rewardRate       // reward rate per second
+        // Create initialization data
+        bytes memory initData = abi.encodeWithSelector(
+            StakingRewards.initialize.selector,
+            propertyToken,
+            address(eurcToken),
+            rewardAmount,
+            rewardsDuration
         );
 
-        // Initialize rewards parameters
-        stakingRewards.setRewardsDuration(_duration);
+        // Deploy proxy
+        address proxy = address(new ERC1967Proxy(
+            address(stakingImplementation),
+            initData
+        ));
 
-        // Transfer rewards to the staking contract
-        require(rewardsToken.transfer(address(stakingRewards), totalRewards), "Rewards transfer failed");
+        // Store the staking contract info
+        stakingContracts[propertyToken] = StakingContractInfo({
+            contractAddress: proxy,
+            rewardRate: rewardAmount,
+            duration: rewardsDuration,
+            isActive: true
+        });
 
-        // Store the mapping
-        propertyToStaking[_stakingToken] = address(stakingRewards);
-        stakingContracts.push(address(stakingRewards));
+        // Store in arrays for enumeration
+        propertyStakingContracts[propertyToken].push(proxy);
+        allStakingContracts.push(proxy);
 
-        emit StakingRewardsCreated(_stakingToken, address(stakingRewards));
-        return address(stakingRewards);
+        emit StakingContractCreated(propertyToken, proxy);
+        return proxy;
     }
 
-    /// @notice Returns the StakingRewards contract for a PropertyToken
-    /// @param propertyToken Address of the PropertyToken
-    /// @return Address of the associated StakingRewards contract
-    function getStakingRewards(address propertyToken) external view returns (address) {
-        return propertyToStaking[propertyToken];
+    function fundContract(uint256 amount) external {
+        require(amount > 0, "Amount must be greater than 0");
+        require(eurcToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        emit StakingContractFunded(address(this), amount);
     }
 
-    /// @notice Returns all created StakingRewards contracts
-    /// @return Array of StakingRewards contract addresses
+    function getStakingContracts(address propertyToken) external view returns (address[] memory) {
+        return propertyStakingContracts[propertyToken];
+    }
+
     function getAllStakingContracts() external view returns (address[] memory) {
-        return stakingContracts;
-    }
-
-    /// @notice Checks if a StakingRewards contract exists for a PropertyToken
-    /// @param propertyToken Address of the PropertyToken
-    /// @return True if a StakingRewards contract exists
-    function hasStakingRewards(address propertyToken) external view returns (bool) {
-        return propertyToStaking[propertyToken] != address(0);
-    }
-
-    /// @notice Returns the number of StakingRewards contracts created
-    /// @return Number of StakingRewards contracts
-    function getStakingContractsCount() external view returns (uint256) {
-        return stakingContracts.length;
+        return allStakingContracts;
     }
 }

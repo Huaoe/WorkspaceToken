@@ -5,39 +5,20 @@ import * as path from "path";
 import * as fs from "fs";
 
 async function getEURCAddress(): Promise<string> {
-  // First try .env.local with NEXT_PUBLIC prefix
-  const envLocalPath = path.join(process.cwd(), '..', '.env.local');
-  console.log("Looking for .env.local at:", envLocalPath);
-  if (fs.existsSync(envLocalPath)) {
-    console.log(".env.local exists");
-    const envContent = fs.readFileSync(envLocalPath, 'utf8');
-    console.log("ENV Local Content:", envContent);
-    const match = envContent.match(/NEXT_PUBLIC_EURC_TOKEN_ADDRESS=(.+)/);
-    console.log("Local Match result:", match);
-    if (match && match[1]) {
-      return match[1];
-    }
-  } else {
-    console.log(".env.local not found");
+  const envPath = path.join(process.cwd(), '..', '.env.local');
+  
+  if (!fs.existsSync(envPath)) {
+    throw new Error('.env.local file not found');
   }
 
-  // Then try local .env without prefix
-  const envPath = path.join(process.cwd(), '.env');
-  console.log("Looking for .env at:", envPath);
-  if (fs.existsSync(envPath)) {
-    console.log(".env exists");
-    const envContent = fs.readFileSync(envPath, 'utf8');
-    console.log("ENV Content:", envContent);
-    const match = envContent.match(/EURC_TOKEN_ADDRESS=(.+)/);
-    console.log("ENV Match result:", match);
-    if (match && match[1]) {
-      return match[1];
-    }
-  } else {
-    console.log(".env not found");
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  const eurcMatch = envContent.match(/NEXT_PUBLIC_EURC_TOKEN_ADDRESS=(.+)/);
+  
+  if (!eurcMatch) {
+    throw new Error('NEXT_PUBLIC_EURC_TOKEN_ADDRESS not found in .env.local');
   }
 
-  throw new Error("EURC Token address not found in either .env or .env.local");
+  return eurcMatch[1];
 }
 
 async function main() {
