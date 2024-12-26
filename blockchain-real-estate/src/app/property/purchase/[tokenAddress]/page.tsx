@@ -313,18 +313,6 @@ export default function PurchaseProperty() {
         buyerWhitelisted,
       });
 
-      // Verify network first
-      const provider = await getProvider();
-      const network = await provider.getNetwork();
-      const feeData = await provider.getFeeData();
-      console.log("Current network:", network.chainId);
-      console.log("Gas price:", formatUnits(feeData.gasPrice || 0n, 'gwei'), "gwei");
-
-      // Verify we're on localhost (hardhat)
-      if (network.chainId !== 31337n) {
-        throw new Error("Please connect to the Hardhat network (chainId: 31337)");
-      }
-
       // Calculate amounts for purchase
       const tokenAmountWei = parseUnits(tokenAmount, 18);
       const eurcAmountWei = (tokenAmountWei * details.price) / parseUnits("1", 18);
@@ -372,101 +360,75 @@ export default function PurchaseProperty() {
 
       if (allowance < eurcAmountWei) {
         console.log("Approving EURC...");
-        console.log("Approving property token contract to spend EURC:", propertyTokenWithSigner.target);
-        
-        // Check EURC balance
-        const eurcBalance = await eurcWithSigner.balanceOf(address);
-        console.log("EURC balance:", formatUnits(eurcBalance, 6));
-        
-        if (eurcBalance < eurcAmountWei) {
-          throw new Error(`Insufficient EURC balance. Need ${formatUnits(eurcAmountWei, 6)} but have ${formatUnits(eurcBalance, 6)}`);
-        }
-
-        try {
-          // Prepare legacy transaction
-          const signer = await getSigner();
-          const tx = {
-            from: address,
-            to: eurcWithSigner.target,
-            data: eurcWithSigner.interface.encodeFunctionData("approve", [
-              propertyTokenWithSigner.target,
-              eurcAmountWei
-            ]),
-            gasLimit: 100000n,
-            gasPrice: feeData.gasPrice,
-            nonce: await provider.getTransactionCount(address),
-            type: 0, // Legacy transaction type
-          };
-
-          console.log("Sending approval transaction:", tx);
-          const approveTx = await signer.sendTransaction(tx);
-          
-          console.log("Waiting for approval confirmation...");
-          const receipt = await approveTx.wait();
-          console.log("Approval confirmed in block:", receipt?.blockNumber);
-          
-          // Verify approval
-          const newAllowance = await eurcWithSigner.allowance(address, propertyTokenWithSigner.target);
-          console.log("New allowance:", formatUnits(newAllowance, 6));
-        } catch (error: any) {
-          console.error("Approval error details:", {
-            error,
-            code: error.code,
-            message: error.message,
-            data: error.data,
-          });
-          throw error;
-        }
+        const approveTx = await eurcWithSigner.approve(
+          propertyTokenWithSigner.target,
+          eurcAmountWei,
+          {
+            gasLimit: 100000,
+          }
+        );
+        await approveTx.wait();
+        console.log("EURC approved");
       }
 
       // Purchase tokens
       console.log("Attempting to purchase tokens...");
-      try {
-        // Prepare legacy transaction
-        const signer = await getSigner();
-        const purchaseTx = {
-          from: address,
-          to: propertyTokenWithSigner.target,
-          data: propertyTokenWithSigner.interface.encodeFunctionData("purchaseTokens", [
-            tokenAmountWei
-          ]),
-          gasLimit: 500000n, // Higher gas limit for purchase
-          gasPrice: feeData.gasPrice,
-          nonce: await provider.getTransactionCount(address),
-          type: 0, // Legacy transaction type
-        };
+      
+      // Log transaction details
+      const gasEstimate = await propertyTokenWithSigner.purchaseTokens.estimateGas(tokenAmountWei);
+      console.log("Gas estimate:", gasEstimate.toString());
+      
+      // Get current nonce
+      const signer = await getSigner();
+      const nonce = await signer.getNonce();
+      console.log("Current nonce:", nonce);
+      
+      // Log all parameters
+      console.log("Purchase parameters:", {
+        tokenAmount: formatUnits(tokenAmountWei, 18),
+        from: address,
+        to: propertyTokenWithSigner.target,
+        tokenHolder,
+        allowance: formatUnits(allowance, 6),
+        nonce
+      });
 
-        console.log("Sending purchase transaction:", purchaseTx);
-        const tx = await signer.sendTransaction(purchaseTx);
-        
-        console.log("Waiting for purchase confirmation...");
-        const receipt = await tx.wait();
-        console.log("Purchase confirmed in block:", receipt?.blockNumber);
+      const purchaseTx = await propertyTokenWithSigner.purchaseTokens(tokenAmountWei, {
+        gasLimit: 500000, // Increased gas limit
+        nonce
+      });
 
-        // Verify balances after purchase
-        const newBalance = await propertyTokenWithSigner.balanceOf(address);
-        console.log("New token balance:", formatUnits(newBalance, 18));
+      console.log("Waiting for purchase confirmation...");
+      const receipt = await purchaseTx.wait();
+      console.log("Purchase confirmed in block:", receipt?.blockNumber);
 
-        const newEurcBalance = await eurcWithSigner.balanceOf(address);
-        console.log("New EURC balance:", formatUnits(newEurcBalance, 6));
+      // Get updated balances
+      const newBalance = await propertyTokenWithSigner.balanceOf(address);
+      console.log("New token balance:", formatUnits(newBalance, 18));
+      setTokenBalance(formatEther(newBalance));
 
-        toast.success("Successfully purchased tokens!");
-      } catch (error: any) {
-        console.error("Purchase error details:", {
-          error,
-          code: error.code,
-          message: error.message,
-          data: error.data,
-        });
-        throw new Error(`Purchase failed: ${error.message}`);
-      }
+      const newEurcBalance = await eurcWithSigner.balanceOf(address);
+      console.log("New EURC balance:", formatUnits(newEurcBalance, 6));
+      setEurcBalance(formatUnits(newEurcBalance, 6));
+
+      // Update UI after balances are set
+      await Promise.all([fetchEURCBalance(), fetchOnChainDetails()]);
+
+      toast({
+        title: "Success",
+        description: `Purchased ${tokenAmount} property tokens`,
+      });
+
+      // Reset form
+      setTokenAmount("");
+      setEurcAmount("");
     } catch (error: any) {
       console.error("Purchase error:", error);
-      if (error.message?.includes("user rejected")) {
-        throw new Error("Transaction was rejected by user");
-      } else {
-        throw new Error(`Purchase failed: ${error.message}`);
-      }
+      toast({
+        title: "Error",
+        description: error.message || "Failed to purchase tokens",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
