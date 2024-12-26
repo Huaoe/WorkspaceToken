@@ -32,10 +32,15 @@ contract PropertyToken is
     PropertyDetails public propertyDetails;
     IERC20 public eurcToken;
     address public whitelistContract;
+    address public tokenHolder; // Address that holds the tokens for sale
 
     event TokensPurchased(address indexed buyer, uint256 amount, uint256 eurcAmount);
     event TokensSold(address indexed seller, uint256 amount, uint256 eurcAmount);
     event PropertyStatusUpdated(bool status);
+    event TokenHolderUpdated(address indexed previousHolder, address indexed newHolder);
+    event PurchaseAttempted(address indexed buyer, uint256 amount, uint256 eurcAmount, bool whitelisted, bool active);
+    event SaleAttempted(address indexed seller, uint256 amount, uint256 eurcAmount, bool whitelisted, bool active);
+    event TransferAttempted(address indexed from, address indexed to, uint256 amount, uint256 eurcAmount);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -72,9 +77,10 @@ contract PropertyToken is
 
         eurcToken = IERC20(params.eurcTokenAddress);
         whitelistContract = params.whitelistContract;
+        tokenHolder = tx.origin; // Initialize token holder as tx.origin (the creator)
 
-        // Mint tokens to tx.origin (the creator) instead of the owner (PropertyFactory)
-        _mint(tx.origin, params.totalSupply);
+        // Mint tokens to the token holder
+        _mint(tokenHolder, params.totalSupply);
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
@@ -82,12 +88,18 @@ contract PropertyToken is
     /// @notice Purchase property tokens with EURC
     /// @param amount Amount of property tokens to purchase
     function purchaseTokens(uint256 amount) external {
-        // Check if buyer is whitelisted
+        emit PurchaseAttempted(
+            msg.sender,
+            amount,
+            (amount * propertyDetails.price) / (10 ** decimals()),
+            IWhitelist(whitelistContract).isWhitelisted(msg.sender),
+            propertyDetails.isActive
+        );
+
         if (!IWhitelist(whitelistContract).isWhitelisted(msg.sender)) {
             revert NotWhitelisted();
         }
 
-        // Check if property is active
         if (!propertyDetails.isActive) {
             revert PropertyInactive();
         }
@@ -100,11 +112,18 @@ contract PropertyToken is
             revert InsufficientBalance();
         }
 
-        // Transfer EURC from buyer to owner
-        require(eurcToken.transferFrom(msg.sender, owner(), eurcAmount), "EURC transfer failed");
+        // Check if token holder has enough tokens
+        if (balanceOf(tokenHolder) < amount) {
+            revert InsufficientPropertyTokenBalance();
+        }
 
-        // Transfer property tokens to buyer
-        _transfer(owner(), msg.sender, amount);
+        emit TransferAttempted(tokenHolder, msg.sender, amount, eurcAmount);
+
+        // Transfer EURC from buyer to token holder
+        require(eurcToken.transferFrom(msg.sender, tokenHolder, eurcAmount), "EURC transfer failed");
+
+        // Transfer property tokens from token holder to buyer
+        _transfer(tokenHolder, msg.sender, amount);
 
         emit TokensPurchased(msg.sender, amount, eurcAmount);
     }
@@ -112,6 +131,14 @@ contract PropertyToken is
     /// @notice Sell property tokens back for EURC
     /// @param amount Amount of property tokens to sell
     function sellTokens(uint256 amount) external {
+        emit SaleAttempted(
+            msg.sender,
+            amount,
+            (amount * propertyDetails.price) / (10 ** decimals()),
+            IWhitelist(whitelistContract).isWhitelisted(msg.sender),
+            propertyDetails.isActive
+        );
+
         // Check if seller has enough tokens
         if (balanceOf(msg.sender) < amount) {
             revert InsufficientBalance();
@@ -130,6 +157,8 @@ contract PropertyToken is
             revert InsufficientEURCBalance();
         }
 
+        emit TransferAttempted(msg.sender, owner(), amount, eurcAmount);
+
         // Transfer property tokens to owner
         _transfer(msg.sender, owner(), amount);
 
@@ -137,6 +166,17 @@ contract PropertyToken is
         require(eurcToken.transferFrom(owner(), msg.sender, eurcAmount), "EURC transfer failed");
 
         emit TokensSold(msg.sender, amount, eurcAmount);
+    }
+
+    /// @notice Update the token holder address
+    /// @param newHolder The new address that will hold tokens for sale
+    function updateTokenHolder(address newHolder) external {
+        require(msg.sender == tokenHolder, "Only current token holder can update");
+        require(newHolder != address(0), "Invalid address");
+        require(IWhitelist(whitelistContract).isWhitelisted(newHolder), "New holder must be whitelisted");
+
+        emit TokenHolderUpdated(tokenHolder, newHolder);
+        tokenHolder = newHolder;
     }
 
     /// @notice Update the property status (active/inactive)

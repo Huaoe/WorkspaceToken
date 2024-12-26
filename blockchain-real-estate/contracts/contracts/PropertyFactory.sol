@@ -118,7 +118,7 @@ contract PropertyFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
                 // Activate the property token
                 PropertyToken(propertyToken).updatePropertyStatus(true);
                 
-                // Get the creator from the event
+                //Get the creator from the event
                 creator = PropertyToken(propertyToken).owner();
                 
                 // Transfer ownership to the creator

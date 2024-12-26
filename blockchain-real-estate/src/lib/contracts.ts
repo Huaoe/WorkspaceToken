@@ -117,94 +117,20 @@ export const whitelistABI = [
 ] as const;
 
 export const stakingFactoryABI = [
-  {
-    type: "function",
-    name: "owner",
-    inputs: [],
-    outputs: [{ type: "address", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "transferOwnership",
-    inputs: [{ type: "address", name: "newOwner" }],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "initialize",
-    inputs: [{ type: "address", name: "_rewardToken" }],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "renounceOwnership",
-    inputs: [],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "createStakingContract",
-    inputs: [
-      { type: "address", name: "_propertyToken" },
-      { type: "uint256", name: "_rewardRate" },
-      { type: "uint256", name: "_duration" }
-    ],
-    outputs: [{ type: "address", name: "" }],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "stakingContracts",
-    inputs: [{ type: "address", name: "" }],
-    outputs: [
-      { type: "address", name: "contractAddress" },
-      { type: "uint256", name: "rewardRate" },
-      { type: "uint256", name: "duration" },
-      { type: "bool", name: "isActive" }
-    ],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "rewardToken",
-    inputs: [],
-    outputs: [{ type: "address", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "fundContract",
-    inputs: [{ type: "uint256", name: "_amount" }],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "event",
-    name: "StakingContractCreated",
-    inputs: [
-      { type: "address", indexed: true, name: "propertyToken" },
-      { type: "address", indexed: true, name: "stakingContract" },
-      { type: "uint256", indexed: false, name: "rewardRate" },
-      { type: "uint256", indexed: false, name: "duration" }
-    ]
-  },
-  {
-    type: "event",
-    name: "OwnershipTransferred",
-    inputs: [
-      { type: "address", indexed: true, name: "previousOwner" },
-      { type: "address", indexed: true, name: "newOwner" }
-    ]
-  },
-  {
-    type: "event",
-    name: "Initialized",
-    inputs: [{ type: "uint64", indexed: false, name: "version" }]
-  }
+  // Admin functions
+  'function owner() view returns (address)',
+  'function rewardToken() view returns (address)',
+  'function stakingContracts(address) view returns (bool isActive)',
+  'function fundContract(uint256 amount)',
+  
+  // Staking management
+  'function createStakingContract(address stakingToken, uint256 rewardRate, uint256 duration)',
+  'function getStakingContract(address stakingToken) view returns (address)',
+  
+  // Events
+  'event StakingContractCreated(address indexed stakingToken, address indexed stakingContract)',
+  'event ContractFunded(uint256 amount)',
+  'event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)'
 ] as const;
 
 export const stakingABI = [

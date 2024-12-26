@@ -133,67 +133,59 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
         const totalSupply = await propertyToken.totalSupply();
         console.log('Total supply:', totalSupply.toString());
 
-        // Get contract owner
-        const contractOwner = await propertyToken.owner();
-        console.log('Contract owner:', contractOwner);
+        // Get token holder and their balance
+        const factory = await getPropertyFactoryContract();
+        const tokenHolder = await factory.owner();
+        const holderBalance = await propertyToken.balanceOf(tokenHolder);
 
-        // Get owner's balance for remaining tokens
-        const ownerBalance = await propertyToken.balanceOf(contractOwner);
-        console.log('Owner balance:', ownerBalance.toString());
-
-        // Get the connected user's balance
+        // Get user balance if connected
         let userBalance = BigInt(0);
         if (address) {
           userBalance = await propertyToken.balanceOf(address);
           console.log('User balance:', userBalance.toString());
         }
 
-        // Calculate token stats with proper decimal handling
-        const total = Number(formatUnits(totalSupply, 18));
-        const remaining = Number(formatUnits(ownerBalance, 18));
-        const userTokenAmount = Number(formatUnits(userBalance, 18));
-        
-        // Calculate sold tokens (total - owner's balance)
-        const soldToOthers = total - remaining;
-        const totalSold = soldToOthers + (address !== contractOwner ? userTokenAmount : 0);
-
-        console.log('Token stats:', {
-          total,
-          remaining,
-          userTokens: userTokenAmount,
-          soldToOthers,
-          totalSold,
-          isOwner: address === contractOwner
-        });
-        
         // Get price from property details
         const details = await propertyToken.propertyDetails();
         const pricePerToken = property.price_per_token ? 
           Number(formatUnits(BigInt(property.price_per_token), 6)) : 
           Number(formatUnits(details.price, 6));
+
+        // Calculate token stats with proper decimal handling
+        const total = Number(formatUnits(totalSupply, 18));
+        const available = Number(formatUnits(holderBalance, 18));
+        const userTokenAmount = Number(formatUnits(userBalance, 18));
         
+        // Calculate sold tokens (total - holder's balance)
+        const soldToOthers = total - available;
+        const totalSold = soldToOthers;
+
         // Calculate total value
         const totalValue = total * pricePerToken;
         const soldValue = totalSold * pricePerToken;
 
-        // Calculate logarithmic progress
-        const logProgress = calculateLogProgress(totalSold, total);
-        console.log('Progress calculation:', {
-          totalSold,
+        console.log('Token stats:', {
           total,
-          linearProgress: (totalSold / total) * 100,
-          logProgress
+          available,
+          userTokens: userTokenAmount,
+          soldToOthers,
+          totalSold,
+          isHolder: address === tokenHolder,
+          pricePerToken
         });
 
+        // Calculate logarithmic progress
+        const logProgress = calculateLogProgress(totalSold, total);
+        
         setUserTokens(userTokenAmount.toString());
         setTokenProgress(logProgress);
         
-        // Get holders count
-        const holdersCount = address && userBalance > 0 ? 2 : 1;
+        // Get holders count (token holder + any buyers)
+        const holdersCount = soldToOthers > 0 ? 2 : 1;
 
         setTokenStats({
           total: total.toString(),
-          remaining: remaining.toString(),
+          remaining: available.toString(),
           sold: totalSold.toString(),
           holders: holdersCount,
           price: pricePerToken.toLocaleString(undefined, {
@@ -202,11 +194,11 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
           }),
           name: property.token_name || '',
           symbol: property.token_symbol || '',
-          totalValue: totalValue.toLocaleString(undefined, {
+          totalValue: (total * pricePerToken).toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
           }),
-          soldValue: soldValue.toLocaleString(undefined, {
+          soldValue: (totalSold * pricePerToken).toLocaleString(undefined, {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
           })

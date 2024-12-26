@@ -23,7 +23,8 @@ export default function PropertyDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [tokenBalance, setTokenBalance] = useState('0');
   const [totalSupply, setTotalSupply] = useState('0');
-  const [ownerBalance, setOwnerBalance] = useState('0');
+  const [tokenHolderBalance, setTokenHolderBalance] = useState('0');
+  const [tokenHolder, setTokenHolder] = useState<string | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
   const [onChainDetails, setOnChainDetails] = useState<{
     title: string;
@@ -54,18 +55,22 @@ export default function PropertyDetailsPage() {
       console.log('User balance:', balance.toString());
       setTokenBalance(formatEther(balance));
 
-      // Get contract owner
+      // Get contract owner and token holder
       try {
         const contractOwner = await tokenContract.owner();
+        const factory = await getPropertyFactoryContract();
+        const currentTokenHolder = await factory.owner();
         console.log('Contract owner:', contractOwner);
+        console.log('Token holder:', currentTokenHolder);
         setOwner(contractOwner);
+        setTokenHolder(currentTokenHolder);
 
-        // Get owner's balance
-        const ownerBal = await tokenContract.balanceOf(contractOwner);
-        console.log('Owner balance:', ownerBal.toString());
-        setOwnerBalance(formatEther(ownerBal));
+        // Get token holder's balance
+        const holderBal = await tokenContract.balanceOf(currentTokenHolder);
+        console.log('Token holder balance:', holderBal.toString());
+        setTokenHolderBalance(formatEther(holderBal));
       } catch (error) {
-        console.error('Error fetching owner details:', error);
+        console.error('Error fetching owner/holder details:', error);
       }
 
       // Get total supply
@@ -238,8 +243,8 @@ export default function PropertyDetailsPage() {
                     <p className="font-medium">{totalSupply} Tokens</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Owner's Balance</p>
-                    <p className="font-medium">{ownerBalance} Tokens</p>
+                    <p className="text-sm text-gray-500">Token Holder's Balance</p>
+                    <p className="font-medium">{tokenHolderBalance} Tokens</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Your Balance</p>
@@ -272,6 +277,19 @@ export default function PropertyDetailsPage() {
           </Button>
         </CardFooter>
       </Card>
+      <div className="flex flex-col gap-2 mt-4">
+        <div className="text-sm text-muted-foreground">
+          Available Tokens: {tokenHolderBalance} / {totalSupply}
+        </div>
+        <div className="text-sm text-muted-foreground">
+          Token Holder: {tokenHolder ? `${tokenHolder.slice(0, 6)}...${tokenHolder.slice(-4)}` : 'Loading...'}
+        </div>
+        {address && tokenBalance !== '0' && (
+          <div className="text-sm text-muted-foreground">
+            Your Balance: {tokenBalance} tokens
+          </div>
+        )}
+      </div>
     </div>
   );
 }

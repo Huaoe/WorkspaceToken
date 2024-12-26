@@ -144,3 +144,12 @@ The deploy script automatically syncs both files.
 ## 📄 License
 
 MIT License - see LICENSE.md for details
+
+
+## 🚀 Quick Start
+
+1. User calls PropertyFactory.createProperty()
+2. Factory deploys new PropertyToken contract (Factory is owner)
+3. Factory transfers ownership to the creator
+4. Creator now has full control of their PropertyToken
+
