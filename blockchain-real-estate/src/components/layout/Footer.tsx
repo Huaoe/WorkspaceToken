@@ -31,7 +31,7 @@ function Footer() {
   return (
     <footer className="bg-gray-100 dark:bg-gray-900 mt-auto">
       <div className="container mx-auto px-4 py-8">
-        {/* Partners Section */}
+        {/* Partners Section
         <div className="flex flex-wrap justify-center items-center gap-8 mb-8">
           {partners.map((partner) => (
             <div key={partner.name} className="relative w-24 h-12">
@@ -44,7 +44,7 @@ function Footer() {
               />
             </div>
           ))}
-        </div>
+        </div> */}
 
         {/* Footer Links */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
