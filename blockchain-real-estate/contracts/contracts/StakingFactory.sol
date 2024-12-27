@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
+pragma abicoder v2;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -40,7 +41,7 @@ contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     function createStakingContract(
         address propertyToken,
-        uint256 rewardAmount,
+        uint256 rewardRate,
         uint256 rewardsDuration
     ) external onlyOwner returns (address) {
         require(propertyToken != address(0), "StakingFactory: property token is zero address");
@@ -54,7 +55,7 @@ contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             StakingRewards.initialize.selector,
             propertyToken,
             address(eurcToken),
-            rewardAmount,
+            rewardRate,
             rewardsDuration
         );
 
@@ -67,7 +68,7 @@ contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         // Store the staking contract info
         stakingContracts[propertyToken] = StakingContractInfo({
             contractAddress: proxy,
-            rewardRate: rewardAmount,
+            rewardRate: rewardRate,
             duration: rewardsDuration,
             isActive: true
         });

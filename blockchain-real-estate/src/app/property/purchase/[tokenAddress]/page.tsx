@@ -17,7 +17,11 @@ import {
   getProvider,
   getSigner,
 } from "@/lib/ethereum";
-import { formatUnits, parseUnits, formatEther } from "viem";
+import {
+  formatUnits,
+  parseUnits,
+  formatEther,
+} from "viem";
 import { PROPERTY_FACTORY_ADDRESS } from "@/lib/contracts";
 import { EURC_TOKEN_ADDRESS } from "@/lib/contracts";
 import { formatEURCAmount } from "@/lib/utils";
@@ -123,10 +127,17 @@ export default function PurchaseProperty() {
 
   const maxPurchasableAmount = useMemo(() => {
     if (!eurcBalance || !onChainDetails?.price) return "0";
-    const maxTokens = Number(eurcBalance) / Number(formatUnits(onChainDetails.price, 6));
+    const maxTokens =
+      Number(eurcBalance) / Number(formatUnits(onChainDetails.price, 6));
     // Take the minimum between available balance and holder's balance
     return Math.min(maxTokens, Number(holderBalance)).toFixed(2);
   }, [eurcBalance, onChainDetails?.price, holderBalance]);
+
+  const salesProgress = useMemo(() => {
+    if (!holderBalance || !totalSupply) return 0;
+    const soldTokens = Number(totalSupply) - Number(holderBalance);
+    return (soldTokens / Number(totalSupply)) * 100;
+  }, [holderBalance, totalSupply]);
 
   useEffect(() => {
     const initializeContracts = async () => {
@@ -167,7 +178,7 @@ export default function PurchaseProperty() {
 
     try {
       console.log("Fetching on-chain details...");
-      
+
       // Get token holder
       const factory = await getPropertyFactoryContract();
       const currentHolder = await factory.owner();
@@ -175,25 +186,30 @@ export default function PurchaseProperty() {
       setTokenHolder(currentHolder);
 
       // Get holder balance
-      const holderTokenBalance = await propertyTokenContract.balanceOf(currentHolder);
+      const holderTokenBalance = await propertyTokenContract.balanceOf(
+        currentHolder
+      );
       console.log("Holder balance (raw):", holderTokenBalance.toString());
-      console.log("Holder balance (formatted):", formatUnits(holderTokenBalance, 18));
+      console.log(
+        "Holder balance (formatted):",
+        formatUnits(holderTokenBalance, 18)
+      );
       setHolderBalance(formatUnits(holderTokenBalance, 18));
 
       // Get property details for price
       const details = await propertyTokenContract.propertyDetails();
       console.log("Property details:", {
         price: formatUnits(details.price, 6),
-        isActive: details.isActive
+        isActive: details.isActive,
       });
-      
+
       setOnChainDetails({
         title: details.title,
         description: details.description,
         location: details.location,
         imageUrl: details.imageUrl,
         price: BigInt(details.price.toString()),
-        isActive: details.isActive
+        isActive: details.isActive,
       });
 
       // Get total supply
@@ -205,7 +221,6 @@ export default function PurchaseProperty() {
       const balance = await propertyTokenContract.balanceOf(address);
       console.log("User balance:", formatUnits(balance, 18));
       setTokenBalance(formatUnits(balance, 18));
-
     } catch (error) {
       console.error("Error fetching on-chain details:", error);
       toast({
@@ -224,6 +239,13 @@ export default function PurchaseProperty() {
       !tokenAmount ||
       !eurcAmount
     ) {
+      console.log("Missing required data:", {
+        address,
+        propertyTokenContract,
+        eurcContract,
+        tokenAmount,
+        eurcAmount,
+      });
       return;
     }
 
@@ -235,176 +257,113 @@ export default function PurchaseProperty() {
       const propertyTokenWithSigner = propertyTokenContract.connect(signer);
       const eurcWithSigner = eurcContract.connect(signer);
 
-      // Get token holder from PropertyToken contract
-      const currentHolder = await propertyTokenWithSigner.tokenHolder();
-      console.log("Token holder for purchase:", currentHolder);
-
-      console.log("Contract details:", {
-        propertyTokenAddress: propertyTokenWithSigner.target,
-        eurcAddress: eurcWithSigner.target,
-        tokenHolder: currentHolder,
-        currentSigner: address,
-        price: formatUnits(onChainDetails.price, 6),
-        isActive: onChainDetails.isActive,
-      });
-
-      // Check balances for all relevant parties
-      const [tokenHolderBalance, buyerTokenBalance, buyerEurcBalance] =
-        await Promise.all([
-          propertyTokenWithSigner.balanceOf(currentHolder), // Token holder's balance
-          propertyTokenWithSigner.balanceOf(address), // Buyer's token balance
-          eurcWithSigner.balanceOf(address), // Buyer's EURC balance
-        ]);
-
-      console.log("Token balances:", {
-        tokenHolderBalance: formatUnits(tokenHolderBalance, 18),
-        buyerBalance: formatUnits(buyerTokenBalance, 18),
-      });
-
-      console.log("EURC balances:", {
-        buyerBalance: formatUnits(buyerEurcBalance, 6),
-      });
-
-      // Check whitelist status
-      const whitelistWithSigner = await getWhitelistContract(true);
-      const [holderWhitelisted, buyerWhitelisted] = await Promise.all([
-        whitelistWithSigner.isWhitelisted(currentHolder),
-        whitelistWithSigner.isWhitelisted(address),
-      ]);
-
-      console.log("Whitelist status:", {
-        tokenHolder,
-        holderWhitelisted,
-        buyerAddress: address,
-        buyerWhitelisted,
-      });
-
       // Calculate amounts for purchase
       const tokenAmountWei = parseUnits(tokenAmount, 18);
-      const eurcAmountWei = (tokenAmountWei * onChainDetails.price) / parseUnits("1", 18);
+      const eurcAmountWei =
+        (tokenAmountWei * onChainDetails.price) / parseUnits("1", 18);
 
-      console.log("Purchase amounts:", {
-        tokenAmount: formatUnits(tokenAmountWei, 18),
-        eurcAmount: formatUnits(eurcAmountWei, 6),
-        rawEurcAmount: eurcAmountWei.toString(),
+      // Get signer and initial nonce
+      let currentNonce = await signer.getNonce();
+
+      console.log("Transaction details:", {
+        propertyTokenAddress: propertyTokenWithSigner.target,
+        eurcAddress: eurcWithSigner.target,
+        tokenAmountWei: tokenAmountWei.toString(),
+        eurcAmountWei: eurcAmountWei.toString(),
+        signer: address,
+        startingNonce: currentNonce,
       });
 
-      // Verify token holder has enough tokens
-      if (tokenHolderBalance < tokenAmountWei) {
-        throw new Error(
-          `Token holder has insufficient tokens. Available: ${formatUnits(
-            tokenHolderBalance,
-            18
-          )}`
-        );
-      }
-
-      // Verify buyer has enough EURC
-      if (buyerEurcBalance < eurcAmountWei) {
-        throw new Error(
-          `You have insufficient EURC. Need: ${formatUnits(
-            eurcAmountWei,
-            6
-          )}, Have: ${formatUnits(buyerEurcBalance, 6)}`
-        );
-      }
-
-      // Check if parties are whitelisted
-      if (!holderWhitelisted) {
-        throw new Error("Token holder is not whitelisted");
-      }
-      if (!buyerWhitelisted) {
-        throw new Error("Buyer is not whitelisted");
-      }
-
-      // Check and set EURC allowance
+      // First check EURC allowance
       const allowance = await eurcWithSigner.allowance(
         address,
         propertyTokenWithSigner.target
       );
-      console.log("EURC allowance:", formatUnits(allowance, 6));
+      console.log("Current allowance:", formatUnits(allowance, 6));
 
+      // If allowance is insufficient, approve first
       if (allowance < eurcAmountWei) {
-        console.log("Approving EURC...");
-        const approveTx = await eurcWithSigner.approve(
-          propertyTokenWithSigner.target,
-          eurcAmountWei,
-          {
-            gasLimit: 100000,
+        console.log("Approving EURC spend...");
+        try {
+          console.log("Sending approval transaction with the following details:", {
+            to: eurcWithSigner.target,
+            from: address,
+            gasLimit: 5000000,
+            amount: formatUnits(eurcAmountWei, 6),
+            nonce: currentNonce,
+          });
+
+          // Now set the new allowance
+          const approveTx = await eurcWithSigner.approve(
+            propertyTokenWithSigner.target,
+            eurcAmountWei,
+            {
+              gasLimit: BigInt(5000000),
+              nonce: currentNonce,
+            }
+          );
+          console.log("Approval transaction sent:", approveTx.hash);
+          
+          const approveReceipt = await approveTx.wait();
+          console.log("Approval confirmed in block:", approveReceipt.blockNumber);
+
+          // Increment nonce after successful approval
+          currentNonce++;
+
+          // Verify the new allowance
+          const newAllowance = await eurcWithSigner.allowance(
+            address,
+            propertyTokenWithSigner.target
+          );
+          console.log(
+            "New allowance after approval:",
+            formatUnits(newAllowance, 6)
+          );
+
+          if (newAllowance < eurcAmountWei) {
+            throw new Error("Approval amount verification failed");
           }
-        );
-        await approveTx.wait();
-        console.log("EURC approved");
+        } catch (error: any) {
+          console.error("Error during approval transaction:", error);
+          if (error.code === -32603) {
+            throw new Error("Transaction failed. Please check your wallet and try again.");
+          }
+          throw new Error(`Approval transaction failed: ${error.message}`);
+        }
       }
 
-      // Purchase tokens
-      console.log("Attempting to purchase tokens...");
+      console.log("Proceeding with purchase...");
       
-      // Log transaction details
-      const gasEstimate = await propertyTokenWithSigner.purchaseTokens.estimateGas(tokenAmountWei);
-      console.log("Gas estimate:", gasEstimate.toString());
-      
-      // Get current nonce
-      const nonce = await signer.getNonce();
-      console.log("Current nonce:", nonce);
-      
-      // Log all parameters
-      console.log("Purchase parameters:", {
-        tokenAmount: formatUnits(tokenAmountWei, 18),
-        from: address,
-        to: propertyTokenWithSigner.target,
-        tokenHolder: currentHolder,
-        allowance: formatUnits(allowance, 6),
-        nonce
-      });
+      // Use the current nonce for purchase transaction
+      const purchaseTx = await propertyTokenWithSigner.purchaseTokens(
+        tokenAmountWei,
+        {
+          gasLimit: BigInt(5000000),
+          nonce: currentNonce,
+        }
+      );
 
-      const purchaseTx = await propertyTokenWithSigner.purchaseTokens(tokenAmountWei, {
-        gasLimit: 500000, // Increased gas limit
-        nonce
-      });
-
-      console.log("Waiting for purchase confirmation...");
+      console.log("Purchase transaction sent:", purchaseTx.hash);
       const receipt = await purchaseTx.wait();
-      console.log("Purchase confirmed in block:", receipt?.blockNumber);
+      console.log("Purchase confirmed in block:", receipt.blockNumber);
 
-      // Get updated balances after purchase
-      console.log("Fetching updated balances after purchase...");
-      
-      // Get new token balance
-      const newBalance = await propertyTokenWithSigner.balanceOf(address);
-      console.log("New user token balance:", formatUnits(newBalance, 18));
-      setTokenBalance(formatUnits(newBalance, 18));
-
-      // Get new EURC balance
-      const newEurcBalance = await eurcWithSigner.balanceOf(address);
-      console.log("New EURC balance:", formatUnits(newEurcBalance, 6));
-      setEurcBalance(formatUnits(newEurcBalance, 6));
-
-      // Get new holder balance
-      if (currentHolder) {
-        const newHolderBalance = await propertyTokenWithSigner.balanceOf(currentHolder);
-        console.log("New holder balance (raw):", newHolderBalance.toString());
-        console.log("New holder balance (formatted):", formatUnits(newHolderBalance, 18));
-        setHolderBalance(formatUnits(newHolderBalance, 18));
-      }
-
-      // Refresh all balances
+      // Update balances
       await Promise.all([fetchEURCBalance(), fetchOnChainDetails()]);
 
       toast({
         title: "Success",
-        description: `Purchased ${tokenAmount} property tokens`,
+        description: `Successfully purchased ${tokenAmount} tokens`,
       });
 
       // Reset form
       setTokenAmount("");
       setEurcAmount("");
     } catch (error: any) {
-      console.error("Purchase error:", error);
+      console.error("Transaction failed:", error);
       toast({
-        title: "Error",
-        description: error.message || "Failed to purchase tokens",
         variant: "destructive",
+        title: "Error",
+        description: error.message || "Transaction failed. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -445,7 +404,9 @@ export default function PurchaseProperty() {
                     <p className="text-sm text-gray-500">Price per Token</p>
                     <p className="font-medium">
                       {onChainDetails?.price
-                        ? `${Number(formatUnits(onChainDetails.price, 6)).toLocaleString()} EURC`
+                        ? `${Number(
+                            formatUnits(onChainDetails.price, 6)
+                          ).toLocaleString()} EURC`
                         : "Loading..."}
                     </p>
                   </div>
@@ -463,24 +424,37 @@ export default function PurchaseProperty() {
                     <p className="text-sm text-gray-500">EURC Balance</p>
                     <p className="font-medium">{formattedEURCBalance} EURC</p>
                   </div>
-                  <AddressDisplay 
-                    address={tokenAddress as string} 
-                    label="Token Address" 
+                  <AddressDisplay
+                    address={tokenAddress as string}
+                    label="Token Address"
                   />
-                  <AddressDisplay 
-                    address={tokenHolder || ""} 
-                    label="Token Holder" 
+                  <AddressDisplay
+                    address={tokenHolder || ""}
+                    label="Token Holder"
                   />
                   <div>
                     <p className="text-sm text-gray-500">Holder Balance</p>
-                    <p className="font-medium">{Number(holderBalance).toLocaleString()} Tokens</p>
+                    <p className="font-medium">
+                      {Number(holderBalance).toLocaleString()} Tokens
+                    </p>
                   </div>
                   <div className="bg-secondary/50 p-3 rounded-lg">
-                    <p className="text-sm text-gray-500">Available for Purchase</p>
-                    <p className="font-medium text-primary">{remainingTokens} Tokens</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Max you can buy with current EURC balance: {maxPurchasableAmount} Tokens
+                    <p className="text-sm text-gray-500">
+                      Available for Purchase
                     </p>
+                    <p className="font-medium text-primary">
+                      {remainingTokens} Tokens
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Max you can buy with current EURC balance:{" "}
+                      {maxPurchasableAmount} Tokens
+                    </p>
+                  </div>
+                  <div className="progress-bar">
+                    <div
+                      className="progress-bar-fill"
+                      style={{ width: `${salesProgress}%` }}
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -514,7 +488,9 @@ export default function PurchaseProperty() {
                     </span>
                     <span>
                       {onChainDetails?.price
-                        ? `${Number(formatUnits(onChainDetails.price, 6)).toLocaleString()} EURC`
+                        ? `${Number(
+                            formatUnits(onChainDetails.price, 6)
+                          ).toLocaleString()} EURC`
                         : "Loading..."}
                     </span>
                   </div>

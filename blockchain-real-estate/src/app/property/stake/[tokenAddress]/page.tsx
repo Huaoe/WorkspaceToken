@@ -51,12 +51,14 @@ export default function StakeProperty() {
         }
 
         // Get staking contract info from factory
-        const [contractAddress, rewardRate, duration, isActive] = await publicClient.readContract({
+        const stakingContractInfo = await publicClient.readContract({
           address: stakingFactory as `0x${string}`,
           abi: stakingFactoryABI,
           functionName: "stakingContracts",
           args: [tokenAddress],
-        }) as [string, bigint, bigint, boolean];
+        });
+
+        const { contractAddress, rewardRate, duration, isActive } = stakingContractInfo;
 
         console.log("Staking Contract Info:", {
           contractAddress,

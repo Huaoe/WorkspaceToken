@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { useAccount } from "wagmi";
 import { useToast } from "@/components/ui/use-toast";
 import { ReloadIcon } from "@radix-ui/react-icons";
-import { getStakingFactoryContract, getPropertyTokenContract, getEURCContract, getProvider } from "@/lib/ethereum";
+import { getStakingFactoryContract, getPropertyTokenContract, getEURCContract, getProvider, getSigner } from "@/lib/ethereum";
 import { UseFormReturn } from "react-hook-form";
+import { parseUnits, formatUnits } from "viem";
 
 interface StakingInitButtonProps {
   propertyId: string;
@@ -37,9 +38,20 @@ export function StakingInitButton({ propertyId, form }: StakingInitButtonProps) 
         throw new Error('No token address available');
       }
 
-      // Get contract instances with signer
+      // Get signer and initial nonce
+      const signer = await getSigner();
+      if (!signer) {
+        throw new Error('No signer available');
+      }
+      let currentNonce = await signer.getNonce();
+      console.log('Starting staking initialization with nonce:', currentNonce);
+
+      // Get factory contract
       const factory = await getStakingFactoryContract(true);
-      
+      if (!factory) {
+        throw new Error('Failed to get staking factory contract');
+      }
+
       // Verify ownership
       const factoryOwner = await factory.owner();
       if (factoryOwner.toLowerCase() !== address.toLowerCase()) {
@@ -47,27 +59,47 @@ export function StakingInitButton({ propertyId, form }: StakingInitButtonProps) 
       }
 
       // Check if staking exists
-      const stakingInfo = await factory.stakingContracts(tokenAddress);
-      if (stakingInfo.contractAddress !== '0x0000000000000000000000000000000000000000') {
-        throw new Error('Staking already exists for this token');
-      }
+      // const stakingInfo = await factory.stakingContracts(tokenAddress);
+      // console.log('Staking info for token:', tokenAddress, stakingInfo);
+      // if (stakingInfo.contractAddress !== '0x0000000000000000000000000000000000000000') {
+      //   throw new Error('Staking already exists for this token');
+      // }
 
       // Set staking parameters (from test file)
       const rewardsDuration = 365 * 24 * 60 * 60; // 1 year in seconds
-      const rewardRate = 1000000000n; // 1 billion units per second
-      const rewardsAmount = rewardRate * BigInt(rewardsDuration); // Total rewards needed
+      const rewardAmount = parseUnits("1", 18); // 1 EURC per year
+
+      console.log('Creating staking contract with params:', {
+        tokenAddress,
+        rewardAmount: formatUnits(rewardAmount, 18),
+        rewardsDuration,
+        nonce: currentNonce,
+      });
 
       // Create staking contract
-      const createTx = await factory.createStakingContract(
+      const tx = await factory.createStakingContract(
         tokenAddress,
-        rewardRate,
+        rewardAmount,
         rewardsDuration,
-        { 
-          gasLimit: 5000000 // Safe gas limit
+        {
+          gasLimit: BigInt(5000000),
+          nonce: currentNonce,
         }
       );
       
-      await createTx.wait();
+      console.log('Staking contract creation transaction sent:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('Staking contract creation confirmed in block:', receipt.blockNumber);
+
+      // Get the new staking contract address from the event
+      const stakingContractCreatedEvent = receipt.logs.find(
+        (log: any) => log.fragment?.name === 'StakingContractCreated'
+      );
+      
+      if (stakingContractCreatedEvent) {
+        const stakingContractAddress = stakingContractCreatedEvent.args?.stakingContract;
+        console.log('New staking contract deployed at:', stakingContractAddress);
+      }
       
       // Update form status
       form.setValue('status', 'staking');

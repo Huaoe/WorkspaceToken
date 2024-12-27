@@ -341,7 +341,7 @@ function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
                 <span>Token Sales Progress</span>
                 <span>{(Number(tokenStats.sold) / Number(tokenStats.total) * 100).toFixed(1)}%</span>
               </div>
-              <div className="relative">
+              <div className="relative w-full">
                 <Progress 
                   value={tokenProgress} 
                   className={cn(

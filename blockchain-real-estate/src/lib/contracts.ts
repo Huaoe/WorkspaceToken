@@ -117,20 +117,85 @@ export const whitelistABI = [
 ] as const;
 
 export const stakingFactoryABI = [
-  // Admin functions
-  'function owner() view returns (address)',
-  'function rewardToken() view returns (address)',
-  'function stakingContracts(address) view returns (bool isActive)',
-  'function fundContract(uint256 amount)',
-  
-  // Staking management
-  'function createStakingContract(address stakingToken, uint256 rewardRate, uint256 duration)',
-  'function getStakingContract(address stakingToken) view returns (address)',
-  
-  // Events
-  'event StakingContractCreated(address indexed stakingToken, address indexed stakingContract)',
-  'event ContractFunded(uint256 amount)',
-  'event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)'
+  {
+    type: "function",
+    name: "owner",
+    inputs: [],
+    outputs: [{ type: "address" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "stakingContracts",
+    inputs: [{ type: "address", name: "propertyToken" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { type: "address", name: "contractAddress" },
+          { type: "uint256", name: "rewardRate" },
+          { type: "uint256", name: "duration" },
+          { type: "bool", name: "isActive" }
+        ]
+      }
+    ],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "createStakingRewards",
+    inputs: [
+      { type: "address", name: "propertyToken" },
+      { type: "uint256", name: "rewardRate" },
+      { type: "uint256", name: "rewardsDuration" }
+    ],
+    outputs: [],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "getStakingRewards",
+    inputs: [{ type: "address", name: "propertyToken" }],
+    outputs: [{ type: "address" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "hasStakingRewards",
+    inputs: [{ type: "address", name: "propertyToken" }],
+    outputs: [{ type: "bool" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "getAllStakingContracts",
+    inputs: [],
+    outputs: [{ type: "address[]" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "eurcToken",
+    inputs: [],
+    outputs: [{ type: "address" }],
+    stateMutability: "view"
+  },
+  {
+    type: "event",
+    name: "StakingContractCreated",
+    inputs: [
+      { type: "address", name: "propertyToken", indexed: true },
+      { type: "address", name: "stakingContract", indexed: false }
+    ]
+  },
+  {
+    type: "event",
+    name: "StakingContractFunded",
+    inputs: [
+      { type: "address", name: "stakingContract", indexed: true },
+      { type: "uint256", name: "amount", indexed: false }
+    ]
+  }
 ] as const;
 
 export const stakingABI = [
@@ -444,4 +509,10 @@ export interface StakingFactory extends Contract {
   getStakingRewards(propertyToken: string): Promise<string>;
   hasStakingRewards(propertyToken: string): Promise<boolean>;
   getAllStakingContracts(): Promise<string[]>;
+  stakingContracts(propertyToken: string): Promise<{
+    contractAddress: string;
+    rewardRate: number;
+    duration: number;
+    isActive: boolean;
+  }>;
 }
