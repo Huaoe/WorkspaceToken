@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
-import { Building2, Cpu, Users, Target, Leaf } from 'lucide-react';
+import Image from "next/image";
+import { Building2, Cpu, Users, Target, Leaf } from "lucide-react";
 
 export default function AboutPage() {
   return (
@@ -18,7 +18,7 @@ export default function AboutPage() {
         <div className="space-y-6">
           <div className="relative h-[300px] w-full">
             <Image
-              src="/images/building-exterior.jpg"
+              src="/images/about/classification-immeubles-bureaux-1.jpg"
               alt="Building Exterior"
               fill
               className="object-cover rounded-lg"
@@ -29,10 +29,11 @@ export default function AboutPage() {
               Notre Mission
             </h2>
             <p className="text-gray-600 dark:text-gray-300">
-              Nous démocratisons l&apos;accès à l&apos;immobilier de bureau grâce à la tokenisation. En
-              fractionnant des actifs traditionnellement coûteux en tokens accessibles à tous,
-              nous réinventons l&apos;investissement immobilier pour qu&apos;il devienne inclusif,
-              transparent et liquide.
+              Nous démocratisons l&apos;accès à l&apos;immobilier de bureau
+              grâce à la tokenisation. En fractionnant des actifs
+              traditionnellement coûteux en tokens accessibles à tous, nous
+              réinventons l&apos;investissement immobilier pour qu&apos;il
+              devienne inclusif, transparent et liquide.
             </p>
           </div>
         </div>
@@ -40,7 +41,7 @@ export default function AboutPage() {
         <div className="space-y-6">
           <div className="relative h-[300px] w-full">
             <Image
-              src="/images/modern-office.jpg"
+              src="/images/about/immeuble-bureaux-architecture-contemporaine-paysage-urbain-perspective-personnelle_1417-5648.jpg"
               alt="Modern Office"
               fill
               className="object-cover rounded-lg"
@@ -51,9 +52,11 @@ export default function AboutPage() {
               Notre Vision
             </h2>
             <p className="text-gray-600 dark:text-gray-300">
-              Nous démocratisons l&apos;accès à l&apos;immobilier de bureau grâce à la tokenisation. En
-              fractionnant des actifs traditionnellement coûteux en tokens accessibles à tous, nous
-              réinventons l&apos;investissement immobilier pour qu&apos;il devienne inclusif, transparent et liquide.
+              Nous démocratisons l&apos;accès à l&apos;immobilier de bureau
+              grâce à la tokenisation. En fractionnant des actifs
+              traditionnellement coûteux en tokens accessibles à tous, nous
+              réinventons l&apos;investissement immobilier pour qu&apos;il
+              devienne inclusif, transparent et liquide.
             </p>
           </div>
         </div>
@@ -69,7 +72,8 @@ export default function AboutPage() {
             <Cpu className="w-6 h-6 text-cyan-500 mt-1" />
             <div>
               <p className="text-gray-600 dark:text-gray-300">
-                Une infrastructure décentralisée pour sécuriser et automatiser les transactions
+                Une infrastructure décentralisée pour sécuriser et automatiser
+                les transactions
               </p>
             </div>
           </div>
@@ -77,7 +81,8 @@ export default function AboutPage() {
             <Target className="w-6 h-6 text-cyan-500 mt-1" />
             <div>
               <p className="text-gray-600 dark:text-gray-300">
-                Tokenisation 100 % automatisée pour des investissements simplifiés
+                Tokenisation 100 % automatisée pour des investissements
+                simplifiés
               </p>
             </div>
           </div>
@@ -89,19 +94,79 @@ export default function AboutPage() {
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
           Notre Équipe Multidisciplinaire
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Add team members here */}
-          {['Thomas BERNIER', 'Mathieu CARRERE', 'Thomas BERNIER'].map((member, index) => (
-            <div key={index} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
-              <div className="flex items-center gap-4">
-                <Users className="w-8 h-8 text-cyan-500" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {member}
-                </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* Farid Boulil */}
+            <div className="flex flex-col items-center">
+              <div className="relative w-48 h-48 mb-4">
+                <Image
+                  src="/images/team/farid-boulil.jpg"
+                  alt="Farid Boulil"
+                  fill
+                  className="object-cover rounded-full"
+                />
               </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Farid Boulil
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Consultant Blockchain
+              </p>
             </div>
-          ))}
-        </div>
+
+            {/* Mathieu Carreres */}
+            <div className="flex flex-col items-center">
+              <div className="relative w-48 h-48 mb-4">
+                <Image
+                  src="/images/team/mathieu-carreres.jpg"
+                  alt="Mathieu Carreres"
+                  fill
+                  className="object-cover rounded-full"
+                />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Mathieu Carreres
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Consultant Blockchain
+              </p>
+            </div>
+
+            {/* Frédéric Goll */}
+            <div className="flex flex-col items-center">
+              <div className="relative w-48 h-48 mb-4">
+                <Image
+                  src="/images/team/frederic-goll.png"
+                  alt="Frédéric Goll"
+                  fill
+                  className="object-cover rounded-full"
+                />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Frédéric Goll
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Consultant Blockchain
+              </p>
+            </div>
+
+            {/* Thomas Berrod */}
+            <div className="flex flex-col items-center">
+              <div className="relative w-48 h-48 mb-4">
+                <Image
+                  src="/images/team/thomas-berrod.jpg"
+                  alt="Thomas Berrod"
+                  fill
+                  className="object-cover rounded-full"
+                />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Thomas Berrod
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Développeur Web 3 / Blockchain
+              </p>
+            </div>
+          </div>
       </div>
 
       {/* Stratégie et Engagements */}
@@ -117,13 +182,16 @@ export default function AboutPage() {
             </h3>
             <div className="space-y-4">
               <p className="text-gray-600 dark:text-gray-300">
-                Nos stratégies locatives sont spécifiquement conçues pour maximiser les rendements
-                tout en préservant la valeur des actifs sur le long terme.
+                Nos stratégies locatives sont spécifiquement conçues pour
+                maximiser les rendements tout en préservant la valeur des actifs
+                sur le long terme.
               </p>
               <ul className="space-y-2 list-disc list-inside text-gray-600 dark:text-gray-300">
                 <li>Flexibilité locative - Adaptation aux usages modernes</li>
                 <li>Optimisation des rendements - Gestion proactive</li>
-                <li>Maintenance proactive - Administration des biens optimisée</li>
+                <li>
+                  Maintenance proactive - Administration des biens optimisée
+                </li>
               </ul>
             </div>
           </div>
@@ -138,8 +206,9 @@ export default function AboutPage() {
                 <Leaf className="w-6 h-6 text-cyan-500 mt-1" />
                 <div>
                   <p className="text-gray-600 dark:text-gray-300">
-                    Nous intégrons les préoccupations environnementales au cœur de notre stratégie
-                    immobilière en sélectionnant des actifs à fort potentiel énergétique.
+                    Nous intégrons les préoccupations environnementales au cœur
+                    de notre stratégie immobilière en sélectionnant des actifs à
+                    fort potentiel énergétique.
                   </p>
                 </div>
               </div>

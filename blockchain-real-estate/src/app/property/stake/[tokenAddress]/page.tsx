@@ -40,6 +40,8 @@ export default function StakeProperty() {
   const [isUserWhitelisted, setIsUserWhitelisted] = useState(false);
   const [contractStatus, setContractStatus] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [owner, setOwner] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -48,17 +50,23 @@ export default function StakeProperty() {
       try {
         // Verify property token exists
         try {
-          const propertyDetails = await publicClient.readContract({
-            address: tokenAddress as `0x${string}`,
-            abi: propertyTokenABI,
-            functionName: "propertyDetails",
-          });
+          const [name, symbol] = await Promise.all([
+            publicClient.readContract({
+              address: tokenAddress as `0x${string}`,
+              abi: propertyTokenABI,
+              functionName: "name",
+            }),
+            publicClient.readContract({
+              address: tokenAddress as `0x${string}`,
+              abi: propertyTokenABI,
+              functionName: "symbol",
+            }),
+          ]);
           
-          if (!propertyDetails) {
+          if (!name || !symbol) {
             throw new Error('Invalid property token');
           }
 
-          setIsActive(propertyDetails[5]); // isActive is the 6th return value
         } catch (error) {
           console.error('Error verifying property token:', error);
           throw new Error('Invalid property token address');
@@ -94,54 +102,64 @@ export default function StakeProperty() {
         const finishDate = new Date(Number(finishAt) * 1000);
         console.log("Staking period ends:", finishDate.toLocaleDateString());
 
-        // Get reward rate and total supply for APR calculation
-        const [rewardRate, totalSupply] = await Promise.all([
-          publicClient.readContract({
-            address: stakingInfo.contractAddress,
-            abi: stakingRewardsV2ABI,
-            functionName: "rewardRate",
-          }),
-          publicClient.readContract({
-            address: stakingInfo.contractAddress,
-            abi: stakingRewardsV2ABI,
-            functionName: "totalSupply",
-          })
-        ]);
+        // Get reward rate for APR calculation
+        const rewardRate = await publicClient.readContract({
+          address: stakingInfo.contractAddress,
+          abi: stakingRewardsV2ABI,
+          functionName: "rewardRate",
+        });
 
-        // Calculate APR (reward per year / total staked)
+        // Calculate APR (reward per year)
         const rewardsPerYear = (rewardRate * BigInt(31536000)); // seconds in a year
-        const apr = totalSupply > 0n ? (rewardsPerYear * 10000n) / totalSupply : 0n;
+        const apr = Number(formatUnits(rewardsPerYear, 6)); // Assuming 6 decimals for EURC
 
         // Get user's staked balance and earned rewards
-        const [stakedBalance, earnedRewards] = await Promise.all([
-          publicClient.readContract({
-            address: stakingInfo.contractAddress,
-            abi: stakingRewardsV2ABI,
-            functionName: "balanceOf",
-            args: [address],
-          }),
-          publicClient.readContract({
-            address: stakingInfo.contractAddress,
-            abi: stakingRewardsV2ABI,
-            functionName: "earned",
-            args: [address],
-          })
-        ]);
+        if (address) {
+          try {
+            const earnedRewards = await publicClient.readContract({
+              address: stakingInfo.contractAddress,
+              abi: stakingRewardsV2ABI,
+              functionName: "earned",
+              args: [address],
+            });
 
-        setStakingAddress(stakingInfo.contractAddress);
-        setApr(Number(apr) / 100); // Convert basis points to percentage
-        setEndDateStr(finishDate.toLocaleDateString());
-        setStakedBalance(stakedBalance);
-        setEarnedRewards(earnedRewards);
+            setEarnedRewards(earnedRewards);
+          } catch (error) {
+            console.error("Error fetching earned rewards:", error);
+          }
+        }
 
         // Get token balance
-        const balance = await publicClient.readContract({
-          address: tokenAddress as `0x${string}`,
-          abi: propertyTokenABI,
-          functionName: "balanceOf",
-          args: [address],
+        if (address) {
+          try {
+            const balance = await publicClient.readContract({
+              address: tokenAddress as `0x${string}`,
+              abi: eurcABI,
+              functionName: "balanceOf",
+              args: [address],
+            });
+            setTokenBalance(balance);
+          } catch (error) {
+            console.error("Error fetching token balance:", error);
+          }
+        }
+
+        // Get contract owner
+        const ownerAddress = await publicClient.readContract({
+          address: stakingInfo.contractAddress,
+          abi: stakingRewardsV2ABI,
+          functionName: "owner",
         });
-        setTokenBalance(balance);
+        
+        setOwner(ownerAddress);
+        setIsOwner(ownerAddress.toLowerCase() === address.toLowerCase());
+        console.log("Contract owner:", ownerAddress);
+        console.log("Current address:", address);
+        console.log("Is owner:", ownerAddress.toLowerCase() === address.toLowerCase());
+
+        setStakingAddress(stakingInfo.contractAddress);
+        setApr(apr);
+        setEndDateStr(finishDate.toLocaleDateString());
 
         // Get staking history
         const fromBlock = BigInt(0); // Or use a more recent block for efficiency
@@ -299,53 +317,28 @@ export default function StakeProperty() {
       setLoading(true);
       const amountBigInt = parseUnits(amount, 18);
 
-      // Diagnostic checks
-      console.log("Running diagnostic checks...");
-
-      // 1. Check if user has enough tokens
-      const userBalance = await publicClient.readContract({
-        address: tokenAddress as `0x${string}`,
-        abi: propertyTokenABI,
-        functionName: "balanceOf",
-        args: [address],
-      });
-
-      if (userBalance < amountBigInt) {
-        throw new Error(`Insufficient token balance. You have ${formatUnits(userBalance, 18)} tokens`);
-      }
-
-      // 2. Check if staking contract has reward balance
-      const eurcAddress = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS;
-      if (!eurcAddress) throw new Error("EURC token address not configured");
-
-      const rewardBalance = await publicClient.readContract({
-        address: eurcAddress as `0x${string}`,
-        abi: eurcABI,
-        functionName: "balanceOf",
-        args: [stakingAddress],
-      });
-
-      console.log("Staking contract EURC balance:", formatUnits(rewardBalance, 6));
+      // 1. Verify contracts and staking period
+      console.log("Verifying contracts...");
       
-      if (rewardBalance === 0n) {
-        throw new Error("Staking contract has no reward tokens. Please contact the administrator.");
-      }
+      // Get staking contract info
+      const stakingFactory = process.env.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS;
+      if (!stakingFactory) throw new Error("Staking factory not configured");
 
-      // 3. Check staking contract reward rate
-      const rewardRate = await publicClient.readContract({
-        address: stakingAddress,
-        abi: stakingRewardsV2ABI,
-        functionName: "rewardRate",
+      const stakingInfo = await publicClient.readContract({
+        address: stakingFactory as `0x${string}`,
+        abi: stakingFactoryV2ABI,
+        functionName: "stakingContracts",
+        args: [tokenAddress as `0x${string}`],
       });
 
-      console.log("Staking contract reward rate:", formatUnits(rewardRate, 6), "EURC per second");
+      console.log("Staking contract info:", stakingInfo);
       
-      if (rewardRate === 0n) {
-        throw new Error("Staking rewards are not configured. Please contact the administrator.");
+      if (!stakingInfo.isActive) {
+        throw new Error("Staking is not active for this token");
       }
 
-      // 4. Check if staking period is active
-      const [finishAt, lastTimeRewardApplicable] = await Promise.all([
+      // Check staking period
+      const [finishAt, lastTimeRewardApplicable, rewardRate] = await Promise.all([
         publicClient.readContract({
           address: stakingAddress,
           abi: stakingRewardsV2ABI,
@@ -355,94 +348,149 @@ export default function StakeProperty() {
           address: stakingAddress,
           abi: stakingRewardsV2ABI,
           functionName: "lastTimeRewardApplicable",
+        }),
+        publicClient.readContract({
+          address: stakingAddress,
+          abi: stakingRewardsV2ABI,
+          functionName: "rewardRate",
         })
       ]);
 
-      const now = BigInt(Math.floor(Date.now() / 1000));
-      if (finishAt < now) {
+      const currentTime = BigInt(Math.floor(Date.now() / 1000));
+      console.log("Staking period:", {
+        finishAt,
+        lastTimeRewardApplicable,
+        rewardRate,
+        currentTime
+      });
+
+      // Check if staking is allowed
+      if (currentTime > finishAt) {
         throw new Error("Staking period has ended");
       }
 
-      if (lastTimeRewardApplicable === 0n) {
-        throw new Error("Staking period has not started yet");
+      if (rewardRate === 0n) {
+        throw new Error("Staking rewards not configured");
       }
 
-      // 5. Check current allowance
-      const allowance = await publicClient.readContract({
-        address: tokenAddress as `0x${string}`,
-        abi: propertyTokenABI,
-        functionName: "allowance",
-        args: [address, stakingAddress],
+      // 2. Check balances and allowances
+      const [balance, allowance] = await Promise.all([
+        publicClient.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: eurcABI,
+          functionName: "balanceOf",
+          args: [address],
+        }),
+        publicClient.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: eurcABI,
+          functionName: "allowance",
+          args: [address, stakingAddress],
+        })
+      ]);
+
+      console.log("Token state:", {
+        balance: formatUnits(balance, 18),
+        allowance: formatUnits(allowance, 18),
+        amountToStake: formatUnits(amountBigInt, 18)
       });
 
-      // Only approve if needed
+      if (balance < amountBigInt) {
+        throw new Error(`Insufficient balance. You have ${formatUnits(balance, 18)} tokens`);
+      }
+
+      // 3. Approve if needed
       if (allowance < amountBigInt) {
-        console.log("Approving staking contract...");
-        const [approveHash] = await walletClient.writeContract({
-          address: tokenAddress as `0x${string}`,
-          abi: propertyTokenABI,
-          functionName: "approve",
-          args: [stakingAddress, amountBigInt],
-        });
+        console.log("Approving tokens...");
 
-        console.log("Waiting for approval transaction...");
-        const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveHash });
-        console.log("Approval confirmed in block:", approveReceipt.blockNumber);
-      }
-
-      // 6. Check if contract is paused (if applicable)
-      try {
-        const isPaused = await publicClient.readContract({
-          address: stakingAddress,
-          abi: [...stakingRewardsV2ABI, {
-            type: "function",
-            name: "paused",
-            inputs: [],
-            outputs: [{ type: "bool", name: "isPaused" }],
-            stateMutability: "view"
-          }],
-          functionName: "paused",
-        });
+        // Then approve max amount
+        const maxUint256 = BigInt("115792089237316195423570985008687907853269984665640564039457584007913129639935");
         
-        if (isPaused) {
-          throw new Error("Staking is currently paused");
+        const { request: approveRequest } = await publicClient.simulateContract({
+          account: address,
+          address: tokenAddress as `0x${string}`,
+          abi: eurcABI,
+          functionName: "approve",
+          args: [stakingAddress, maxUint256],
+        });
+
+        toast({
+          title: "Approval Required",
+          description: "Please approve to allow staking",
+        });
+
+        const approveHash = await walletClient.writeContract(approveRequest);
+        await publicClient.waitForTransactionReceipt({ hash: approveHash });
+
+        // Verify approval
+        const newAllowance = await publicClient.readContract({
+          address: tokenAddress as `0x${string}`,
+          abi: eurcABI,
+          functionName: "allowance",
+          args: [address, stakingAddress],
+        });
+
+        console.log("New allowance:", formatUnits(newAllowance, 18));
+
+        if (newAllowance < amountBigInt) {
+          throw new Error("Approval failed. Please try again.");
         }
-      } catch (error) {
-        // Contract might not have pause functionality
-        console.log("Contract does not have pause functionality");
+
+        toast({
+          title: "Approved",
+          description: "Now attempting to stake tokens...",
+        });
       }
 
-      // Now stake the tokens
+      // 4. Stake tokens
       console.log("Staking tokens...");
-      const [hash] = await walletClient.writeContract({
+      const { request } = await publicClient.simulateContract({
+        account: address,
         address: stakingAddress,
         abi: stakingRewardsV2ABI,
         functionName: "stake",
         args: [amountBigInt],
       });
 
-      console.log("Waiting for stake transaction...");
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      console.log("Stake confirmed in block:", receipt.blockNumber);
+      const hash = await walletClient.writeContract(request);
+      
+      toast({
+        title: "Staking...",
+        description: "Please wait for confirmation",
+      });
 
-      // Refresh balances
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log("Stake transaction receipt:", receipt);
+
+      toast({
+        title: "Success",
+        description: `Successfully staked ${amount} tokens`,
+      });
+
+      // Refresh data
       const fetchData = async () => {
         if (!tokenAddress || !isConnected || !address || !publicClient) return;
 
         try {
           // Verify property token exists
           try {
-            const propertyDetails = await publicClient.readContract({
-              address: tokenAddress as `0x${string}`,
-              abi: propertyTokenABI,
-              functionName: "propertyDetails",
-            });
+            const [name, symbol] = await Promise.all([
+              publicClient.readContract({
+                address: tokenAddress as `0x${string}`,
+                abi: propertyTokenABI,
+                functionName: "name",
+              }),
+              publicClient.readContract({
+                address: tokenAddress as `0x${string}`,
+                abi: propertyTokenABI,
+                functionName: "symbol",
+              }),
+            ]);
             
-            if (!propertyDetails) {
+            if (!name || !symbol) {
               throw new Error('Invalid property token');
             }
 
-            setIsActive(propertyDetails[5]); // isActive is the 6th return value
           } catch (error) {
             console.error('Error verifying property token:', error);
             throw new Error('Invalid property token address');
@@ -478,54 +526,51 @@ export default function StakeProperty() {
           const finishDate = new Date(Number(finishAt) * 1000);
           console.log("Staking period ends:", finishDate.toLocaleDateString());
 
-          // Get reward rate and total supply for APR calculation
-          const [rewardRate, totalSupply] = await Promise.all([
-            publicClient.readContract({
-              address: stakingInfo.contractAddress,
-              abi: stakingRewardsV2ABI,
-              functionName: "rewardRate",
-            }),
-            publicClient.readContract({
-              address: stakingInfo.contractAddress,
-              abi: stakingRewardsV2ABI,
-              functionName: "totalSupply",
-            })
-          ]);
+          // Get reward rate for APR calculation
+          const rewardRate = await publicClient.readContract({
+            address: stakingInfo.contractAddress,
+            abi: stakingRewardsV2ABI,
+            functionName: "rewardRate",
+          });
 
-          // Calculate APR (reward per year / total staked)
+          // Calculate APR (reward per year)
           const rewardsPerYear = (rewardRate * BigInt(31536000)); // seconds in a year
-          const apr = totalSupply > 0n ? (rewardsPerYear * 10000n) / totalSupply : 0n;
+          const apr = Number(formatUnits(rewardsPerYear, 6)); // Assuming 6 decimals for EURC
 
           // Get user's staked balance and earned rewards
-          const [stakedBalance, earnedRewards] = await Promise.all([
-            publicClient.readContract({
-              address: stakingInfo.contractAddress,
-              abi: stakingRewardsV2ABI,
-              functionName: "balanceOf",
-              args: [address],
-            }),
-            publicClient.readContract({
-              address: stakingInfo.contractAddress,
-              abi: stakingRewardsV2ABI,
-              functionName: "earned",
-              args: [address],
-            })
-          ]);
+          if (address) {
+            try {
+              const earnedRewards = await publicClient.readContract({
+                address: stakingInfo.contractAddress,
+                abi: stakingRewardsV2ABI,
+                functionName: "earned",
+                args: [address],
+              });
 
-          setStakingAddress(stakingInfo.contractAddress);
-          setApr(Number(apr) / 100); // Convert basis points to percentage
-          setEndDateStr(finishDate.toLocaleDateString());
-          setStakedBalance(stakedBalance);
-          setEarnedRewards(earnedRewards);
+              setEarnedRewards(earnedRewards);
+            } catch (error) {
+              console.error("Error fetching earned rewards:", error);
+            }
+          }
 
           // Get token balance
-          const balance = await publicClient.readContract({
-            address: tokenAddress as `0x${string}`,
-            abi: propertyTokenABI,
-            functionName: "balanceOf",
-            args: [address],
-          });
-          setTokenBalance(balance);
+          if (address) {
+            try {
+              const balance = await publicClient.readContract({
+                address: tokenAddress as `0x${string}`,
+                abi: eurcABI,
+                functionName: "balanceOf",
+                args: [address],
+              });
+              setTokenBalance(balance);
+            } catch (error) {
+              console.error("Error fetching token balance:", error);
+            }
+          }
+
+          setStakingAddress(stakingInfo.contractAddress);
+          setApr(apr);
+          setEndDateStr(finishDate.toLocaleDateString());
 
           // Get staking history
           const fromBlock = BigInt(0); // Or use a more recent block for efficiency
@@ -557,18 +602,28 @@ export default function StakeProperty() {
       };
 
       fetchData();
-      
-      toast({
-        title: "Success",
-        description: `Successfully staked ${amount} tokens`,
-      });
     } catch (error: any) {
-      console.error("Error staking:", error);
+      console.error("Full error:", error);
+      
+      let errorMessage = "Failed to stake tokens";
+      
+      if (error.message.includes("Staking rewards not configured")) {
+        errorMessage = "Staking rewards not configured. Please try again later.";
+      } else if (error.message.includes("Staking period has ended")) {
+        errorMessage = "Staking period has ended";
+      } else if (error.message.includes("ERC20InsufficientAllowance") || error.message.includes("0x584a7938")) {
+        errorMessage = "Staking period has not started yet";  // 0x584a7938 = StakingPeriodNotStarted
+      } else if (error.message.includes("ERC20InsufficientBalance")) {
+        errorMessage = "Insufficient token balance";
+      }
+
       toast({
-        title: "Error",
-        description: error.message || "Failed to stake tokens. Please try again.",
         variant: "destructive",
+        title: "Error",
+        description: errorMessage,
       });
+      
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -595,7 +650,7 @@ export default function StakeProperty() {
       const [newBalance, newStaked, newEarned] = await Promise.all([
         publicClient.readContract({
           address: tokenAddress as `0x${string}`,
-          abi: propertyTokenABI,
+          abi: eurcABI,
           functionName: "balanceOf",
           args: [address],
         }),
@@ -652,7 +707,7 @@ export default function StakeProperty() {
       const [newBalance, newStaked, newEarned] = await Promise.all([
         publicClient.readContract({
           address: tokenAddress as `0x${string}`,
-          abi: propertyTokenABI,
+          abi: eurcABI,
           functionName: "balanceOf",
           args: [address],
         }),
@@ -688,6 +743,93 @@ export default function StakeProperty() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleStartStaking = async () => {
+    if (!stakingAddress || !address || !walletClient || !publicClient) return;
+
+    try {
+      setLoading(true);
+
+      // 1. Check if caller is owner
+      const owner = await publicClient.readContract({
+        address: stakingAddress,
+        abi: stakingRewardsV2ABI,
+        functionName: "owner",
+      });
+
+      if (owner.toLowerCase() !== address.toLowerCase()) {
+        throw new Error("Only the owner can start the staking period");
+      }
+
+      // 2. Set reward rate to start staking period
+      const { request } = await publicClient.simulateContract({
+        account: address,
+        address: stakingAddress,
+        abi: stakingRewardsV2ABI,
+        functionName: "notifyRewardRate",
+        args: [stakingInfo.rewardRate],
+      });
+
+      toast({
+        title: "Starting staking period...",
+        description: "Please confirm the transaction",
+      });
+
+      const hash = await walletClient.writeContract(request);
+      await publicClient.waitForTransactionReceipt({ hash });
+
+      toast({
+        title: "Success",
+        description: "Staking period has started!",
+      });
+
+      // Refresh data
+      fetchData();
+
+    } catch (error: any) {
+      console.error("Full error:", error);
+      
+      let errorMessage = "Failed to start staking period";
+      
+      if (error.message.includes("Only the owner")) {
+        errorMessage = "Only the owner can start the staking period";
+      }
+
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: errorMessage,
+      });
+      
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderStartStakingButton = () => {
+    if (!address || !stakingAddress || !isOwner) return null;
+
+    return (
+      <div className="mt-4">
+        <p className="text-sm text-gray-500 mb-2">
+          You are the contract owner. Start the staking period to allow users to stake.
+        </p>
+        <Button
+          variant="secondary"
+          disabled={loading}
+          onClick={handleStartStaking}
+          className="w-full"
+        >
+          {loading ? (
+            <Spinner className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            "Start Staking Period"
+          )}
+        </Button>
+      </div>
+    );
   };
 
   return (
@@ -726,6 +868,14 @@ export default function StakeProperty() {
                 </div>
               </div>
             </div>
+            <div>
+              <Label>Contract Owner</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="flex-1 p-2 bg-muted rounded-md text-sm break-all">
+                  {owner}
+                </code>
+              </div>
+            </div>
           </div>
 
           {isWhitelistAdmin && (
@@ -738,13 +888,23 @@ export default function StakeProperty() {
 
                     const whitelistContract = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS as `0x${string}`;
                     
-                    // Check if already whitelisted
+                    // Check if user is admin
+                    const owner = await publicClient.readContract({
+                      address: whitelistContract,
+                      abi: whitelistABI,
+                      functionName: "owner",
+                      args: [],
+                    });
+                    setIsWhitelistAdmin(owner.toLowerCase() === address.toLowerCase());
+
+                    // Check if user is whitelisted
                     const isWhitelisted = await publicClient.readContract({
                       address: whitelistContract,
                       abi: whitelistABI,
                       functionName: "isWhitelisted",
-                      args: [stakingAddress],
+                      args: [address],
                     });
+                    setIsUserWhitelisted(isWhitelisted);
 
                     if (isWhitelisted) {
                       toast({
@@ -835,6 +995,29 @@ export default function StakeProperty() {
         </CardContent>
       </Card>
 
+      {/* Contract Addresses */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Contract Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <Label>Property Token</Label>
+              <div className="mt-1 p-2 bg-gray-50 rounded text-sm font-mono break-all">
+                {tokenAddress}
+              </div>
+            </div>
+            <div>
+              <Label>Staking Contract</Label>
+              <div className="mt-1 p-2 bg-gray-50 rounded text-sm font-mono break-all">
+                {stakingAddress || "Loading..."}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Staking Stats */}
       <Card>
         <CardHeader>
@@ -877,6 +1060,7 @@ export default function StakeProperty() {
         {contractStatus ? (
           <div className="space-y-2 text-sm">
             <p>Status: {contractStatus.status}</p>
+            <p>Contract Address: {stakingAddress}</p>
             <p>EURC Balance: {contractStatus.balance} EURC</p>
             <p>Reward Rate: {contractStatus.rate} EURC/second</p>
             <p>End Date: {contractStatus.finishAt}</p>
@@ -921,6 +1105,7 @@ export default function StakeProperty() {
                   {loading ? <Spinner className="mr-2 h-4 w-4" /> : <ArrowUpIcon className="mr-2 h-4 w-4" />}
                   Stake Tokens
                 </Button>
+                {renderStartStakingButton()}
               </div>
             </TabsContent>
             <TabsContent value="withdraw">

@@ -75,7 +75,7 @@ export default function Dashboard() {
               if (property.status === "staking") {
                 try {
                   const stakingFactory = getStakingFactoryContract();
-                  const stakingAddress = await stakingFactory.getStakingRewards(property.token_address);
+                  const stakingAddress = await stakingFactory.getStakingContracts(property.token_address);
 
                   if (stakingAddress) {
                     const stakingContract = getStakingRewardsContract(stakingAddress);

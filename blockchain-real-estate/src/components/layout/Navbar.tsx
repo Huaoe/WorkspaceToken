@@ -90,6 +90,26 @@ const Navbar = () => {
               >
                 Comment ça marche ?
               </Link>
+              <Link
+                href="/project"
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-primary",
+                  pathname === "/project" ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                Le Projet
+              </Link>
+              {/* <Link
+                href="/about"
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-primary",
+                  pathname === "/about" ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                À propos
+              </Link>
+               */}
+
               {isConnected && (
                 <Link
                   href="/dashboard"

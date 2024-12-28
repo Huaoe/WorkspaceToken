@@ -49,25 +49,119 @@ export const propertyFactoryABI = [
 ] as const;
 
 export const eurcABI = [
-  // Read-only functions
-  'function name() view returns (string)',
-  'function symbol() view returns (string)',
-  'function decimals() view returns (uint8)',
-  'function totalSupply() view returns (uint256)',
-  'function balanceOf(address owner) view returns (uint256)',
-  'function allowance(address owner, address spender) view returns (uint256)',
-  
-  // Write functions
-  'function approve(address spender, uint256 value) returns (bool)',
-  'function transfer(address to, uint256 value) returns (bool)',
-  'function transferFrom(address from, address to, uint256 value) returns (bool)',
-  
-  // Events
-  'event Transfer(address indexed from, address indexed to, uint256 value)',
-  'event Approval(address indexed owner, address indexed spender, uint256 value)'
+  {
+    type: "function",
+    name: "name",
+    inputs: [],
+    outputs: [{ type: "string", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "symbol",
+    inputs: [],
+    outputs: [{ type: "string", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "decimals",
+    inputs: [],
+    outputs: [{ type: "uint8", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "totalSupply",
+    inputs: [],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    inputs: [{ type: "address", name: "owner" }],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "allowance",
+    inputs: [
+      { type: "address", name: "owner" },
+      { type: "address", name: "spender" }
+    ],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "approve",
+    inputs: [
+      { type: "address", name: "spender" },
+      { type: "uint256", name: "value" }
+    ],
+    outputs: [{ type: "bool", name: "" }],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "transfer",
+    inputs: [
+      { type: "address", name: "to" },
+      { type: "uint256", name: "value" }
+    ],
+    outputs: [{ type: "bool", name: "" }],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "transferFrom",
+    inputs: [
+      { type: "address", name: "from" },
+      { type: "address", name: "to" },
+      { type: "uint256", name: "value" }
+    ],
+    outputs: [{ type: "bool", name: "" }],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "event",
+    name: "Transfer",
+    inputs: [
+      { type: "address", name: "from", indexed: true },
+      { type: "address", name: "to", indexed: true },
+      { type: "uint256", name: "value", indexed: false }
+    ],
+    anonymous: false
+  },
+  {
+    type: "event",
+    name: "Approval",
+    inputs: [
+      { type: "address", name: "owner", indexed: true },
+      { type: "address", name: "spender", indexed: true },
+      { type: "uint256", name: "value", indexed: false }
+    ],
+    anonymous: false
+  }
 ] as const;
 
 export const propertyTokenABI = [
+  {
+    type: "function",
+    name: "propertyDetails",
+    inputs: [],
+    outputs: [
+      { type: "string", name: "title" },
+      { type: "string", name: "description" },
+      { type: "string", name: "location" },
+      { type: "string", name: "imageUrl" },
+      { type: "uint256", name: "price" },
+      { type: "bool", name: "isActive" }
+    ],
+    stateMutability: "view"
+  },
   {
     type: "function",
     name: "tokenHolder",
@@ -163,34 +257,20 @@ export const propertyTokenABI = [
     name: "propertyDetails",
     inputs: [],
     outputs: [
-      { type: "string", name: "title" },
-      { type: "string", name: "description" },
-      { type: "string", name: "location" },
-      { type: "string", name: "imageUrl" },
-      { type: "uint256", name: "price" },
-      { type: "bool", name: "isActive" }
+      {
+        type: "tuple",
+        name: "",
+        components: [
+          { type: "string", name: "title" },
+          { type: "string", name: "description" },
+          { type: "string", name: "location" },
+          { type: "string", name: "imageUrl" },
+          { type: "uint256", name: "price" },
+          { type: "address", name: "owner" },
+          { type: "bool", name: "isApproved" }
+        ]
+      }
     ],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "getPrice",
-    inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "whitelistContract",
-    inputs: [],
-    outputs: [{ type: "address", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "eurcToken",
-    inputs: [],
-    outputs: [{ type: "address", name: "" }],
     stateMutability: "view"
   },
   {
@@ -209,39 +289,6 @@ export const propertyTokenABI = [
       { type: "address", indexed: true, name: "owner" },
       { type: "address", indexed: true, name: "spender" },
       { type: "uint256", indexed: false, name: "value" }
-    ]
-  },
-  {
-    type: "event",
-    name: "TokensPurchased",
-    inputs: [
-      { type: "address", indexed: true, name: "buyer" },
-      { type: "uint256", indexed: false, name: "amount" },
-      { type: "uint256", indexed: false, name: "eurcAmount" }
-    ]
-  },
-  {
-    type: "event",
-    name: "TokensSold",
-    inputs: [
-      { type: "address", indexed: true, name: "seller" },
-      { type: "uint256", indexed: false, name: "amount" },
-      { type: "uint256", indexed: false, name: "eurcAmount" }
-    ]
-  },
-  {
-    type: "event",
-    name: "PropertyStatusUpdated",
-    inputs: [
-      { type: "bool", indexed: false, name: "status" }
-    ]
-  },
-  {
-    type: "event",
-    name: "TokenHolderUpdated",
-    inputs: [
-      { type: "address", indexed: true, name: "previousHolder" },
-      { type: "address", indexed: true, name: "newHolder" }
     ]
   }
 ] as const;
@@ -344,120 +391,117 @@ export const stakingFactoryV2ABI = [
 
 export const stakingRewardsV2ABI = [
   {
+    type: "error",
+    name: "ERC20InsufficientAllowance",
+    inputs: [
+      {
+        name: "spender",
+        internalType: "address",
+        type: "address"
+      },
+      {
+        name: "allowance",
+        internalType: "uint256",
+        type: "uint256"
+      },
+      {
+        name: "needed",
+        internalType: "uint256",
+        type: "uint256"
+      }
+    ]
+  },
+  {
+    type: "error",
+    name: "ERC20InsufficientBalance",
+    inputs: [
+      {
+        name: "sender",
+        internalType: "address",
+        type: "address"
+      },
+      {
+        name: "balance",
+        internalType: "uint256",
+        type: "uint256"
+      },
+      {
+        name: "needed",
+        internalType: "uint256",
+        type: "uint256"
+      }
+    ]
+  },
+  {
     type: "constructor",
     inputs: [],
     stateMutability: "nonpayable"
   },
   {
-    type: "error",
-    name: "OwnableInvalidOwner",
-    inputs: [
+    type: "function",
+    name: "owner",
+    inputs: [],
+    outputs: [
       {
-        name: "owner",
+        name: "",
         type: "address",
-        internalType: "address"
-      }
-    ]
-  },
-  {
-    type: "error",
-    name: "OwnableUnauthorizedAccount",
-    inputs: [
-      {
-        name: "account",
-        type: "address",
-        internalType: "address"
-      }
-    ]
-  },
-  {
-    type: "event",
-    name: "OwnershipTransferred",
-    inputs: [
-      {
-        name: "previousOwner",
-        type: "address",
-        indexed: true,
-        internalType: "address"
-      },
-      {
-        name: "newOwner",
-        type: "address",
-        indexed: true,
         internalType: "address"
       }
     ],
-    anonymous: false
+    stateMutability: "view"
   },
   {
-    type: "event",
-    name: "RewardAdded",
+    type: "function",
+    name: "notifyRewardRate",
     inputs: [
       {
-        name: "reward",
+        name: "rate",
         type: "uint256",
-        indexed: false,
         internalType: "uint256"
       }
     ],
-    anonymous: false
+    outputs: [],
+    stateMutability: "nonpayable"
   },
   {
-    type: "event",
-    name: "RewardPaid",
+    type: "function",
+    name: "stake",
     inputs: [
-      {
-        name: "user",
-        type: "address",
-        indexed: true,
-        internalType: "address"
-      },
-      {
-        name: "reward",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256"
-      }
-    ],
-    anonymous: false
-  },
-  {
-    type: "event",
-    name: "Staked",
-    inputs: [
-      {
-        name: "user",
-        type: "address",
-        indexed: true,
-        internalType: "address"
-      },
       {
         name: "amount",
         type: "uint256",
-        indexed: false,
         internalType: "uint256"
       }
     ],
-    anonymous: false
+    outputs: [],
+    stateMutability: "nonpayable"
   },
   {
-    type: "event",
-    name: "Withdrawn",
+    type: "function",
+    name: "withdraw",
     inputs: [
-      {
-        name: "user",
-        type: "address",
-        indexed: true,
-        internalType: "address"
-      },
       {
         name: "amount",
         type: "uint256",
-        indexed: false,
         internalType: "uint256"
       }
     ],
-    anonymous: false
+    outputs: [],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "getReward",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "exit",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable"
   },
   {
     type: "function",
@@ -469,19 +513,6 @@ export const stakingRewardsV2ABI = [
         internalType: "address"
       }
     ],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256"
-      }
-    ],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "duration",
-    inputs: [],
     outputs: [
       {
         name: "",
@@ -512,14 +543,7 @@ export const stakingRewardsV2ABI = [
   },
   {
     type: "function",
-    name: "exit",
-    inputs: [],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "finishAt",
+    name: "rewardPerToken",
     inputs: [],
     outputs: [
       {
@@ -529,36 +553,6 @@ export const stakingRewardsV2ABI = [
       }
     ],
     stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "getReward",
-    inputs: [],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "initialize",
-    inputs: [
-      {
-        name: "_stakingToken",
-        type: "address",
-        internalType: "address"
-      },
-      {
-        name: "_rewardToken",
-        type: "address",
-        internalType: "address"
-      },
-      {
-        name: "_duration",
-        type: "uint256",
-        internalType: "uint256"
-      }
-    ],
-    outputs: [],
-    stateMutability: "nonpayable"
   },
   {
     type: "function",
@@ -575,79 +569,7 @@ export const stakingRewardsV2ABI = [
   },
   {
     type: "function",
-    name: "lastUpdateTime",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256"
-      }
-    ],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "notifyRewardAmount",
-    inputs: [
-      {
-        name: "reward",
-        type: "uint256",
-        internalType: "uint256"
-      }
-    ],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "owner",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address"
-      }
-    ],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "periodFinish",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256"
-      }
-    ],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "renounceOwnership",
-    inputs: [],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "rewardPerToken",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256"
-      }
-    ],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "rewardPerTokenStored",
+    name: "finishAt",
     inputs: [],
     outputs: [
       {
@@ -673,51 +595,6 @@ export const stakingRewardsV2ABI = [
   },
   {
     type: "function",
-    name: "rewardToken",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address"
-      }
-    ],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "rewards",
-    inputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address"
-      }
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256"
-      }
-    ],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "stake",
-    inputs: [
-      {
-        name: "amount",
-        type: "uint256",
-        internalType: "uint256"
-      }
-    ],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
     name: "stakingToken",
     inputs: [],
     outputs: [
@@ -731,7 +608,20 @@ export const stakingRewardsV2ABI = [
   },
   {
     type: "function",
-    name: "totalSupply",
+    name: "rewardToken",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "address"
+      }
+    ],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "duration",
     inputs: [],
     outputs: [
       {
@@ -743,55 +633,89 @@ export const stakingRewardsV2ABI = [
     stateMutability: "view"
   },
   {
-    type: "function",
-    name: "transferOwnership",
+    type: "event",
+    name: "RewardAdded",
     inputs: [
       {
-        name: "newOwner",
-        type: "address",
-        internalType: "address"
-      }
-    ],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "userRewardPerTokenPaid",
-    inputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address"
-      }
-    ],
-    outputs: [
-      {
-        name: "",
+        name: "reward",
         type: "uint256",
-        internalType: "uint256"
+        indexed: false
       }
-    ],
-    stateMutability: "view"
+    ]
   },
   {
-    type: "function",
-    name: "withdraw",
+    type: "event",
+    name: "Staked",
     inputs: [
+      {
+        name: "user",
+        type: "address",
+        indexed: true
+      },
       {
         name: "amount",
         type: "uint256",
-        internalType: "uint256"
+        indexed: false
       }
-    ],
-    outputs: [],
-    stateMutability: "nonpayable"
+    ]
+  },
+  {
+    type: "event",
+    name: "Withdrawn",
+    inputs: [
+      {
+        name: "user",
+        type: "address",
+        indexed: true
+      },
+      {
+        name: "amount",
+        type: "uint256",
+        indexed: false
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "RewardPaid",
+    inputs: [
+      {
+        name: "user",
+        type: "address",
+        indexed: true
+      },
+      {
+        name: "reward",
+        type: "uint256",
+        indexed: false
+      }
+    ]
   }
 ] as const;
 
 export const stakingFactoryABI = stakingFactoryV2ABI;
 export const stakingABI = stakingRewardsV2ABI;
 export const stakingRewardsABI = stakingRewardsV2ABI;
+
+import { getContract } from 'viem';
+import { publicClient } from './ethereum';
+
+export async function getPropertyFactoryContract() {
+  if (!PROPERTY_FACTORY_ADDRESS) throw new Error('Property factory address not configured');
+  return getContract({
+    address: PROPERTY_FACTORY_ADDRESS as `0x${string}`,
+    abi: propertyFactoryABI,
+    publicClient,
+  });
+}
+
+export async function getStakingContract(address: string) {
+  return getContract({
+    address: address as `0x${string}`,
+    abi: stakingRewardsV2ABI,
+    publicClient,
+  });
+}
 
 // Contract Interfaces
 export interface PropertyDetails {

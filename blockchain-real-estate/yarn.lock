@@ -2164,17 +2164,17 @@
   dependencies:
     tslib "^2.8.0"
 
-"@tanstack/query-core@5.60.6":
-  version "5.60.6"
-  resolved "https://registry.yarnpkg.com/@tanstack/query-core/-/query-core-5.60.6.tgz#0dd33fe231b0d18bf66d0c615b29899738300658"
-  integrity sha512-tI+k0KyCo1EBJ54vxK1kY24LWj673ujTydCZmzEZKAew4NqZzTaVQJEuaG1qKj2M03kUHN46rchLRd+TxVq/zQ==
+"@tanstack/query-core@5.62.9":
+  version "5.62.9"
+  resolved "https://registry.yarnpkg.com/@tanstack/query-core/-/query-core-5.62.9.tgz#94231ffea5de086b5e6c0f1e527cda5650cb1849"
+  integrity sha512-lwePd8hNYhyQ4nM/iRQ+Wz2cDtspGeZZHFZmCzHJ7mfKXt+9S301fULiY2IR2byJYY6Z03T427E5PoVfMexHjw==
 
-"@tanstack/react-query@^5.61.0":
-  version "5.61.0"
-  resolved "https://registry.yarnpkg.com/@tanstack/react-query/-/react-query-5.61.0.tgz#73473feb37aa28ceb410e297ee060e18f06f88e0"
-  integrity sha512-SBzV27XAeCRBOQ8QcC94w2H1Md0+LI0gTWwc3qRJoaGuewKn5FNW4LSqwPFJZVEItfhMfGT7RpZuSFXjTi12pQ==
+"@tanstack/react-query@^5.62.11":
+  version "5.62.11"
+  resolved "https://registry.yarnpkg.com/@tanstack/react-query/-/react-query-5.62.11.tgz#95a615a60dc8fd836a5085dea2739a62f4953f55"
+  integrity sha512-Xb1nw0cYMdtFmwkvH9+y5yYFhXvLRCnXoqlzSw7UkqtCVFq3cG8q+rHZ2Yz1XrC+/ysUaTqbLKJqk95mCgC1oQ==
   dependencies:
-    "@tanstack/query-core" "5.60.6"
+    "@tanstack/query-core" "5.62.9"
 
 "@tanstack/react-virtual@^3.8.1":
   version "3.11.2"
@@ -4565,6 +4565,15 @@ fraction.js@^4.3.7:
   resolved "https://registry.npmjs.org/fraction.js/-/fraction.js-4.3.7.tgz"
   integrity sha512-ZsDfxO51wGAXREY55a7la9LScWpwv9RxIrYABrlvOFBlH/ShPnrtsXeuUIfXKKOVicNxQ+o8JTbJvjS4M89yew==
 
+framer-motion@^11.15.0:
+  version "11.15.0"
+  resolved "https://registry.yarnpkg.com/framer-motion/-/framer-motion-11.15.0.tgz#93e5d1839d500ba9cab1d617959a36142a61212b"
+  integrity sha512-MLk8IvZntxOMg7lDBLw2qgTHHv664bYoYmnFTmE0Gm/FW67aOJk0WM3ctMcG+Xhcv+vh5uyyXwxvxhSeJzSe+w==
+  dependencies:
+    motion-dom "^11.14.3"
+    motion-utils "^11.14.3"
+    tslib "^2.4.0"
+
 fs-extra@^7.0.0, fs-extra@^7.0.1:
   version "7.0.1"
   resolved "https://registry.npmjs.org/fs-extra/-/fs-extra-7.0.1.tgz"
@@ -5697,6 +5706,16 @@ modern-ahocorasick@^1.0.0:
   resolved "https://registry.npmjs.org/modern-ahocorasick/-/modern-ahocorasick-1.0.1.tgz"
   integrity sha512-yoe+JbhTClckZ67b2itRtistFKf8yPYelHLc7e5xAwtNAXxM6wJTUx2C7QeVSJFDzKT7bCIFyBVybPMKvmB9AA==
 
+motion-dom@^11.14.3:
+  version "11.14.3"
+  resolved "https://registry.yarnpkg.com/motion-dom/-/motion-dom-11.14.3.tgz#725c72c0f1d0b632e42fdd8d13b69ecf9fe202c0"
+  integrity sha512-lW+D2wBy5vxLJi6aCP0xyxTxlTfiu+b+zcpVbGVFUxotwThqhdpPRSmX8xztAgtZMPMeU0WGVn/k1w4I+TbPqA==
+
+motion-utils@^11.14.3:
+  version "11.14.3"
+  resolved "https://registry.yarnpkg.com/motion-utils/-/motion-utils-11.14.3.tgz#cd4a413463739498411f82abb67b3dd58768b0f8"
+  integrity sha512-Xg+8xnqIJTpr0L/cidfTTBFkvRw26ZtGGuIhA94J9PQ2p4mEa06Xx7QVYZH0BP+EpMSaDlu+q0I0mmvwADPsaQ==
+
 motion@10.16.2:
   version "10.16.2"
   resolved "https://registry.yarnpkg.com/motion/-/motion-10.16.2.tgz#7dc173c6ad62210a7e9916caeeaf22c51e598d21"
@@ -6385,6 +6404,13 @@ react-dom@^18:
   dependencies:
     loose-envify "^1.1.0"
     scheduler "^0.23.2"
+
+react-error-boundary@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/react-error-boundary/-/react-error-boundary-5.0.0.tgz#6b6c7e075c922afb0283147e5b084efa44e68570"
+  integrity sha512-tnjAxG+IkpLephNcePNA7v6F/QpWLH8He65+DmedchDwg162JZqx4NmbXj0mlAYVVEd81OW7aFhmbsScYfiAFQ==
+  dependencies:
+    "@babel/runtime" "^7.12.5"
 
 react-google-recaptcha@^3.1.0:
   version "3.1.0"

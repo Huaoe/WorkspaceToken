@@ -80,9 +80,14 @@ export default function PurchaseProperty() {
         const tokenAmountInWei = parseUnits(value, 18);
 
         // Calculate total cost in EURC (6 decimals)
-        // totalCost = (tokenAmount * price) / 10^18
-        const totalCostInEURC =
-          (tokenAmountInWei * onChainDetails.price) / parseUnits("1", 18);
+        const totalCostInEURC = (tokenAmountInWei * onChainDetails.price) / BigInt(10 ** 18);
+
+        console.log("Token amount calculation:", {
+          tokenAmount: value,
+          tokenAmountWei: tokenAmountInWei.toString(),
+          price: onChainDetails.price.toString(),
+          totalCostEURC: formatUnits(totalCostInEURC, 6),
+        });
 
         setEurcAmount(formatUnits(totalCostInEURC, 6));
       } catch (error) {
@@ -184,8 +189,8 @@ export default function PurchaseProperty() {
       console.log("Fetching on-chain details...");
 
       // Get token holder
-      const currentHolder = await propertyFactoryContract.owner();
-      console.log("Token holder (factory owner):", currentHolder);
+      const currentHolder = await propertyTokenContract.tokenHolder();
+      console.log("Token holder:", currentHolder);
       setTokenHolder(currentHolder);
 
       // Get holder balance
@@ -202,6 +207,10 @@ export default function PurchaseProperty() {
       // Get property details for price
       const details = await propertyTokenContract.propertyDetails();
       console.log("Property details:", {
+        title: details.title,
+        description: details.description,
+        location: details.location,
+        imageUrl: details.imageUrl,
         price: formatUnits(details.price, 6),
         isActive: details.isActive,
       });
@@ -211,7 +220,8 @@ export default function PurchaseProperty() {
         description: details.description,
         location: details.location,
         imageUrl: details.imageUrl,
-        price: BigInt(details.price.toString()),
+        price: details.price,
+        owner: currentHolder,
         isActive: details.isActive,
       });
 
@@ -223,7 +233,14 @@ export default function PurchaseProperty() {
       // Get user balance
       const balance = await propertyTokenContract.balanceOf(address);
       console.log("User balance:", formatUnits(balance, 18));
-      setTokenBalance(formatUnits(balance, 18));
+      setTokenBalance(balance);
+
+      // Get EURC balance
+      if (eurcContract) {
+        const eurcBal = await eurcContract.balanceOf(address);
+        setEurcBalance(formatUnits(eurcBal, 6));
+      }
+
     } catch (error) {
       console.error("Error fetching on-chain details:", error);
       toast({
@@ -232,7 +249,7 @@ export default function PurchaseProperty() {
         description: "Failed to fetch token details",
       });
     }
-  }, [propertyTokenContract, address, toast]);
+  }, [propertyTokenContract, address, eurcContract, toast]);
 
   const handlePurchaseTokens = async () => {
     if (
@@ -258,7 +275,7 @@ export default function PurchaseProperty() {
       // Calculate amounts for purchase
       const tokenAmountWei = parseUnits(tokenAmount, 18);
       const eurcAmountWei =
-        (tokenAmountWei * onChainDetails.price) / parseUnits("1", 18);
+        (tokenAmountWei * onChainDetails.price) / BigInt(10 ** 18);
 
       // Get signer and initial nonce
       let currentNonce = await getSigner().then((signer) => signer.getNonce());
@@ -433,7 +450,7 @@ export default function PurchaseProperty() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Your Balance</p>
-                    <p className="font-medium">{tokenBalance} Tokens</p>
+                    <p className="font-medium">{formatUnits(tokenBalance, 18)} Tokens</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">EURC Balance</p>

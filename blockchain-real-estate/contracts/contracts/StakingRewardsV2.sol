@@ -114,6 +114,14 @@ contract StakingRewardsV2 is Initializable, OwnableUpgradeable, UUPSUpgradeable 
         getReward();
     }
 
+    function totalSupply() external view returns (uint256) {
+        return _totalSupply;
+    }
+
+    function balanceOf(address account) external view returns (uint256) {
+        return _balances[account];
+    }
+
     function notifyRewardRate(uint256 rate) external onlyOwner updateReward(address(0)) {
         require(rate > 0, "StakingRewards: rate = 0");
 

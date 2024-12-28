@@ -1,15 +1,91 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useWalletEvents } from "@/app/wallet-events-provider";
-import { getPropertyFactoryContract, getPropertyTokenContract, getStakingFactoryContract } from "@/lib/ethereum";
+import { getPropertyFactoryContract, getPropertyTokenContract, getStakingFactoryContract, getStakingRewardsContract } from "@/lib/ethereum";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
+import { formatEther } from "viem";
 
 export default function AdminStaking() {
   const [loading, setLoading] = useState(false);
+  const [stakingAddress, setStakingAddress] = useState("");
+  const [stakingInfo, setStakingInfo] = useState<any>(null);
   const { toast } = useToast();
-  const { address, isConnected } = useWalletEvents();
+  const { address, isConnected, publicClient, walletClient } = useWalletEvents();
+
+  const fetchStakingInfo = async () => {
+    if (!stakingAddress || !publicClient) return;
+
+    try {
+      // Get contract info
+      const [owner, rewardToken, stakingToken, duration, finishAt, rewardRate] = await Promise.all([
+        publicClient.readContract({
+          address: stakingAddress as `0x${string}`,
+          abi: stakingRewardsV2ABI,
+          functionName: "owner",
+        }),
+        publicClient.readContract({
+          address: stakingAddress as `0x${string}`,
+          abi: stakingRewardsV2ABI,
+          functionName: "rewardToken",
+        }),
+        publicClient.readContract({
+          address: stakingAddress as `0x${string}`,
+          abi: stakingRewardsV2ABI,
+          functionName: "stakingToken",
+        }),
+        publicClient.readContract({
+          address: stakingAddress as `0x${string}`,
+          abi: stakingRewardsV2ABI,
+          functionName: "duration",
+        }),
+        publicClient.readContract({
+          address: stakingAddress as `0x${string}`,
+          abi: stakingRewardsV2ABI,
+          functionName: "finishAt",
+        }),
+        publicClient.readContract({
+          address: stakingAddress as `0x${string}`,
+          abi: stakingRewardsV2ABI,
+          functionName: "rewardRate",
+        }),
+      ]);
+
+      setStakingInfo({
+        owner,
+        rewardToken,
+        stakingToken,
+        duration: Number(duration),
+        finishAt: new Date(Number(finishAt) * 1000),
+        rewardRate: formatEther(rewardRate),
+        isOwner: address?.toLowerCase() === owner.toLowerCase(),
+      });
+
+      console.log("Staking contract info:", {
+        owner,
+        rewardToken,
+        stakingToken,
+        duration: Number(duration),
+        finishAt: new Date(Number(finishAt) * 1000),
+        rewardRate: formatEther(rewardRate),
+      });
+
+    } catch (error) {
+      console.error("Error fetching staking info:", error);
+      setStakingInfo(null);
+    }
+  };
+
+  useEffect(() => {
+    if (stakingAddress) {
+      fetchStakingInfo();
+    }
+  }, [stakingAddress, publicClient, address]);
 
   const handleCreateStaking = async (tokenAddress: string) => {
     if (!isConnected || !address) {
@@ -80,24 +156,158 @@ export default function AdminStaking() {
     }
   };
 
+  const handleStartStakingPeriod = async () => {
+    if (!isConnected || !address || !walletClient || !publicClient) {
+      toast({
+        title: "Error",
+        description: "Please connect your wallet",
+      });
+      return;
+    }
+
+    if (!stakingAddress || !stakingInfo) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid staking contract address",
+      });
+      return;
+    }
+
+    if (!stakingInfo.isOwner) {
+      toast({
+        title: "Error",
+        description: "Only the owner can start the staking period",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Get reward rate from factory
+      const stakingFactory = getStakingFactoryContract();
+      const rewardRate = await stakingFactory.rewardRate(stakingAddress);
+      console.log("Starting staking period with reward rate:", rewardRate.toString());
+
+      // Start staking period
+      const { request } = await publicClient.simulateContract({
+        account: address,
+        address: stakingAddress as `0x${string}`,
+        abi: stakingRewardsV2ABI,
+        functionName: "notifyRewardRate",
+        args: [rewardRate],
+      });
+
+      const hash = await walletClient.writeContract(request);
+      console.log("Start staking period transaction:", hash);
+
+      toast({
+        title: "Transaction Sent",
+        description: "Starting staking period...",
+      });
+      
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      
+      if (!receipt.status) {
+        throw new Error("Failed to start staking period");
+      }
+
+      toast({
+        title: "Success",
+        description: "Successfully started staking period",
+      });
+
+      // Refresh data
+      fetchStakingInfo();
+
+    } catch (error: any) {
+      console.error("Start staking period error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start staking period",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-2xl font-bold mb-6">Staking Contract Management</h1>
       
-      <div className="space-y-4">
-        <div className="p-4 border rounded-lg">
-          <h2 className="text-xl font-semibold mb-4">Create Staking Contract</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Create a new staking contract for a property token. Only admin can perform this action.
-          </p>
-          <Button 
-            onClick={() => handleCreateStaking("0x79E4D62d828379720db8E0E9511e10e6Bac05351")}
-            disabled={loading}
-            variant="secondary"
-          >
-            {loading ? "Creating..." : "Create Staking Contract"}
-          </Button>
-        </div>
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Create Staking Contract</CardTitle>
+            <CardDescription>
+              Create a new staking contract for a property token. Only admin can perform this action.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={() => handleCreateStaking("0x79E4D62d828379720db8E0E9511e10e6Bac05351")}
+              disabled={loading}
+              variant="secondary"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Staking Contract"
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Start Staking Period</CardTitle>
+            <CardDescription>
+              Start the staking period for an existing staking contract. Only the contract owner can perform this action.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="stakingAddress">Staking Contract Address</Label>
+                <Input
+                  id="stakingAddress"
+                  placeholder="0x..."
+                  value={stakingAddress}
+                  onChange={(e) => setStakingAddress(e.target.value)}
+                />
+              </div>
+
+              {stakingInfo && (
+                <div className="space-y-2 text-sm">
+                  <p><strong>Owner:</strong> {stakingInfo.owner}</p>
+                  <p><strong>Staking Token:</strong> {stakingInfo.stakingToken}</p>
+                  <p><strong>Reward Token:</strong> {stakingInfo.rewardToken}</p>
+                  <p><strong>Duration:</strong> {stakingInfo.duration / (24 * 60 * 60)} days</p>
+                  <p><strong>Finish At:</strong> {stakingInfo.finishAt.toLocaleString()}</p>
+                  <p><strong>Reward Rate:</strong> {stakingInfo.rewardRate} tokens/second</p>
+                </div>
+              )}
+
+              <Button 
+                onClick={handleStartStakingPeriod}
+                disabled={loading || !stakingAddress || !stakingInfo?.isOwner}
+                variant="secondary"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  "Start Staking Period"
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
