@@ -49,8 +49,8 @@ describe("StakingRewards", function () {
     await stakingToken.connect(addr1).approve(stakingRewardsAddress, ethers.parseEther("1000"));
     await stakingToken.connect(addr2).approve(stakingRewardsAddress, ethers.parseEther("1000"));
 
-    // Notify reward amount
-    await stakingRewards.notifyRewardAmount(ethers.parseUnits("1000", 6));
+    // Notify reward rate
+    await stakingRewards.notifyRewardRate(ethers.parseUnits("1000", 6));
   });
 
   describe("Initialization", function () {

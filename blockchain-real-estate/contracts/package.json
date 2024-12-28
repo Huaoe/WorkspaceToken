@@ -22,7 +22,9 @@
     "fund:factory": "npx hardhat run scripts/fund-staking-factory.ts --network localhost",
     "get:factory-owner": "npx hardhat run scripts/get-property-factory-owner.ts --network localhost",
     "verify": "npx hardhat run scripts/verify-contracts.ts --network localhost",
-    "activate": "npx hardhat activate-property --network localhost --address"
+    "activate": "npx hardhat activate-property --network localhost --address",
+    "fund-staking": "npx hardhat fund-staking-direct --network localhost",
+    "create-staking": "npx hardhat run scripts/create-staking-contract.ts --network localhost"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",

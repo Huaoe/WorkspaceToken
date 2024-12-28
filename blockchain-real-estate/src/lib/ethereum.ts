@@ -8,8 +8,8 @@ import {
   whitelistABI, 
   stakingFactoryABI, 
   stakingABI, 
-  stakingRewardsABI, 
-  PropertyToken,
+  stakingRewardsABI,
+  stakingRewardsV2ABI,
   PROPERTY_FACTORY_ADDRESS,
   WHITELIST_ADDRESS,
   STAKING_FACTORY_ADDRESS,
@@ -132,18 +132,20 @@ export async function getPropertyFactoryContract(withSigner = false) {
   return contract;
 };
 
-export async function getPropertyTokenContract(address: string, withSigner = false): Promise<PropertyToken> {
+export async function getPropertyTokenContract(address: string, withSigner = false): Promise<ethers.Contract> {
   console.log('Getting property token contract at address:', address);
-
+  
   const provider = await getProvider();
-  const contract = new ethers.Contract(
-    address,
-    propertyTokenABI,
-    provider
-  );
+  if (!provider) {
+    throw new Error('Failed to initialize provider');
+  }
 
+  // Create contract instance with provider first
+  const contract = new ethers.Contract(address, propertyTokenABI, provider);
+
+  // Return contract with signer if requested
   if (withSigner) {
-    const signer = await getSigner();
+    const signer = await provider.getSigner();
     console.log('Using signer:', await signer.getAddress());
     return contract.connect(signer);
   }
@@ -201,7 +203,7 @@ export async function getStakingContract(address: string, withSigner = false) {
   const provider = await getProvider();
   const contract = new ethers.Contract(
     address,
-    stakingABI,
+    stakingRewardsV2ABI,
     provider
   );
 

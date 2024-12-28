@@ -7,7 +7,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract StakingRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+contract StakingRewardsV2 is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
     IERC20 public stakingToken;
@@ -37,7 +37,6 @@ contract StakingRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function initialize(
         address _stakingToken,
         address _rewardToken,
-        uint256 _rewardRate,
         uint256 _duration
     ) external initializer {
         require(_stakingToken != address(0), "StakingRewards: staking token is zero address");
@@ -49,7 +48,6 @@ contract StakingRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         stakingToken = IERC20(_stakingToken);
         rewardToken = IERC20(_rewardToken);
-        rewardRate = _rewardRate;
         duration = _duration;
         finishAt = block.timestamp + duration;
         updatedAt = block.timestamp;
@@ -67,33 +65,26 @@ contract StakingRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function lastTimeRewardApplicable() public view returns (uint256) {
-        if (block.timestamp > finishAt) {
-            return finishAt;
-        }
-        return block.timestamp;
+        return block.timestamp < finishAt ? block.timestamp : finishAt;
     }
 
     function rewardPerToken() public view returns (uint256) {
         if (_totalSupply == 0) {
             return rewardPerTokenStored;
         }
-
-        uint256 timeElapsed = lastTimeRewardApplicable() - updatedAt;
-        uint256 rewardAmount = timeElapsed * rewardRate * 1e30;
-        uint256 rewardsPerToken = rewardAmount / _totalSupply;
-        
-        return rewardPerTokenStored + rewardsPerToken;
+        return rewardPerTokenStored + (
+            ((lastTimeRewardApplicable() - updatedAt) * rewardRate * 1e18) / _totalSupply
+        );
     }
 
     function earned(address account) public view returns (uint256) {
-        uint256 latestRewardPerToken = rewardPerToken();
-        uint256 rewardPerTokenDelta = latestRewardPerToken - userRewardPerTokenPaid[account];
-        uint256 newRewards = (_balances[account] * rewardPerTokenDelta) / 1e30;
-        return rewards[account] + newRewards;
+        return (
+            _balances[account] * (rewardPerToken() - userRewardPerTokenPaid[account]) / 1e18
+        ) + rewards[account];
     }
 
     function stake(uint256 amount) external updateReward(msg.sender) {
-        require(amount > 0, "StakingRewards: amount = 0");
+        require(amount > 0, "StakingRewards: Cannot stake 0");
         _totalSupply += amount;
         _balances[msg.sender] += amount;
         stakingToken.safeTransferFrom(msg.sender, address(this), amount);
@@ -101,7 +92,8 @@ contract StakingRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     function withdraw(uint256 amount) public updateReward(msg.sender) {
-        require(amount > 0, "StakingRewards: amount = 0");
+        require(amount > 0, "StakingRewards: Cannot withdraw 0");
+        require(_balances[msg.sender] >= amount, "StakingRewards: balance too low");
         _totalSupply -= amount;
         _balances[msg.sender] -= amount;
         stakingToken.safeTransfer(msg.sender, amount);
@@ -122,29 +114,17 @@ contract StakingRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         getReward();
     }
 
-    function totalSupply() external view returns (uint256) {
-        return _totalSupply;
-    }
+    function notifyRewardRate(uint256 rate) external onlyOwner updateReward(address(0)) {
+        require(rate > 0, "StakingRewards: rate = 0");
 
-    function balanceOf(address account) external view returns (uint256) {
-        return _balances[account];
-    }
+        // Update reward rate
+        rewardRate = rate;
 
-    function notifyRewardAmount(uint256 reward) external onlyOwner updateReward(address(0)) {
-        require(reward > 0, "StakingRewards: reward = 0");
-
-        if (block.timestamp >= finishAt) {
-            rewardRate = reward / duration;
-        } else {
-            uint256 remaining = finishAt - block.timestamp;
-            uint256 leftover = remaining * rewardRate;
-            rewardRate = (reward + leftover) / duration;
-        }
-
+        // Update timing
         finishAt = block.timestamp + duration;
         updatedAt = block.timestamp;
 
-        emit RewardAdded(reward);
+        emit RewardAdded(rate * duration);
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}

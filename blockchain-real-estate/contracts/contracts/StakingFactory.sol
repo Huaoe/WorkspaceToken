@@ -6,10 +6,13 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "./StakingRewards.sol";
+import "./StakingRewardsV2.sol";
 
 contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+    using SafeERC20 for IERC20;
+
     struct StakingContractInfo {
         address contractAddress;
         uint256 rewardRate;
@@ -48,14 +51,13 @@ contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         require(!stakingContracts[propertyToken].isActive, "StakingFactory: staking contract already exists for this property token");
 
         // Deploy implementation
-        StakingRewards stakingImplementation = new StakingRewards();
+        StakingRewardsV2 stakingImplementation = new StakingRewardsV2();
 
         // Create initialization data
         bytes memory initData = abi.encodeWithSelector(
-            StakingRewards.initialize.selector,
+            StakingRewardsV2.initialize.selector,
             propertyToken,
             address(eurcToken),
-            rewardRate,
             rewardsDuration
         );
 
@@ -81,10 +83,24 @@ contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         return proxy;
     }
 
-    function fundContract(uint256 amount) external {
+    function fundStakingContract(address propertyToken, uint256 amount) external {
         require(amount > 0, "Amount must be greater than 0");
-        require(eurcToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
-        emit StakingContractFunded(address(this), amount);
+        require(stakingContracts[propertyToken].isActive, "StakingFactory: staking contract does not exist");
+        
+        StakingContractInfo memory info = stakingContracts[propertyToken];
+        require(info.contractAddress != address(0), "StakingFactory: invalid staking contract");
+
+        // Calculate reward rate (amount per second)
+        uint256 rewardRate = amount / info.duration;
+        require(rewardRate > 0, "StakingFactory: reward rate too small");
+
+        // Transfer EURC tokens from sender to staking contract
+        eurcToken.safeTransferFrom(msg.sender, info.contractAddress, amount);
+
+        // Notify the staking contract about the new reward rate
+        StakingRewardsV2(info.contractAddress).notifyRewardRate(rewardRate);
+
+        emit StakingContractFunded(info.contractAddress, amount);
     }
 
     function getStakingContracts(address propertyToken) external view returns (address[] memory) {

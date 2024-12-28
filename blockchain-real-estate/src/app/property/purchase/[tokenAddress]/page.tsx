@@ -45,9 +45,10 @@ export default function PurchaseProperty() {
   const { address, isConnected } = useAccount();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [propertyTokenContract, setPropertyTokenContract] = useState<any>(null);
-  const [eurcContract, setEurcContract] = useState<any>(null);
-  const [whitelistContract, setWhitelistContract] = useState<any>(null);
+  const [propertyTokenContract, setPropertyTokenContract] = useState<ethers.Contract | null>(null);
+  const [propertyFactoryContract, setPropertyFactoryContract] = useState<ethers.Contract | null>(null);
+  const [eurcContract, setEurcContract] = useState<ethers.Contract | null>(null);
+  const [whitelistContract, setWhitelistContract] = useState<ethers.Contract | null>(null);
   const [tokenBalance, setTokenBalance] = useState<bigint>(BigInt(0));
   const [eurcBalance, setEurcBalance] = useState<string>("0");
   const [eurcSymbol, setEurcSymbol] = useState<string>("EURC");
@@ -147,14 +148,17 @@ export default function PurchaseProperty() {
 
       try {
         const propertyToken = await getPropertyTokenContract(
-          tokenAddress as string
+          tokenAddress as string,
+          true
         );
-        const eurc = await getEURCContract(EURC_TOKEN_ADDRESS);
-        const whitelist = await getWhitelistContract();
+        const eurc = await getEURCContract(true);
+        const whitelist = await getWhitelistContract(true);
+        const propertyFactory = await getPropertyFactoryContract(true);
 
         setPropertyTokenContract(propertyToken);
         setEurcContract(eurc);
         setWhitelistContract(whitelist);
+        setPropertyFactoryContract(propertyFactory);
 
         // Fetch initial balances and details
         fetchOnChainDetails();
@@ -180,8 +184,7 @@ export default function PurchaseProperty() {
       console.log("Fetching on-chain details...");
 
       // Get token holder
-      const factory = await getPropertyFactoryContract();
-      const currentHolder = await factory.owner();
+      const currentHolder = await propertyFactoryContract.owner();
       console.log("Token holder (factory owner):", currentHolder);
       setTokenHolder(currentHolder);
 
@@ -252,22 +255,17 @@ export default function PurchaseProperty() {
     setIsLoading(true);
 
     try {
-      // Get fresh contract instances with signer
-      const signer = await getSigner();
-      const propertyTokenWithSigner = propertyTokenContract.connect(signer);
-      const eurcWithSigner = eurcContract.connect(signer);
-
       // Calculate amounts for purchase
       const tokenAmountWei = parseUnits(tokenAmount, 18);
       const eurcAmountWei =
         (tokenAmountWei * onChainDetails.price) / parseUnits("1", 18);
 
       // Get signer and initial nonce
-      let currentNonce = await signer.getNonce();
+      let currentNonce = await getSigner().then((signer) => signer.getNonce());
 
       console.log("Transaction details:", {
-        propertyTokenAddress: propertyTokenWithSigner.target,
-        eurcAddress: eurcWithSigner.target,
+        propertyTokenAddress: propertyTokenContract.target,
+        eurcAddress: eurcContract.target,
         tokenAmountWei: tokenAmountWei.toString(),
         eurcAmountWei: eurcAmountWei.toString(),
         signer: address,
@@ -275,9 +273,9 @@ export default function PurchaseProperty() {
       });
 
       // First check EURC allowance
-      const allowance = await eurcWithSigner.allowance(
+      const allowance = await eurcContract.allowance(
         address,
-        propertyTokenWithSigner.target
+        propertyTokenContract.target
       );
       console.log("Current allowance:", formatUnits(allowance, 6));
 
@@ -286,7 +284,7 @@ export default function PurchaseProperty() {
         console.log("Approving EURC spend...");
         try {
           console.log("Sending approval transaction with the following details:", {
-            to: eurcWithSigner.target,
+            to: eurcContract.target,
             from: address,
             gasLimit: 5000000,
             amount: formatUnits(eurcAmountWei, 6),
@@ -294,8 +292,8 @@ export default function PurchaseProperty() {
           });
 
           // Now set the new allowance
-          const approveTx = await eurcWithSigner.approve(
-            propertyTokenWithSigner.target,
+          const approveTx = await eurcContract.approve(
+            propertyTokenContract.target,
             eurcAmountWei,
             {
               gasLimit: BigInt(5000000),
@@ -311,9 +309,9 @@ export default function PurchaseProperty() {
           currentNonce++;
 
           // Verify the new allowance
-          const newAllowance = await eurcWithSigner.allowance(
+          const newAllowance = await eurcContract.allowance(
             address,
-            propertyTokenWithSigner.target
+            propertyTokenContract.target
           );
           console.log(
             "New allowance after approval:",
@@ -334,9 +332,26 @@ export default function PurchaseProperty() {
 
       console.log("Proceeding with purchase...");
       
+      // Log all relevant contract state
+      const tokenHolderAddress = await propertyFactoryContract.owner();
+      const holderBalance = await propertyTokenContract.balanceOf(tokenHolderAddress);
+      const isWhitelisted = await whitelistContract.isWhitelisted(address);
+      const isActive = (await propertyTokenContract.propertyDetails()).isActive;
+      const eurcBalance = await eurcContract.balanceOf(address);
+      
+      console.log("Purchase state:", {
+        tokenHolder: tokenHolderAddress,
+        holderBalance: formatUnits(holderBalance, 18),
+        buyerWhitelisted: isWhitelisted,
+        propertyActive: isActive,
+        eurcBalance: formatUnits(eurcBalance, 6),
+        attemptingToPurchase: formatUnits(tokenAmountWei, 18),
+        eurcNeeded: formatUnits(eurcAmountWei, 6)
+      });
+
       // Use the current nonce for purchase transaction
-      const purchaseTx = await propertyTokenWithSigner.purchaseTokens(
-        tokenAmountWei,
+      const purchaseTx = await propertyTokenContract.purchaseTokens(
+        BigInt(tokenAmountWei.toString()),
         {
           gasLimit: BigInt(5000000),
           nonce: currentNonce,

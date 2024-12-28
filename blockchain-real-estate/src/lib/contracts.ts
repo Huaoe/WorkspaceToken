@@ -1,9 +1,8 @@
 'use client';
 
-import { propertyTokenABI as propertyTokenJSONABI } from '@contracts/abis/PropertyToken.json';
-import { propertyFactoryABI as propertyFactoryJSONABI } from '@contracts/abis/PropertyFactory.json';
-import { whitelistABI as whitelistJSONABI } from '@contracts/abis/Whitelist.json';
-import { stakingRewardsABI as stakingRewardsJSONABI } from '@contracts/abis/StakingRewards.json';
+import propertyFactoryJSONABI from '@contracts/abis/PropertyFactory.json';
+import whitelistJSONABI from '@contracts/abis/Whitelist.json';
+import stakingRewardsJSONABI from '@contracts/abis/StakingRewards.json';
 
 export const PROPERTY_FACTORY_ADDRESS = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS;
 export const WHITELIST_ADDRESS = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS;
@@ -49,53 +48,202 @@ export const propertyFactoryABI = [
   'event Initialized(uint64 version)'
 ] as const;
 
-export const propertyTokenABI = [
-  // ERC20 functions
-  'function name() view returns (string)',
-  'function symbol() view returns (string)',
-  'function decimals() view returns (uint8)',
-  'function totalSupply() view returns (uint256)',
-  'function balanceOf(address account) view returns (uint256)',
-  'function transfer(address to, uint256 amount) returns (bool)',
-  'function allowance(address owner, address spender) view returns (uint256)',
-  'function approve(address spender, uint256 amount) returns (bool)',
-  'function transferFrom(address from, address to, uint256 amount) returns (bool)',
-  
-  // Property functions
-  'function initialize(tuple(string name, string symbol, string title, string description, string location, string imageUrl, uint256 price, uint256 totalSupply, address initialOwner, address eurcTokenAddress, address whitelistContract) params)',
-  'function propertyDetails() view returns (string title, string description, string location, string imageUrl, uint256 price, bool isActive)',
-  'function owner() view returns (address)',
-  'function transferOwnership(address newOwner)',
-  'function updatePropertyStatus(bool status)',
-  
-  // Trading functions
-  'function purchaseTokens(uint256 amount)',
-  'function sellTokens(uint256 amount)',
-  
-  // Events
-  'event TokensPurchased(address indexed buyer, uint256 amount, uint256 eurcAmount)',
-  'event TokensSold(address indexed seller, uint256 amount, uint256 eurcAmount)',
-  'event PropertyStatusUpdated(bool status)',
-  'event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)',
-  'event Transfer(address indexed from, address indexed to, uint256 value)',
-  'event Approval(address indexed owner, address indexed spender, uint256 value)',
-  'event Initialized(uint64 version)'
-] as const;
-
 export const eurcABI = [
+  // Read-only functions
   'function name() view returns (string)',
   'function symbol() view returns (string)',
   'function decimals() view returns (uint8)',
   'function totalSupply() view returns (uint256)',
-  'function balanceOf(address account) view returns (uint256)',
-  'function transfer(address to, uint256 amount) returns (bool)',
+  'function balanceOf(address owner) view returns (uint256)',
   'function allowance(address owner, address spender) view returns (uint256)',
-  'function approve(address spender, uint256 amount) returns (bool)',
-  'function transferFrom(address from, address to, uint256 amount) returns (bool)',
+  
+  // Write functions
+  'function approve(address spender, uint256 value) returns (bool)',
+  'function transfer(address to, uint256 value) returns (bool)',
+  'function transferFrom(address from, address to, uint256 value) returns (bool)',
   
   // Events
   'event Transfer(address indexed from, address indexed to, uint256 value)',
   'event Approval(address indexed owner, address indexed spender, uint256 value)'
+] as const;
+
+export const propertyTokenABI = [
+  {
+    type: "function",
+    name: "tokenHolder",
+    inputs: [],
+    outputs: [{ type: "address", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "purchaseTokens",
+    inputs: [{ type: "uint256", name: "_amount" }],
+    outputs: [],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "name",
+    inputs: [],
+    outputs: [{ type: "string", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "symbol",
+    inputs: [],
+    outputs: [{ type: "string", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "decimals",
+    inputs: [],
+    outputs: [{ type: "uint8", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "totalSupply",
+    inputs: [],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    inputs: [{ type: "address", name: "account" }],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "transfer",
+    inputs: [
+      { type: "address", name: "to" },
+      { type: "uint256", name: "amount" }
+    ],
+    outputs: [{ type: "bool", name: "" }],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "allowance",
+    inputs: [
+      { type: "address", name: "owner" },
+      { type: "address", name: "spender" }
+    ],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "approve",
+    inputs: [
+      { type: "address", name: "spender" },
+      { type: "uint256", name: "amount" }
+    ],
+    outputs: [{ type: "bool", name: "" }],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "transferFrom",
+    inputs: [
+      { type: "address", name: "from" },
+      { type: "address", name: "to" },
+      { type: "uint256", name: "amount" }
+    ],
+    outputs: [{ type: "bool", name: "" }],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "propertyDetails",
+    inputs: [],
+    outputs: [
+      { type: "string", name: "title" },
+      { type: "string", name: "description" },
+      { type: "string", name: "location" },
+      { type: "string", name: "imageUrl" },
+      { type: "uint256", name: "price" },
+      { type: "bool", name: "isActive" }
+    ],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "getPrice",
+    inputs: [],
+    outputs: [{ type: "uint256", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "whitelistContract",
+    inputs: [],
+    outputs: [{ type: "address", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "eurcToken",
+    inputs: [],
+    outputs: [{ type: "address", name: "" }],
+    stateMutability: "view"
+  },
+  {
+    type: "event",
+    name: "Transfer",
+    inputs: [
+      { type: "address", indexed: true, name: "from" },
+      { type: "address", indexed: true, name: "to" },
+      { type: "uint256", indexed: false, name: "value" }
+    ]
+  },
+  {
+    type: "event",
+    name: "Approval",
+    inputs: [
+      { type: "address", indexed: true, name: "owner" },
+      { type: "address", indexed: true, name: "spender" },
+      { type: "uint256", indexed: false, name: "value" }
+    ]
+  },
+  {
+    type: "event",
+    name: "TokensPurchased",
+    inputs: [
+      { type: "address", indexed: true, name: "buyer" },
+      { type: "uint256", indexed: false, name: "amount" },
+      { type: "uint256", indexed: false, name: "eurcAmount" }
+    ]
+  },
+  {
+    type: "event",
+    name: "TokensSold",
+    inputs: [
+      { type: "address", indexed: true, name: "seller" },
+      { type: "uint256", indexed: false, name: "amount" },
+      { type: "uint256", indexed: false, name: "eurcAmount" }
+    ]
+  },
+  {
+    type: "event",
+    name: "PropertyStatusUpdated",
+    inputs: [
+      { type: "bool", indexed: false, name: "status" }
+    ]
+  },
+  {
+    type: "event",
+    name: "TokenHolderUpdated",
+    inputs: [
+      { type: "address", indexed: true, name: "previousHolder" },
+      { type: "address", indexed: true, name: "newHolder" }
+    ]
+  }
 ] as const;
 
 export const whitelistABI = [
@@ -116,14 +264,7 @@ export const whitelistABI = [
   'event BatchWhitelistRemoved(address[] accounts)'
 ] as const;
 
-export const stakingFactoryABI = [
-  {
-    type: "function",
-    name: "owner",
-    inputs: [],
-    outputs: [{ type: "address" }],
-    stateMutability: "view"
-  },
+export const stakingFactoryV2ABI = [
   {
     type: "function",
     name: "stakingContracts",
@@ -143,34 +284,37 @@ export const stakingFactoryABI = [
   },
   {
     type: "function",
-    name: "createStakingRewards",
+    name: "createStakingContract",
     inputs: [
       { type: "address", name: "propertyToken" },
       { type: "uint256", name: "rewardRate" },
       { type: "uint256", name: "rewardsDuration" }
+    ],
+    outputs: [{ type: "address" }],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "fundStakingContract",
+    inputs: [
+      { type: "address", name: "propertyToken" },
+      { type: "uint256", name: "amount" }
     ],
     outputs: [],
     stateMutability: "nonpayable"
   },
   {
     type: "function",
-    name: "getStakingRewards",
+    name: "getStakingContracts",
     inputs: [{ type: "address", name: "propertyToken" }],
-    outputs: [{ type: "address" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "hasStakingRewards",
-    inputs: [{ type: "address", name: "propertyToken" }],
-    outputs: [{ type: "bool" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "getAllStakingContracts",
-    inputs: [],
     outputs: [{ type: "address[]" }],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "owner",
+    inputs: [],
+    outputs: [{ type: "address" }],
     stateMutability: "view"
   },
   {
@@ -184,185 +328,187 @@ export const stakingFactoryABI = [
     type: "event",
     name: "StakingContractCreated",
     inputs: [
-      { type: "address", name: "propertyToken", indexed: true },
-      { type: "address", name: "stakingContract", indexed: false }
+      { type: "address", indexed: true, name: "propertyToken" },
+      { type: "address", indexed: false, name: "stakingContract" }
     ]
   },
   {
     type: "event",
     name: "StakingContractFunded",
     inputs: [
-      { type: "address", name: "stakingContract", indexed: true },
-      { type: "uint256", name: "amount", indexed: false }
+      { type: "address", indexed: true, name: "stakingContract" },
+      { type: "uint256", indexed: false, name: "amount" }
     ]
   }
 ] as const;
 
-export const stakingABI = [
+export const stakingRewardsV2ABI = [
   {
-    type: "function",
-    name: "stake",
-    inputs: [{ type: "uint256", name: "amount" }],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "withdraw",
-    inputs: [{ type: "uint256", name: "amount" }],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "getReward",
+    type: "constructor",
     inputs: [],
-    outputs: [],
     stateMutability: "nonpayable"
   },
   {
-    type: "function",
-    name: "exit",
-    inputs: [],
-    outputs: [],
-    stateMutability: "nonpayable"
+    type: "error",
+    name: "OwnableInvalidOwner",
+    inputs: [
+      {
+        name: "owner",
+        type: "address",
+        internalType: "address"
+      }
+    ]
+  },
+  {
+    type: "error",
+    name: "OwnableUnauthorizedAccount",
+    inputs: [
+      {
+        name: "account",
+        type: "address",
+        internalType: "address"
+      }
+    ]
+  },
+  {
+    type: "event",
+    name: "OwnershipTransferred",
+    inputs: [
+      {
+        name: "previousOwner",
+        type: "address",
+        indexed: true,
+        internalType: "address"
+      },
+      {
+        name: "newOwner",
+        type: "address",
+        indexed: true,
+        internalType: "address"
+      }
+    ],
+    anonymous: false
+  },
+  {
+    type: "event",
+    name: "RewardAdded",
+    inputs: [
+      {
+        name: "reward",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256"
+      }
+    ],
+    anonymous: false
+  },
+  {
+    type: "event",
+    name: "RewardPaid",
+    inputs: [
+      {
+        name: "user",
+        type: "address",
+        indexed: true,
+        internalType: "address"
+      },
+      {
+        name: "reward",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256"
+      }
+    ],
+    anonymous: false
+  },
+  {
+    type: "event",
+    name: "Staked",
+    inputs: [
+      {
+        name: "user",
+        type: "address",
+        indexed: true,
+        internalType: "address"
+      },
+      {
+        name: "amount",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256"
+      }
+    ],
+    anonymous: false
+  },
+  {
+    type: "event",
+    name: "Withdrawn",
+    inputs: [
+      {
+        name: "user",
+        type: "address",
+        indexed: true,
+        internalType: "address"
+      },
+      {
+        name: "amount",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256"
+      }
+    ],
+    anonymous: false
   },
   {
     type: "function",
     name: "balanceOf",
-    inputs: [{ type: "address", name: "account" }],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "earned",
-    inputs: [{ type: "address", name: "account" }],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "getRewardForDuration",
-    inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "lastTimeRewardApplicable",
-    inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "rewardPerToken",
-    inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "rewardRate",
-    inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "rewards",
-    inputs: [{ type: "address", name: "account" }],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "stakingToken",
-    inputs: [],
-    outputs: [{ type: "address", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "rewardsToken",
-    inputs: [],
-    outputs: [{ type: "address", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "totalSupply",
-    inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
+    inputs: [
+      {
+        name: "account",
+        type: "address",
+        internalType: "address"
+      }
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
     stateMutability: "view"
   },
   {
     type: "function",
     name: "duration",
     inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
     stateMutability: "view"
   },
   {
     type: "function",
-    name: "userRewardPerTokenPaid",
-    inputs: [{ type: "address", name: "account" }],
-    outputs: [{ type: "uint256", name: "" }],
+    name: "earned",
+    inputs: [
+      {
+        name: "account",
+        type: "address",
+        internalType: "address"
+      }
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
     stateMutability: "view"
-  },
-  {
-    type: "event",
-    name: "RewardAdded",
-    inputs: [{ type: "uint256", indexed: false, name: "reward" }]
-  },
-  {
-    type: "event",
-    name: "Staked",
-    inputs: [
-      { type: "address", indexed: true, name: "user" },
-      { type: "uint256", indexed: false, name: "amount" }
-    ]
-  },
-  {
-    type: "event",
-    name: "Withdrawn",
-    inputs: [
-      { type: "address", indexed: true, name: "user" },
-      { type: "uint256", indexed: false, name: "amount" }
-    ]
-  },
-  {
-    type: "event",
-    name: "RewardPaid",
-    inputs: [
-      { type: "address", indexed: true, name: "user" },
-      { type: "uint256", indexed: false, name: "reward" }
-    ]
-  }
-] as const;
-
-export const stakingRewardsABI = [
-  {
-    type: "function",
-    name: "stake",
-    inputs: [{ type: "uint256", name: "amount" }],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "withdraw",
-    inputs: [{ type: "uint256", name: "amount" }],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    type: "function",
-    name: "getReward",
-    inputs: [],
-    outputs: [],
-    stateMutability: "nonpayable"
   },
   {
     type: "function",
@@ -373,104 +519,279 @@ export const stakingRewardsABI = [
   },
   {
     type: "function",
-    name: "balanceOf",
-    inputs: [{ type: "address", name: "account" }],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "earned",
-    inputs: [{ type: "address", name: "account" }],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view"
-  },
-  {
-    type: "function",
-    name: "rewardRate",
+    name: "finishAt",
     inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
     stateMutability: "view"
   },
   {
     type: "function",
-    name: "rewardsDuration",
+    name: "getReward",
     inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view"
+    outputs: [],
+    stateMutability: "nonpayable"
   },
   {
     type: "function",
-    name: "totalSupply",
-    inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
-    stateMutability: "view"
+    name: "initialize",
+    inputs: [
+      {
+        name: "_stakingToken",
+        type: "address",
+        internalType: "address"
+      },
+      {
+        name: "_rewardToken",
+        type: "address",
+        internalType: "address"
+      },
+      {
+        name: "_duration",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
+    outputs: [],
+    stateMutability: "nonpayable"
   },
   {
     type: "function",
     name: "lastTimeRewardApplicable",
     inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
     stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "lastUpdateTime",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "notifyRewardAmount",
+    inputs: [
+      {
+        name: "reward",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
+    outputs: [],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "owner",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "address"
+      }
+    ],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "periodFinish",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "renounceOwnership",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable"
   },
   {
     type: "function",
     name: "rewardPerToken",
     inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
     stateMutability: "view"
   },
   {
     type: "function",
     name: "rewardPerTokenStored",
     inputs: [],
-    outputs: [{ type: "uint256", name: "" }],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "rewardRate",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
+    stateMutability: "view"
+  },
+  {
+    type: "function",
+    name: "rewardToken",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "address"
+      }
+    ],
     stateMutability: "view"
   },
   {
     type: "function",
     name: "rewards",
-    inputs: [{ type: "address", name: "" }],
-    outputs: [{ type: "uint256", name: "" }],
+    inputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "address"
+      }
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
     stateMutability: "view"
   },
   {
     type: "function",
-    name: "userRewardPerTokenPaid",
-    inputs: [{ type: "address", name: "" }],
-    outputs: [{ type: "uint256", name: "" }],
+    name: "stake",
+    inputs: [
+      {
+        name: "amount",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
+    outputs: [],
+    stateMutability: "nonpayable"
+  },
+  {
+    type: "function",
+    name: "stakingToken",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "address"
+      }
+    ],
     stateMutability: "view"
   },
   {
-    type: "event",
-    name: "RewardAdded",
-    inputs: [{ type: "uint256", indexed: false, name: "reward" }]
+    type: "function",
+    name: "totalSupply",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
+    stateMutability: "view"
   },
   {
-    type: "event",
-    name: "Staked",
+    type: "function",
+    name: "transferOwnership",
     inputs: [
-      { type: "address", indexed: true, name: "user" },
-      { type: "uint256", indexed: false, name: "amount" }
-    ]
+      {
+        name: "newOwner",
+        type: "address",
+        internalType: "address"
+      }
+    ],
+    outputs: [],
+    stateMutability: "nonpayable"
   },
   {
-    type: "event",
-    name: "Withdrawn",
+    type: "function",
+    name: "userRewardPerTokenPaid",
     inputs: [
-      { type: "address", indexed: true, name: "user" },
-      { type: "uint256", indexed: false, name: "amount" }
-    ]
+      {
+        name: "",
+        type: "address",
+        internalType: "address"
+      }
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
+    stateMutability: "view"
   },
   {
-    type: "event",
-    name: "RewardPaid",
+    type: "function",
+    name: "withdraw",
     inputs: [
-      { type: "address", indexed: true, name: "user" },
-      { type: "uint256", indexed: false, name: "reward" }
-    ]
+      {
+        name: "amount",
+        type: "uint256",
+        internalType: "uint256"
+      }
+    ],
+    outputs: [],
+    stateMutability: "nonpayable"
   }
 ] as const;
+
+export const stakingFactoryABI = stakingFactoryV2ABI;
+export const stakingABI = stakingRewardsV2ABI;
+export const stakingRewardsABI = stakingRewardsV2ABI;
 
 // Contract Interfaces
 export interface PropertyDetails {
@@ -483,7 +804,7 @@ export interface PropertyDetails {
   isApproved: boolean;
 }
 
-export interface PropertyToken extends Contract {
+export interface PropertyToken extends BaseContract {
   propertyDetails(): Promise<PropertyDetails>;
   purchaseTokens(amount: bigint): Promise<ContractTransaction>;
   owner(): Promise<string>;
@@ -496,17 +817,29 @@ export interface PropertyToken extends Contract {
   allowance(owner: string, spender: string): Promise<bigint>;
   approve(spender: string, amount: bigint): Promise<boolean>;
   transferFrom(from: string, to: string, amount: bigint): Promise<boolean>;
-  transferTokensToContract(amount: bigint): Promise<ContractTransaction>;
+  getPrice(): Promise<bigint>;
+}
+
+export interface EURC extends Contract {
+  name(): Promise<string>;
+  symbol(): Promise<string>;
+  decimals(): Promise<number>;
+  totalSupply(): Promise<bigint>;
+  balanceOf(account: string): Promise<bigint>;
+  allowance(owner: string, spender: string): Promise<bigint>;
+  approve(spender: string, amount: bigint): Promise<ContractTransaction>;
+  transfer(to: string, amount: bigint): Promise<ContractTransaction>;
+  transferFrom(from: string, to: string, amount: bigint): Promise<ContractTransaction>;
 }
 
 export interface StakingFactory extends Contract {
-  createStakingRewards(
+  createStakingContract(
     stakingToken: string,
-    duration: number,
     rewardRate: number,
+    duration: number,
     options?: any
   ): Promise<any>;
-  getStakingRewards(propertyToken: string): Promise<string>;
+  getStakingContracts(propertyToken: string): Promise<string>;
   hasStakingRewards(propertyToken: string): Promise<boolean>;
   getAllStakingContracts(): Promise<string[]>;
   stakingContracts(propertyToken: string): Promise<{
