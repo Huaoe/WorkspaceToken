@@ -3,7 +3,12 @@ import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
 import "hardhat-deploy";
 import "@typechain/hardhat";
-import "dotenv/config";
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// Load environment variables from .env.local
+const envPath = path.resolve(__dirname, '../.env.local');
+dotenv.config({ path: envPath });
 
 // Task to whitelist an address
 task("whitelist-address", "Whitelist an address")
@@ -20,6 +25,15 @@ task("approve-property", "Approve a property token")
   .setAction(async (taskArgs, hre) => {
     const { address } = taskArgs;
     const script = require("./scripts/approve-property");
+    await script.main(address);
+  });
+
+// Task to transfer property ownership
+task("transfer-ownership", "Transfer property token ownership")
+  .addParam("address", "The property token address")
+  .setAction(async (taskArgs, hre) => {
+    const { address } = taskArgs;
+    const script = require("./scripts/transfer-ownership");
     await script.main(address);
   });
 
@@ -115,71 +129,78 @@ task("fund-staking-direct", "Fund a staking contract directly")
     const [deployer] = await ethers.getSigners();
     console.log("Funding staking contract with account:", deployer.address);
 
-    // Load environment variables
-    const envLocalPath = require("path").join(process.cwd(), '..', '.env.local');
-    if (!require("fs").existsSync(envLocalPath)) {
-      throw new Error(".env.local file not found");
+    let factoryAddress = process.env.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS;
+    if (!factoryAddress) {
+      console.log("NEXT_PUBLIC_STAKING_FACTORY_ADDRESS not found in .env.local");
+      factoryAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
     }
-    require("dotenv").config({ path: envLocalPath });
+    console.log("Using StakingFactory at:", factoryAddress);
 
-    // Get contract addresses
-    const eurcAddress = process.env.NEXT_PUBLIC_EURC_TOKEN_ADDRESS;
-    const stakingV2Address = process.env.NEXT_PUBLIC_STAKING_V2_ADDRESS;
+    // Get StakingFactory contract
+    const stakingFactory = await ethers.getContractAt("StakingFactory", factoryAddress);
 
-    if (!eurcAddress || !stakingV2Address) {
-      throw new Error("Contract addresses not found in environment variables");
+    try {
+      // Verify factory contract exists by calling a view function
+      const eurcAddress = await stakingFactory.eurcToken();
+      console.log("EURC token address:", eurcAddress);
+
+      // Get staking contract info from factory
+      const stakingInfo = await stakingFactory.stakingContracts(propertytoken);
+      if (!stakingInfo.isActive) {
+        throw new Error("Staking contract not found or not active for this property token");
+      }
+      const stakingAddress = stakingInfo.contractAddress;
+      console.log("Staking contract address:", stakingAddress);
+
+      // Get contract instances
+      const eurcToken = await ethers.getContractAt("MockEURCUpgradeable", eurcAddress);
+      const stakingContract = await ethers.getContractAt("StakingRewardsV2", stakingAddress);
+
+      // Convert amount to EURC decimals (6 decimals)
+      const amountWithDecimals = ethers.parseUnits(amount.toString(), 6);
+      console.log(`Funding staking contract with ${amount} EURC...`);
+
+      // Check EURC balance
+      const balance = await eurcToken.balanceOf(deployer.address);
+      console.log("Your EURC balance:", ethers.formatUnits(balance, 6), "EURC");
+
+      if (balance < amountWithDecimals) {
+        // Try to mint some EURC for testing
+        console.log("Insufficient balance, attempting to mint EURC...");
+        const mintTx = await eurcToken.mint(deployer.address, amountWithDecimals);
+        await mintTx.wait();
+        console.log("Minted EURC tokens");
+      }
+
+      // First approve the staking factory to spend EURC
+      console.log("Approving EURC spend...");
+      const approveTx = await eurcToken.approve(factoryAddress, amountWithDecimals);
+      await approveTx.wait();
+      console.log("Approved EURC spend");
+
+      // Fund the staking contract
+      console.log("Funding staking contract...");
+      const fundTx = await stakingFactory.fundStakingContract(propertytoken, amountWithDecimals);
+      await fundTx.wait();
+      console.log("Successfully funded staking contract");
+    } catch (error) {
+      console.error("Error details:", error);
+      throw error;
     }
+  });
 
-    // Get contract instances
-    const eurcToken = await ethers.getContractAt("MockEURCUpgradeable", eurcAddress);
-    const stakingContract = await ethers.getContractAt("StakingRewardsV2", stakingV2Address);
-
-    // Get duration from staking contract
-    const duration = await stakingContract.duration();
-
-    // Convert amount to EURC decimals (6 decimals)
-    const amountWithDecimals = ethers.parseUnits(amount.toString(), 6);
-
-    // Calculate reward rate (amount / duration)
-    const rewardRate = amountWithDecimals / BigInt(duration);
-    if (rewardRate === 0n) {
-      throw new Error("Reward rate too small. Try increasing the amount or decreasing the duration.");
-    }
-
-    console.log("EURC token address:", eurcAddress);
-    console.log("StakingRewardsV2 address:", stakingV2Address);
-    console.log("Property token address:", propertytoken);
-    console.log("Duration:", duration.toString(), "seconds");
-    console.log("Amount to fund:", amount, "EURC");
-    console.log("Amount with decimals:", amountWithDecimals.toString());
-    console.log("Calculated reward rate:", rewardRate.toString(), "EURC/second");
-
-    // Check EURC balance
-    const balance = await eurcToken.balanceOf(deployer.address);
-    console.log("Your EURC balance:", ethers.formatUnits(balance, 6), "EURC");
-
-    if (balance < amountWithDecimals) {
-      throw new Error(`Insufficient EURC balance. You have ${ethers.formatUnits(balance, 6)} EURC but trying to fund ${amount} EURC`);
-    }
-
-    // First approve the staking contract to spend EURC
-    console.log("Approving EURC spend...");
-    const approveTx = await eurcToken.approve(stakingV2Address, amountWithDecimals);
-    await approveTx.wait();
-    console.log("Approved EURC spend");
-
-    // Transfer EURC to staking contract
-    console.log("Transferring EURC to staking contract...");
-    const transferTx = await eurcToken.transfer(stakingV2Address, amountWithDecimals);
-    await transferTx.wait();
-    console.log("Transferred EURC to staking contract");
-
-    // Notify the staking contract about the new reward rate
-    console.log("Setting new reward rate...");
-    const notifyTx = await stakingContract.notifyRewardRate(rewardRate);
-    await notifyTx.wait();
-
-    console.log("Successfully set new reward rate");
+// Task to start a staking period
+task("start-staking", "Start a staking period for a property token")
+  .addParam("propertytoken", "The property token address")
+  .addParam("amount", "The amount of EURC to distribute as rewards")
+  .setAction(async (taskArgs, hre) => {
+    // Set environment variables for the script
+    process.env.PROPERTY_TOKEN_ADDRESS = taskArgs.propertytoken;
+    process.env.REWARD_AMOUNT = taskArgs.amount;
+    
+    await hre.run("run", { 
+      script: "scripts/start-staking.ts"
+    });
   });
 
 const config: HardhatUserConfig = {

@@ -50,5 +50,19 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    function({ addUtilities }) {
+      const newUtilities = {
+        '.range-slider::-webkit-slider-thumb': {
+          '-webkit-appearance': 'none',
+          'appearance': 'none',
+          '@apply h-5 w-5 rounded-full border-2 border-primary bg-background transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2': {}
+        },
+        '.range-slider::-moz-range-thumb': {
+          '@apply h-5 w-5 rounded-full border-2 border-primary bg-background transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2': {}
+        },
+      }
+      addUtilities(newUtilities)
+    }
+  ]
 }

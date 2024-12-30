@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -27,6 +27,8 @@ import { ApproveTokenButton } from "./components/ApproveTokenButton";
 import { StakingInitButton } from "./components/StakingInitButton";
 import { ClientOnly } from "./components/ClientOnly";
 import { PropertyStatus } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+import { formatUnits } from "viem";
 
 type FormValues = z.infer<typeof propertyFormSchema> & {
   location: string;
@@ -35,6 +37,10 @@ type FormValues = z.infer<typeof propertyFormSchema> & {
   payout_duration: number;
   image_url: string;
   documents_url: string;
+  staking_contract_address?: string;
+  staking_reward_rate?: string;
+  staking_duration?: string;
+  staking_is_active?: boolean;
 };
 
 export default function ReviewRequest({
@@ -59,6 +65,10 @@ export default function ReviewRequest({
       payout_duration: z.coerce.number().min(0, "Duration must be greater than 0"),
       image_url: z.string(),
       documents_url: z.string(),
+      staking_contract_address: z.string().optional(),
+      staking_reward_rate: z.string().optional(),
+      staking_duration: z.string().optional(),
+      staking_is_active: z.boolean().optional(),
     })),
     defaultValues: {
       title: "",
@@ -74,6 +84,10 @@ export default function ReviewRequest({
       status: "pending" as PropertyStatus,
       image_url: "",
       documents_url: "",
+      staking_contract_address: "",
+      staking_reward_rate: "",
+      staking_duration: "",
+      staking_is_active: false,
     },
   });
 
@@ -111,6 +125,10 @@ export default function ReviewRequest({
           status: (request.status as PropertyStatus) || "pending",
           image_url: request.image_url || "",
           documents_url: request.documents_url || "",
+          staking_contract_address: request.staking_contract_address || "",
+          staking_reward_rate: request.staking_reward_rate || "",
+          staking_duration: request.staking_duration || "",
+          staking_is_active: request.staking_is_active || false,
         });
       } catch (err: any) {
         console.error("Error fetching request:", err);
@@ -151,6 +169,10 @@ export default function ReviewRequest({
           roi: values.roi,
           image_url: values.image_url,
           documents_url: values.documents_url,
+          staking_contract_address: values.staking_contract_address,
+          staking_reward_rate: values.staking_reward_rate,
+          staking_duration: values.staking_duration,
+          staking_is_active: values.staking_is_active,
           updated_at: now,
         })
         .eq("id", id);
@@ -209,6 +231,47 @@ export default function ReviewRequest({
     );
   }
 
+  const StakingInfo = ({ values }: { values: FormValues }) => {
+    if (!values.staking_contract_address) return null;
+
+    return (
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Staking Contract Information</CardTitle>
+          <CardDescription>Details about the staking contract for this property</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <div>
+              <span className="font-semibold">Contract Address:</span>
+              <code className="ml-2 p-1 bg-muted rounded">{values.staking_contract_address}</code>
+            </div>
+            <div>
+              <span className="font-semibold">Reward Rate:</span>
+              <span className="ml-2">
+                {formatUnits(BigInt(values.staking_reward_rate || "0"), 6)} EURC/second
+              </span>
+            </div>
+            <div>
+              <span className="font-semibold">Duration:</span>
+              <span className="ml-2">
+                {(Number(values.staking_duration || 0) / (24 * 60 * 60)).toFixed(1)} days
+              </span>
+            </div>
+            <div>
+              <span className="font-semibold">Status:</span>
+              <span className={cn("ml-2 px-2 py-1 rounded text-sm", 
+                values.staking_is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+              )}>
+                {values.staking_is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <ClientOnly>
       <Card>
@@ -265,8 +328,9 @@ export default function ReviewRequest({
                       />
                     )}
                     {isConnected && form.getValues("status") === "funding" && (
-                      <StakingInitButton
-                        propertyId={id}
+                      <StakingInitButton 
+                        propertyTokenAddress={form.getValues("token_address") || ""}
+                        requestId={id}
                         form={form}
                       />
                     )}
@@ -275,6 +339,7 @@ export default function ReviewRequest({
               </div>
             </form>
           </Form>
+          <StakingInfo values={form.getValues()} />
         </CardContent>
       </Card>
     </ClientOnly>

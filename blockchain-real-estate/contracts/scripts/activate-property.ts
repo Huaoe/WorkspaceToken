@@ -1,9 +1,11 @@
 import { ethers } from "hardhat";
-import { PropertyToken } from "../typechain-types";
+import dotenv from "dotenv";
+import path from "path";
+import fs from "fs";
 
 async function main() {
     // Get the property address from environment variable
-    const propertyAddress = process.env.ADDRESS;
+    const propertyAddress = "0xe9802B70F38537064480FbAfd77C9B1BEA84872A";
     
     if (!propertyAddress) {
         throw new Error("Property address not provided. Set ADDRESS environment variable.");
@@ -18,7 +20,7 @@ async function main() {
     const propertyToken = await ethers.getContractAt(
         "PropertyToken",
         propertyAddress
-    ) as PropertyToken;
+    );
 
     // Activate the property
     const tx = await propertyToken.updatePropertyStatus(true);
@@ -27,24 +29,13 @@ async function main() {
 
     // Get and display property details
     const propertyDetails = await propertyToken.propertyDetails();
-    const name = await propertyToken.name();
-    const symbol = await propertyToken.symbol();
-    const totalSupply = await propertyToken.totalSupply();
-
     console.log("\nProperty Details:");
-    console.log("Token Address:", propertyAddress);
-    console.log("Is Active:", propertyDetails.isActive);
-    console.log("\nDetailed Property Information:");
     console.log("Title:", propertyDetails.title);
     console.log("Description:", propertyDetails.description);
     console.log("Location:", propertyDetails.location);
     console.log("Image URL:", propertyDetails.imageUrl);
-    console.log("Price:", ethers.formatUnits(propertyDetails.price, 6), "EURC");
-
-    console.log("\nToken Information:");
-    console.log("Name:", name);
-    console.log("Symbol:", symbol);
-    console.log("Total Supply:", ethers.formatEther(totalSupply), "tokens");
+    console.log("Price:", propertyDetails.price.toString());
+    console.log("Is Active:", propertyDetails.isActive);
 }
 
 main()

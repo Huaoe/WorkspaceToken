@@ -1,48 +1,38 @@
 import { ethers } from "hardhat";
-import * as dotenv from "dotenv";
-import * as path from "path";
-import * as fs from "fs";
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 
-export async function main(addressToWhitelist: string) {
-  // Load environment variables from the correct .env.local file
-  const envLocalPath = path.join(process.cwd(), '..', '.env.local');
-  if (fs.existsSync(envLocalPath)) {
-    dotenv.config({ path: envLocalPath });
-  } else {
-    throw new Error(".env.local file not found");
-  }
+// Load environment variables from .env.local
+const envPath = path.resolve(__dirname, '../.env.local');
+dotenv.config({ path: envPath });
 
-  // Get the Whitelist contract address from environment variables
-  const whitelistAddress = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS;
-  if (!whitelistAddress) {
-    throw new Error("Whitelist address not found in environment variables");
-  }
-
+export async function main(address: string) {
   const [deployer] = await ethers.getSigners();
   console.log("Whitelisting address with account:", deployer.address);
 
-  // Get the Whitelist contract instance using IWhitelist interface
+  // Get Whitelist contract address from .env.local
+  const whitelistAddress = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS;
+  if (!whitelistAddress) {
+    throw new Error("NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS not found in .env.local");
+  }
+  console.log("Using Whitelist contract at:", whitelistAddress);
+
+  // Get Whitelist contract
   const whitelist = await ethers.getContractAt("IWhitelist", whitelistAddress);
 
-  // Validate the address
-  if (!ethers.isAddress(addressToWhitelist)) {
-    throw new Error(`Invalid address: ${addressToWhitelist}`);
-  }
+  // Whitelist the address
+  console.log("Whitelisting address:", address);
+  const tx = await whitelist.addToWhitelist(address);
+  await tx.wait();
+  console.log("Successfully whitelisted address");
 
-  try {
-    // Add to whitelist
-    console.log(`Adding ${addressToWhitelist} to whitelist...`);
-    const tx = await whitelist.addToWhitelist(addressToWhitelist);
-    await tx.wait();
-    
-    console.log(`Successfully whitelisted address: ${addressToWhitelist}`);
-  } catch (error) {
-    console.error(`Error whitelisting address ${addressToWhitelist}:`, error);
-    throw error;
-  }
+  // Verify whitelist status
+  const isWhitelisted = await whitelist.isWhitelisted(address);
+  console.log("Whitelist status:", isWhitelisted);
 }
 
-// Allow running directly from command line
+// We recommend this pattern to be able to use async/await everywhere
+// and properly handle errors.
 if (require.main === module) {
   main(process.argv[2])
     .then(() => process.exit(0))

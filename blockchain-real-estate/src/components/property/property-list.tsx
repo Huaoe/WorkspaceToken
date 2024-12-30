@@ -1,52 +1,48 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { PropertyCard } from './property-card';
-import { supabase } from '@/lib/supabase/client';
-import { PropertyRequest } from '@/types/property';
-import { Spinner } from '../ui/spinner';
+import { getPropertyFactoryContract } from '@/lib/ethereum';
+import { useWalletEvents } from '@/app/wallet-events-provider';
 
-export function PropertyList({ limit = 3 }: { limit?: number }) {
+const contractAddress = process.env.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS;
+
+export function PropertyList() {
+  const [properties, setProperties] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const { data: properties = [], isLoading, error } = useQuery({
-    queryKey: ['featured-properties'],
-    queryFn: async () => {
-      console.log('Fetching featured properties...');
-      const { data, error } = await supabase
-        .from('property_requests')
-        .select('*')
-        .in('status', ['funding', 'staking'])
-        .order('created_at', { ascending: false })
-        .limit(limit);
-
-      if (error) {
-        console.error('Error fetching featured properties:', error);
-        throw error;
+  useEffect(() => {
+    const fetchProperties = async () => {
+      try {
+        const contract = await getPropertyFactoryContract();
+        console.log('Got contract:', contract.target);
+        
+        // Get all properties
+        const allProperties = await contract.getProperties();
+        console.log('All properties:', allProperties);
+        
+        setProperties(allProperties);
+      } catch (error: any) {
+        console.error('Error fetching properties:', error);
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to fetch properties',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
       }
+    };
 
-      console.log('Fetched featured properties:', data);
-      return data || [];
-    },
-    retry: 1,
-    refetchOnWindowFocus: false
-  });
+    fetchProperties();
+  }, [toast]);
 
-  if (error) {
-    console.error('Error:', error);
-    return (
-      <div className="text-center py-8 text-red-500">
-        Failed to load properties
-      </div>
-    );
-  }
-
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[200px]">
-        <Spinner className="h-8 w-8 text-primary" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
       </div>
     );
   }
@@ -61,12 +57,8 @@ export function PropertyList({ limit = 3 }: { limit?: number }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {properties.map((property: PropertyRequest) => (
-        <PropertyCard 
-          key={property.token_address} 
-          property={property} 
-          showAdminControls={false}
-        />
+      {properties.map((propertyAddress) => (
+        <PropertyCard key={propertyAddress} address={propertyAddress} />
       ))}
     </div>
   );

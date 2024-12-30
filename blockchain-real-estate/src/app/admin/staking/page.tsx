@@ -4,12 +4,13 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useWalletEvents } from "@/app/wallet-events-provider";
-import { getPropertyFactoryContract, getPropertyTokenContract, getStakingFactoryContract, getStakingRewardsContract } from "@/lib/ethereum";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
-import { formatEther } from "viem";
+import { formatEther, parseUnits, formatUnits } from "viem";
+import { stakingRewardsV2ABI } from "@/lib/contracts";
+import { getPropertyFactoryContract, getPropertyTokenContract, getStakingFactoryContract, getStakingRewardsContract } from "@/lib/ethereum";
 
 export default function AdminStaking() {
   const [loading, setLoading] = useState(false);
@@ -156,6 +157,58 @@ export default function AdminStaking() {
     }
   };
 
+  const handleStartStaking = async () => {
+    if (!stakingAddress || !walletClient || !publicClient || !address) {
+      toast({
+        title: "Error",
+        description: "Please connect your wallet and enter a staking contract address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Calculate reward rate for 8.5% APR
+      // For example, if we want to distribute 1000 EURC over 30 days
+      const rewardRate = parseUnits("0.000385", 6); // Approximately 1000 EURC over 30 days
+
+      console.log("Starting staking period...");
+      console.log("Parameters:");
+      console.log("- Staking Contract:", stakingAddress);
+      console.log("- Reward Rate:", formatUnits(rewardRate, 6), "EURC/second");
+
+      const { request } = await publicClient.simulateContract({
+        account: address,
+        address: stakingAddress as `0x${string}`,
+        abi: stakingRewardsV2ABI,
+        functionName: "notifyRewardRate",
+        args: [rewardRate],
+      });
+
+      const hash = await walletClient.writeContract(request);
+      console.log("Start staking transaction sent:", hash);
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      console.log("Transaction confirmed:", receipt);
+
+      toast({
+        title: "Success",
+        description: "Staking period started successfully",
+      });
+    } catch (error: any) {
+      console.error("Error starting staking:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start staking",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleStartStakingPeriod = async () => {
     if (!isConnected || !address || !walletClient || !publicClient) {
       toast({
@@ -281,30 +334,54 @@ export default function AdminStaking() {
               </div>
 
               {stakingInfo && (
-                <div className="space-y-2 text-sm">
-                  <p><strong>Owner:</strong> {stakingInfo.owner}</p>
-                  <p><strong>Staking Token:</strong> {stakingInfo.stakingToken}</p>
-                  <p><strong>Reward Token:</strong> {stakingInfo.rewardToken}</p>
-                  <p><strong>Duration:</strong> {stakingInfo.duration / (24 * 60 * 60)} days</p>
-                  <p><strong>Finish At:</strong> {stakingInfo.finishAt.toLocaleString()}</p>
-                  <p><strong>Reward Rate:</strong> {stakingInfo.rewardRate} tokens/second</p>
+                <div className="mt-4">
+                  <h3 className="text-lg font-semibold mb-4">Contract Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Owner</Label>
+                      <p className="text-sm font-mono">{stakingInfo.owner}</p>
+                    </div>
+                    <div>
+                      <Label>Reward Token</Label>
+                      <p className="text-sm font-mono">{stakingInfo.rewardToken}</p>
+                    </div>
+                    <div>
+                      <Label>Staking Token</Label>
+                      <p className="text-sm font-mono">{stakingInfo.stakingToken}</p>
+                    </div>
+                    <div>
+                      <Label>Duration</Label>
+                      <p className="text-sm">{stakingInfo.duration} seconds</p>
+                    </div>
+                    <div>
+                      <Label>Finish Time</Label>
+                      <p className="text-sm">{stakingInfo.finishAt.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <Label>Reward Rate</Label>
+                      <p className="text-sm">{stakingInfo.rewardRate} EURC/second</p>
+                    </div>
+                  </div>
+
+                  {/* Start Staking Button */}
+                  <div className="mt-6">
+                    <Button
+                      onClick={handleStartStaking}
+                      disabled={loading || !stakingInfo.isOwner}
+                      className="w-full"
+                    >
+                      {loading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Start Staking Period
+                    </Button>
+                    <p className="text-sm text-gray-500 mt-2">
+                      This will start the staking period with an 8.5% APR reward rate.
+                      Only the contract owner can perform this action.
+                    </p>
+                  </div>
                 </div>
               )}
-
-              <Button 
-                onClick={handleStartStakingPeriod}
-                disabled={loading || !stakingAddress || !stakingInfo?.isOwner}
-                variant="secondary"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Starting...
-                  </>
-                ) : (
-                  "Start Staking Period"
-                )}
-              </Button>
             </div>
           </CardContent>
         </Card>

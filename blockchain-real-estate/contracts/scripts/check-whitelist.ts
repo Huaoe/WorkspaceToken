@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
+import * as dotenv from "dotenv";
 import * as path from "path";
 import * as fs from "fs";
-import dotenv from "dotenv";
 
 async function main() {
   try {
@@ -27,27 +27,18 @@ async function main() {
 
     // Get contract instance
     const whitelist = await ethers.getContractAt("Whitelist", whitelistAddress);
-    
+
     // Check if deployer is whitelisted
     const isWhitelisted = await whitelist.isWhitelisted(deployer.address);
-    console.log("\nDeployer whitelisted:", isWhitelisted);
+    console.log("\nIs deployer whitelisted?", isWhitelisted);
 
-    if (!isWhitelisted) {
-      console.log("\nAdding deployer to whitelist...");
-      const tx = await whitelist.addToWhitelist(deployer.address, {
-        gasLimit: 500000
-      });
-      await tx.wait();
-      console.log("Deployer added to whitelist");
-
-      // Verify the change
-      const newStatus = await whitelist.isWhitelisted(deployer.address);
-      console.log("New whitelist status:", newStatus);
-    }
+    // Get all whitelisted addresses
+    const whitelistedAddresses = await whitelist.getWhitelistedAddresses();
+    console.log("\nAll whitelisted addresses:", whitelistedAddresses);
 
   } catch (error) {
     console.error("Error:", error);
-    process.exit(1);
+    throw error;
   }
 }
 

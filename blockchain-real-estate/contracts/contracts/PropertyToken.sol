@@ -7,6 +7,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IWhitelist.sol";
+import "hardhat/console.sol";
 
 contract PropertyToken is 
     Initializable,
@@ -190,9 +191,6 @@ contract PropertyToken is
     function approve(address spender, uint256 amount) public virtual override returns (bool) {
         if (!IWhitelist(whitelistContract).isWhitelisted(msg.sender)) {
             revert NotWhitelisted();
-        }
-        if (!propertyDetails.isActive) {
-            revert PropertyInactive();
         }
         return super.approve(spender, amount);
     }

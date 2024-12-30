@@ -38,23 +38,15 @@ const useProperties = () => {
   return useQuery({
     queryKey: ['properties'],
     queryFn: async () => {
-      console.log('Fetching properties...');
       const { data, error } = await supabase
         .from('property_requests')
         .select('*')
         .in('status', ['funding', 'staking'])
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching properties:', error);
-        throw error;
-      }
-
-      console.log('Fetched properties:', data);
+      if (error) throw error;
       return data || [];
-    },
-    retry: 1,
-    refetchOnWindowFocus: false
+    }
   });
 };
 
@@ -152,17 +144,12 @@ export default function PropertyList() {
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   
   const { address } = useWalletEvents();
-  const { data: properties = [], isLoading: isLoadingProperties, error: propertiesError } = useProperties();
+  const { data: properties = [], isLoading: isLoadingProperties } = useProperties();
   const { data: isAdmin = false } = useIsAdmin(address);
   const { toast } = useToast();
 
-  if (propertiesError) {
-    console.error('Properties error:', propertiesError);
-  }
-
-  const filteredProperties = (properties || [])
+  const filteredProperties = properties
     .filter(property => {
-      if (!property) return false;
       if (filterStatus !== 'all' && property.status !== filterStatus) return false;
       if (searchQuery) {
         const searchLower = searchQuery.toLowerCase();
@@ -175,7 +162,6 @@ export default function PropertyList() {
       return true;
     })
     .sort((a, b) => {
-      if (!a || !b) return 0;
       switch (sortBy) {
         case 'price-high':
           return (b.price || 0) - (a.price || 0);

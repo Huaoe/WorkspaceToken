@@ -10,6 +10,11 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./StakingRewardsV2.sol";
 
+interface IUUPSUpgradeable {
+    function upgradeTo(address newImplementation) external;
+    function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
+}
+
 contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
@@ -21,12 +26,15 @@ contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     IERC20 public eurcToken;
+    address public stakingImplementation;
     mapping(address => StakingContractInfo) public stakingContracts;
     mapping(address => address[]) public propertyStakingContracts;
     address[] public allStakingContracts;
 
     event StakingContractCreated(address indexed propertyToken, address stakingContract);
     event StakingContractFunded(address indexed stakingContract, uint256 amount);
+    event RewardRateUpdated(address indexed stakingContract, uint256 newRate);
+    event ImplementationUpgraded(address oldImpl, address newImpl);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -38,9 +46,29 @@ contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
         eurcToken = IERC20(_eurcToken);
+        
+        // Deploy initial implementation
+        stakingImplementation = address(new StakingRewardsV2());
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    function upgradeImplementation() external onlyOwner {
+        address oldImpl = stakingImplementation;
+        
+        // Deploy new implementation
+        address newImpl = address(new StakingRewardsV2());
+        stakingImplementation = newImpl;
+
+        // Upgrade all existing proxies
+        for (uint i = 0; i < allStakingContracts.length; i++) {
+            address proxy = allStakingContracts[i];
+            // Use the UUPS upgrade pattern
+            IUUPSUpgradeable(proxy).upgradeTo(newImpl);
+        }
+
+        emit ImplementationUpgraded(oldImpl, newImpl);
+    }
 
     function createStakingContract(
         address propertyToken,
@@ -49,9 +77,8 @@ contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ) external onlyOwner returns (address) {
         require(propertyToken != address(0), "StakingFactory: property token is zero address");
         require(!stakingContracts[propertyToken].isActive, "StakingFactory: staking contract already exists for this property token");
-
-        // Deploy implementation
-        StakingRewardsV2 stakingImplementation = new StakingRewardsV2();
+        require(rewardRate > 0, "StakingFactory: reward rate must be greater than 0");
+        require(stakingImplementation != address(0), "StakingFactory: implementation not set");
 
         // Create initialization data
         bytes memory initData = abi.encodeWithSelector(
@@ -63,7 +90,7 @@ contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         // Deploy proxy
         address proxy = address(new ERC1967Proxy(
-            address(stakingImplementation),
+            stakingImplementation,
             initData
         ));
 
@@ -79,8 +106,27 @@ contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         propertyStakingContracts[propertyToken].push(proxy);
         allStakingContracts.push(proxy);
 
+        // Set initial reward rate
+        StakingRewardsV2(proxy).notifyRewardRate(rewardRate);
+
         emit StakingContractCreated(propertyToken, proxy);
         return proxy;
+    }
+
+    function updateRewardRate(address propertyToken, uint256 newRate) external onlyOwner {
+        require(stakingContracts[propertyToken].isActive, "StakingFactory: staking contract does not exist");
+        require(newRate > 0, "StakingFactory: reward rate must be greater than 0");
+        
+        StakingContractInfo storage info = stakingContracts[propertyToken];
+        require(info.contractAddress != address(0), "StakingFactory: invalid staking contract");
+
+        // Update the stored rate
+        info.rewardRate = newRate;
+
+        // Update the rate in the staking contract
+        StakingRewardsV2(info.contractAddress).notifyRewardRate(newRate);
+
+        emit RewardRateUpdated(info.contractAddress, newRate);
     }
 
     function fundStakingContract(address propertyToken, uint256 amount) external {
@@ -90,15 +136,8 @@ contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         StakingContractInfo memory info = stakingContracts[propertyToken];
         require(info.contractAddress != address(0), "StakingFactory: invalid staking contract");
 
-        // Calculate reward rate (amount per second)
-        uint256 rewardRate = amount / info.duration;
-        require(rewardRate > 0, "StakingFactory: reward rate too small");
-
         // Transfer EURC tokens from sender to staking contract
         eurcToken.safeTransferFrom(msg.sender, info.contractAddress, amount);
-
-        // Notify the staking contract about the new reward rate
-        StakingRewardsV2(info.contractAddress).notifyRewardRate(rewardRate);
 
         emit StakingContractFunded(info.contractAddress, amount);
     }
