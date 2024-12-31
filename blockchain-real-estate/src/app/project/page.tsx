@@ -72,22 +72,7 @@ export default function ProjectPage() {
           </div>
         </section>
 
-        {/* State of Art Section */}
-        <section className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-lg">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-            Etat de l'art des Solutions Blockchain dans l'Immobilier
-          </h2>
-          <p className="text-gray-600 dark:text-gray-300">
-            Découvrez les dernières avancées technologiques et les solutions
-            innovantes que la blockchain apporte spécifiquement au secteur de
-            l'immobilier.
-          </p>
-          <Link href="/state-of-art">
-            <Button variant="primary" className="mt-4" aria-label="Etat de l'art">
-              En savoir plus
-            </Button>
-          </Link>
-        </section>
+
 
 
         {/* Solution Section */}

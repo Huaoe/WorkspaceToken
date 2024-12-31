@@ -1,195 +1,310 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import {
-  useAccount,
-  useChainId,
-  usePublicClient,
-  useWalletClient,
-} from "wagmi";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Slider } from "@/components/ui/slider";
-import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  stakingFactoryV2ABI,
-  stakingRewardsV2ABI,
-  propertyTokenABI,
-  eurcABI,
-} from "@/lib/contracts";
-import { formatUnits, parseUnits } from "viem";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  ArrowUpIcon,
-  ArrowDownIcon,
-  CoinsIcon,
-  TimerIcon,
-  WalletIcon,
-  PercentIcon,
-} from "lucide-react";
-import { StakingInitButton } from "./components/StakingInitButton";
+import { useEffect, useState } from "react";
+import { formatUnits, parseUnits, formatEther } from "viem";
+import { useAccount, usePublicClient, useChainId } from "wagmi";
+import { useToast } from "@/components/ui/use-toast";
+import { StakingOverview } from "./components/StakingOverview";
+import { StakingHistory } from "./components/StakingHistory";
+import { StakingControls } from "./components/StakingControls";
+import { WithdrawControls } from "./components/WithdrawControls";
+import { PropertyOverview } from "./components/PropertyOverview";
+import { ContractAddresses } from "./components/ContractAddresses";
+import { stakingFactoryV2ABI, stakingRewardsV2ABI } from "@/lib/contracts";
+import { propertyTokenABI } from "@/contracts";
+import { supabase } from "@/lib/supabase";
 
-export default function StakeProperty() {
-  const params = useParams();
+const NETWORK_CONFIG = {
+  1: { name: 'Ethereum', explorer: 'https://etherscan.io' },
+  5: { name: 'Goerli', explorer: 'https://goerli.etherscan.io' },
+  11155111: { name: 'Sepolia', explorer: 'https://sepolia.etherscan.io' },
+};
+
+interface PropertyDetails {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  image_url: string;
+  price: number;
+  is_active: boolean;
+  token_address: string;
+}
+
+export default function StakeProperty({ params }: { params: { tokenAddress: string } }) {
   const tokenAddress = params.tokenAddress as string;
   const { address, isConnected } = useAccount();
-  const { chain } = useChainId();
   const publicClient = usePublicClient();
-  const { data: walletClient } = useWalletClient();
+  const chainId = useChainId();
   const { toast } = useToast();
 
-  // State for staking info
+  // State management
   const [loading, setLoading] = useState(false);
   const [stakingAddress, setStakingAddress] = useState<string | null>(null);
   const [tokenBalance, setTokenBalance] = useState<bigint>(0n);
   const [stakedBalance, setStakedBalance] = useState<bigint>(0n);
   const [earnedRewards, setEarnedRewards] = useState<bigint>(0n);
-  const [apr, setApr] = useState<number>(8.5);
+  const [apr, setApr] = useState<number>(0);
   const [endDateStr, setEndDateStr] = useState<string>("");
   const [isActive, setIsActive] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [owner, setOwner] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
-  const [propertyDetails, setPropertyDetails] = useState<any>(null);
+  const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const [stakingHistory, setStakingHistory] = useState<any[]>([]);
+  const [rewardsHistory, setRewardsHistory] = useState<any[]>([]);
   const [totalStaked, setTotalStaked] = useState<bigint>(0n);
   const [rewardRate, setRewardRate] = useState<bigint>(0n);
 
-  // State for staking controls
+  // Contract addresses state
+  const [contractAddresses, setContractAddresses] = useState({
+    propertyToken: tokenAddress,
+    stakingContract: '',
+    stakingFactory: process.env.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS || '',
+    rewardToken: process.env.NEXT_PUBLIC_EURC_ADDRESS || '',
+  });
+
+  // Staking amount state
   const [amount, setAmount] = useState("");
   const [amountPercentage, setAmountPercentage] = useState(0);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawPercentage, setWithdrawPercentage] = useState(0);
   const [maxAmount, setMaxAmount] = useState<bigint>(0n);
 
-  // Fetch initial data
+  // Fetch data
   useEffect(() => {
     const fetchData = async () => {
-      if (!tokenAddress || !isConnected || !address || !publicClient) return;
+      if (!tokenAddress) {
+        console.error("Token address is required");
+        return;
+      }
+
       setLoading(true);
+      console.log("Starting to fetch property data from Supabase for token:", tokenAddress);
 
       try {
-        // Get property details
-        const details = await publicClient.readContract({
-          address: tokenAddress as `0x${string}`,
-          abi: propertyTokenABI,
-          functionName: "propertyDetails",
-        });
-        setPropertyDetails(details);
+        // First try to get all tables to debug
+        const { data: tables } = await supabase
+          .from('property_requests')
+          .select('*')
+          .limit(1);
+
+        console.log("Available data in property_requests:", tables);
+
+        // Fetch property details from Supabase with case-insensitive match
+        const { data: properties, error: propertyError } = await supabase
+          .from('property_requests')
+          .select('*')
+          .ilike('token_address', tokenAddress)
+          .maybeSingle();
+
+          setPropertyDetails(properties);
+
+          console.log("Property details fetched from Supabase:", properties);
+
+
+        // Only fetch blockchain data if wallet is connected
+        if (!isConnected || !address || !publicClient) {
+          console.log("Wallet not connected, skipping blockchain data fetch");
+          setLoading(false);
+          return;
+        }
 
         // Get staking contract
+        console.log("Fetching staking contract...");
         const stakingFactory = process.env.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS;
+        if (!stakingFactory) {
+          throw new Error("Staking factory address not found");
+        }
+
         const stakingInfo = await publicClient.readContract({
           address: stakingFactory as `0x${string}`,
           abi: stakingFactoryV2ABI,
           functionName: "stakingContracts",
-          args: [tokenAddress as `0x${string}`],
+          args: [tokenAddress],
         });
 
-        if (
-          !stakingInfo.contractAddress ||
-          stakingInfo.contractAddress ===
-            "0x0000000000000000000000000000000000000000"
-        ) {
-          throw new Error("No staking contract found");
-        }
+        console.log("Staking contract info:", stakingInfo);
 
-        setStakingAddress(stakingInfo.contractAddress);
+        if (stakingInfo.contractAddress) {
+          console.log("Fetching staking details...");
+          // Get reward token address from staking contract
+          const rewardTokenAddress = await publicClient.readContract({
+            address: stakingInfo.contractAddress as `0x${string}`,
+            abi: stakingRewardsV2ABI,
+            functionName: "rewardToken",
+          });
 
-        // Get user balances and contract info
-        const [balance, staked, earned, total, rate, finishAt] =
-          await Promise.all([
+          console.log("Reward token address:", rewardTokenAddress);
+
+          setContractAddresses(prev => ({
+            ...prev,
+            stakingContract: stakingInfo.contractAddress,
+            rewardToken: rewardTokenAddress as string,
+          }));
+
+          // Get user balances and contract info
+          const [balance, staked, earned, total, rate, finishAt] = await Promise.all([
+            // Token balance
             publicClient.readContract({
               address: tokenAddress as `0x${string}`,
               abi: propertyTokenABI,
               functionName: "balanceOf",
               args: [address],
             }),
+            // Staked balance
             publicClient.readContract({
-              address: stakingInfo.contractAddress,
+              address: stakingInfo.contractAddress as `0x${string}`,
               abi: stakingRewardsV2ABI,
               functionName: "balanceOf",
               args: [address],
             }),
+            // Earned rewards
             publicClient.readContract({
-              address: stakingInfo.contractAddress,
+              address: stakingInfo.contractAddress as `0x${string}`,
               abi: stakingRewardsV2ABI,
               functionName: "earned",
               args: [address],
             }),
+            // Total supply
             publicClient.readContract({
-              address: stakingInfo.contractAddress,
+              address: stakingInfo.contractAddress as `0x${string}`,
               abi: stakingRewardsV2ABI,
               functionName: "totalSupply",
             }),
+            // Reward rate
             publicClient.readContract({
-              address: stakingInfo.contractAddress,
+              address: stakingInfo.contractAddress as `0x${string}`,
               abi: stakingRewardsV2ABI,
               functionName: "rewardRate",
             }),
+            // Finish time
             publicClient.readContract({
-              address: stakingInfo.contractAddress,
+              address: stakingInfo.contractAddress as `0x${string}`,
               abi: stakingRewardsV2ABI,
               functionName: "finishAt",
             }),
           ]);
 
-        setTokenBalance(balance);
-        setStakedBalance(staked);
-        setEarnedRewards(earned);
-        setTotalStaked(total);
-        setRewardRate(rate);
-        setEndDateStr(new Date(Number(finishAt) * 1000).toLocaleDateString());
-        setMaxAmount(balance);
+          setTokenBalance(balance as bigint);
+          setStakedBalance(staked as bigint);
+          setEarnedRewards(earned as bigint);
+          setTotalStaked(total as bigint);
+          setRewardRate(rate as bigint);
+          setEndDateStr(new Date(Number(finishAt) * 1000).toLocaleString());
 
-        // Calculate APR
-        const annualRewards = (Number(rate) * 365 * 24 * 60 * 60) / 10e6;
-        const aprValue = (annualRewards / Number(total)) * 100;
-        setApr(annualRewards || 8.5);
+          // Calculate APR
+          const annualRewards = Number(formatUnits(rate as bigint, 18)) * 365 * 24 * 60 * 60;
+          const totalStakedValue = Number(formatUnits(total as bigint, 18));
+          const aprValue = totalStakedValue > 0 ? (annualRewards / totalStakedValue) * 100 : 0;
+          setApr(aprValue);
 
-        // Get staking history
-        const stakingEvents = await publicClient.getLogs({
-          address: stakingInfo.contractAddress,
-          event: {
-            type: "event",
-            name: "Staked",
-            inputs: [
-              { type: "address", name: "user", indexed: true },
-              { type: "uint256", name: "amount" },
-            ],
-          },
-          fromBlock: 0n,
-          toBlock: "latest",
-        });
+          setIsActive(stakingInfo.isActive);
+          setStakingAddress(stakingInfo.contractAddress);
+          setMaxAmount(balance as bigint);
 
-        const history = stakingEvents.map((event) => ({
-          timestamp: new Date(
-            Number(event.args.timestamp || 0) * 1000
-          ).toLocaleDateString(),
-          amount: formatUnits(event.args.amount || 0n, 18),
-        }));
+          // Fetch staking history
+          const stakingFilter = await publicClient.createEventFilter({
+            address: stakingInfo.contractAddress as `0x${string}`,
+            event: {
+              type: 'event',
+              name: 'Staked',
+              inputs: [
+                { type: 'address', name: 'user', indexed: true },
+                { type: 'uint256', name: 'amount' }
+              ]
+            },
+            fromBlock: 'earliest'
+          });
 
-        setStakingHistory(history);
-        setIsActive(true);
+          const stakingLogs = await publicClient.getFilterLogs({ filter: stakingFilter });
+          
+          // Fetch reward history
+          const rewardFilter = await publicClient.createEventFilter({
+            address: stakingInfo.contractAddress as `0x${string}`,
+            event: {
+              type: 'event',
+              name: 'RewardPaid',
+              inputs: [
+                { type: 'address', name: 'user', indexed: true },
+                { type: 'uint256', name: 'reward' }
+              ]
+            },
+            fromBlock: 'earliest'
+          });
+
+          const rewardLogs = await publicClient.getFilterLogs({ filter: rewardFilter });
+
+          // Store staking history in Supabase
+          const processedStakingHistory = await Promise.all(
+            stakingLogs
+              .filter(log => log.args.user?.toLowerCase() === address.toLowerCase())
+              .map(async log => {
+                const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+                const historyEntry = {
+                  user_address: address.toLowerCase(),
+                  property_token: tokenAddress.toLowerCase(),
+                  amount: Number(formatUnits(log.args.amount || 0n, 18)),
+                  timestamp: new Date(Number(block.timestamp) * 1000).toISOString(),
+                  transaction_hash: log.transactionHash,
+                  type: 'stake'
+                };
+
+                // Store in Supabase
+                const { error: insertError } = await supabase
+                  .from('staking_history')
+                  .upsert(historyEntry, {
+                    onConflict: 'transaction_hash'
+                  });
+
+                if (insertError) {
+                  console.error("Error storing staking history:", insertError);
+                }
+
+                return {
+                  dateTime: new Date(Number(block.timestamp) * 1000).toLocaleString(),
+                  amount: historyEntry.amount,
+                };
+              })
+          );
+
+          // Store rewards history in Supabase
+          const processedRewardHistory = await Promise.all(
+            rewardLogs
+              .filter(log => log.args.user?.toLowerCase() === address.toLowerCase())
+              .map(async log => {
+                const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+                const historyEntry = {
+                  user_address: address.toLowerCase(),
+                  property_token: tokenAddress.toLowerCase(),
+                  amount: Number(formatUnits(log.args.reward || 0n, 18)),
+                  timestamp: new Date(Number(block.timestamp) * 1000).toISOString(),
+                  transaction_hash: log.transactionHash,
+                  type: 'reward'
+                };
+
+                // Store in Supabase
+                const { error: insertError } = await supabase
+                  .from('staking_history')
+                  .upsert(historyEntry, {
+                    onConflict: 'transaction_hash'
+                  });
+
+                if (insertError) {
+                  console.error("Error storing reward history:", insertError);
+                }
+
+                return {
+                  timestamp: new Date(Number(block.timestamp) * 1000).toLocaleString(),
+                  reward: historyEntry.amount,
+                };
+              })
+          );
+
+          setStakingHistory(processedStakingHistory);
+          setRewardsHistory(processedRewardHistory);
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
         setError("Failed to fetch staking data");
@@ -199,374 +314,74 @@ export default function StakeProperty() {
     };
 
     fetchData();
+    // Refresh data every minute
+    const interval = setInterval(fetchData, 60000);
+    return () => clearInterval(interval);
   }, [tokenAddress, isConnected, address, publicClient]);
-
-  // Handle amount input
-  const handleAmountChange = (value: string) => {
-    if (!value) {
-      setAmount("");
-      setAmountPercentage(0);
-      return;
-    }
-
-    try {
-      const numValue = parseFloat(value);
-      if (isNaN(numValue)) return;
-
-      const maxNum = Number(formatUnits(maxAmount, 18));
-      if (numValue > maxNum) {
-        setAmount(maxNum.toString());
-        setAmountPercentage(100);
-      } else {
-        setAmount(value);
-        setAmountPercentage((numValue / maxNum) * 100);
-      }
-    } catch (error) {
-      console.error("Error parsing amount:", error);
-    }
-  };
-
-  // Handle percentage slider
-  const handlePercentageChange = (value: number) => {
-    const maxNum = Number(formatUnits(maxAmount, 18));
-    const newAmount = (maxNum * value) / 100;
-    setAmount(newAmount.toFixed(6));
-    setAmountPercentage(value);
-  };
-
-  // Handle staking
-  const handleStake = async (amountToStake: string) => {
-    if (!stakingAddress || !walletClient || !amountToStake) return;
-    setLoading(true);
-
-    try {
-      const parsedAmount = parseUnits(amountToStake, 18);
-
-      // First approve the staking contract
-      const { request: approveRequest } = await publicClient.simulateContract({
-        address: tokenAddress as `0x${string}`,
-        abi: propertyTokenABI,
-        functionName: "approve",
-        args: [stakingAddress, parsedAmount],
-        account: address,
-      });
-
-      const approveHash = await walletClient.writeContract(approveRequest);
-      await publicClient.waitForTransactionReceipt({ hash: approveHash });
-
-      // Then stake the tokens
-      const { request } = await publicClient.simulateContract({
-        address: stakingAddress,
-        abi: stakingRewardsV2ABI,
-        functionName: "stake",
-        args: [parsedAmount],
-        account: address,
-      });
-
-      const hash = await walletClient.writeContract(request);
-      await publicClient.waitForTransactionReceipt({ hash });
-
-      toast({
-        title: "Success",
-        description: `Successfully staked ${amountToStake} tokens`,
-      });
-
-      // Reset amount and reload data
-      setAmount("");
-      setAmountPercentage(0);
-      window.location.reload();
-    } catch (error) {
-      console.error("Error staking tokens:", error);
-      toast({
-        title: "Error",
-        description: "Failed to stake tokens. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle withdrawal
-  const handleWithdraw = async () => {
-    if (!stakingAddress || !walletClient || !stakedBalance) return;
-    setLoading(true);
-
-    try {
-      const { request } = await publicClient.simulateContract({
-        address: stakingAddress,
-        abi: stakingRewardsV2ABI,
-        functionName: "withdraw",
-        args: [stakedBalance],
-        account: address,
-      });
-
-      const hash = await walletClient.writeContract(request);
-      await publicClient.waitForTransactionReceipt({ hash });
-
-      toast({
-        title: "Success",
-        description: `Successfully withdrawn ${formatNumber(
-          stakedBalance
-        )} tokens`,
-      });
-
-      window.location.reload();
-    } catch (error) {
-      console.error("Error withdrawing tokens:", error);
-      toast({
-        title: "Error",
-        description: "Failed to withdraw tokens. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle claiming rewards
-  const handleClaimRewards = async () => {
-    if (!stakingAddress || !walletClient || !earnedRewards) return;
-    setLoading(true);
-
-    try {
-      const { request } = await publicClient.simulateContract({
-        address: stakingAddress,
-        abi: stakingRewardsV2ABI,
-        functionName: "getReward",
-        args: [],
-        account: address,
-      });
-
-      const hash = await walletClient.writeContract(request);
-      await publicClient.waitForTransactionReceipt({ hash });
-
-      toast({
-        title: "Success",
-        description: `Successfully claimed ${formatNumber(
-          earnedRewards,
-          6
-        )} EURC in rewards`,
-      });
-
-      window.location.reload();
-    } catch (error) {
-      console.error("Error claiming rewards:", error);
-      toast({
-        title: "Error",
-        description: "Failed to claim rewards. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Format numbers for display
-  const formatNumber = (value: bigint, decimals: number = 18) => {
-    return Number(formatUnits(value, decimals)).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 6,
-    });
-  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex justify-center items-center min-h-screen">
         <Spinner size="lg" />
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h2 className="text-2xl font-bold text-red-500 mb-4">Error</h2>
-        <p className="text-gray-600">{error}</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto p-6 space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Staking Overview */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Staking Overview</CardTitle>
-            <CardDescription>
-              Current staking metrics and rewards
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">APR</span>
-                <span className="font-medium flex items-center">
-                  <PercentIcon className="w-4 h-4 mr-1" />
-                  {apr.toFixed(2)}%
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">Total Staked</span>
-                <span className="font-medium">
-                  {formatNumber(totalStaked)} Tokens
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">Reward Rate</span>
-                <span className="font-medium">
-                  {formatNumber(rewardRate, 6)} EURC/second
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">End Date</span>
-                <span className="font-medium">{endDateStr}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Your Position */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Position</CardTitle>
-            <CardDescription>
-              Your current staking position and rewards
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">Available Balance</span>
-                <span className="font-medium">
-                  {formatNumber(tokenBalance)} Tokens
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">Staked Balance</span>
-                <span className="font-medium">
-                  {formatNumber(stakedBalance)} Tokens
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">Earned Rewards</span>
-                <span className="font-medium text-green-600">
-                  {formatNumber(earnedRewards, 6)} EURC
-                </span>
-              </div>
-              <Progress
-                value={
-                  (Number(stakedBalance) /
-                    (Number(stakedBalance) + Number(tokenBalance))) *
-                  100
-                }
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Staking Controls */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Stake Tokens</CardTitle>
-            <CardDescription>Choose how many tokens to stake</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              <div>
-                <Label>Amount</Label>
-                <div className="flex items-center space-x-2">
-                  <Input
-                    type="number"
-                    value={amount}
-                    onChange={(e) => handleAmountChange(e.target.value)}
-                    placeholder="0.0"
-                    min="0"
-                    max={formatNumber(maxAmount)}
-                    step="0.000001"
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => handleAmountChange(formatNumber(maxAmount))}
-                  >
-                    Max
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">0%</span>
-                  <span className="text-sm text-gray-500">100%</span>
-                </div>
-                <Slider
-                  value={[amountPercentage]}
-                  onValueChange={(values) => handlePercentageChange(values[0])}
-                  max={100}
-                  step={1}
-                />
-              </div>
-
-              <div className="flex space-x-4">
-                <Button
-                  className="flex-1"
-                  onClick={() => handleStake(amount)}
-                  disabled={!amount || loading}
-                >
-                  <ArrowUpIcon className="w-4 h-4 mr-2" />
-                  Stake
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={handleWithdraw}
-                  disabled={!stakedBalance || loading}
-                  variant="outline"
-                >
-                  <ArrowDownIcon className="w-4 h-4 mr-2" />
-                  Withdraw
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={handleClaimRewards}
-                  disabled={!earnedRewards || loading}
-                  variant="outline"
-                >
-                  <CoinsIcon className="w-4 h-4 mr-2" />
-                  Claim Rewards
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Staking History */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Staking History</CardTitle>
-            <CardDescription>Your staking activity over time</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {stakingHistory.length > 0 ? (
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={stakingHistory}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="timestamp" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="amount" stroke="#2563eb" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-center text-gray-500">
-                No staking history available
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        <PropertyOverview propertyDetails={propertyDetails} />
+        <StakingOverview
+          apr={apr}
+          totalStaked={totalStaked}
+          rewardRate={rewardRate}
+          endDateStr={endDateStr}
+          formatNumber={formatNumber}
+        />
       </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        <StakingHistory
+          stakingHistory={stakingHistory}
+          rewardsHistory={rewardsHistory}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <StakingControls
+          tokenBalance={tokenBalance}
+          amount={amount}
+          setAmount={setAmount}
+          amountPercentage={amountPercentage}
+          setAmountPercentage={setAmountPercentage}
+          maxAmount={maxAmount}
+          stakingAddress={stakingAddress}
+          propertyToken={tokenAddress as `0x${string}`}
+        />
+        <WithdrawControls
+          stakedBalance={stakedBalance}
+          withdrawAmount={withdrawAmount}
+          setWithdrawAmount={setWithdrawAmount}
+          withdrawPercentage={withdrawPercentage}
+          setWithdrawPercentage={setWithdrawPercentage}
+          earnedRewards={earnedRewards}
+          stakingAddress={stakingAddress}
+        />
+      </div>
+
+      <ContractAddresses
+        addresses={contractAddresses}
+        chainId={chainId}
+        networkConfig={NETWORK_CONFIG}
+      />
     </div>
   );
 }
+
+const formatNumber = (value: string | number, decimals = 2) => {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  return num.toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+};
