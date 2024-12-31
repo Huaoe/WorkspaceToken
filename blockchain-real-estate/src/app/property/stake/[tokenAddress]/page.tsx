@@ -1,9 +1,21 @@
-'use client';
+"use client";
 
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useAccount, useChainId, usePublicClient, useWalletClient } from "wagmi";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import {
+  useAccount,
+  useChainId,
+  usePublicClient,
+  useWalletClient,
+} from "wagmi";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -12,10 +24,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
-import { stakingFactoryV2ABI, stakingRewardsV2ABI, propertyTokenABI, eurcABI } from "@/lib/contracts";
+import {
+  stakingFactoryV2ABI,
+  stakingRewardsV2ABI,
+  propertyTokenABI,
+  eurcABI,
+} from "@/lib/contracts";
 import { formatUnits, parseUnits } from "viem";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ArrowUpIcon, ArrowDownIcon, CoinsIcon, TimerIcon, WalletIcon, PercentIcon } from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  ArrowUpIcon,
+  ArrowDownIcon,
+  CoinsIcon,
+  TimerIcon,
+  WalletIcon,
+  PercentIcon,
+} from "lucide-react";
 import { StakingInitButton } from "./components/StakingInitButton";
 
 export default function StakeProperty() {
@@ -73,48 +105,53 @@ export default function StakeProperty() {
           args: [tokenAddress as `0x${string}`],
         });
 
-        if (!stakingInfo.contractAddress || stakingInfo.contractAddress === "0x0000000000000000000000000000000000000000") {
-          throw new Error('No staking contract found');
+        if (
+          !stakingInfo.contractAddress ||
+          stakingInfo.contractAddress ===
+            "0x0000000000000000000000000000000000000000"
+        ) {
+          throw new Error("No staking contract found");
         }
 
         setStakingAddress(stakingInfo.contractAddress);
 
         // Get user balances and contract info
-        const [balance, staked, earned, total, rate, finishAt] = await Promise.all([
-          publicClient.readContract({
-            address: tokenAddress as `0x${string}`,
-            abi: propertyTokenABI,
-            functionName: "balanceOf",
-            args: [address],
-          }),
-          publicClient.readContract({
-            address: stakingInfo.contractAddress,
-            abi: stakingRewardsV2ABI,
-            functionName: "balanceOf",
-            args: [address],
-          }),
-          publicClient.readContract({
-            address: stakingInfo.contractAddress,
-            abi: stakingRewardsV2ABI,
-            functionName: "earned",
-            args: [address],
-          }),
-          publicClient.readContract({
-            address: stakingInfo.contractAddress,
-            abi: stakingRewardsV2ABI,
-            functionName: "totalSupply",
-          }),
-          publicClient.readContract({
-            address: stakingInfo.contractAddress,
-            abi: stakingRewardsV2ABI,
-            functionName: "rewardRate",
-          }),
-          publicClient.readContract({
-            address: stakingInfo.contractAddress,
-            abi: stakingRewardsV2ABI,
-            functionName: "finishAt",
-          })
-        ]);
+        const [balance, staked, earned, total, rate, finishAt] =
+          await Promise.all([
+            publicClient.readContract({
+              address: tokenAddress as `0x${string}`,
+              abi: propertyTokenABI,
+              functionName: "balanceOf",
+              args: [address],
+            }),
+            publicClient.readContract({
+              address: stakingInfo.contractAddress,
+              abi: stakingRewardsV2ABI,
+              functionName: "balanceOf",
+              args: [address],
+            }),
+            publicClient.readContract({
+              address: stakingInfo.contractAddress,
+              abi: stakingRewardsV2ABI,
+              functionName: "earned",
+              args: [address],
+            }),
+            publicClient.readContract({
+              address: stakingInfo.contractAddress,
+              abi: stakingRewardsV2ABI,
+              functionName: "totalSupply",
+            }),
+            publicClient.readContract({
+              address: stakingInfo.contractAddress,
+              abi: stakingRewardsV2ABI,
+              functionName: "rewardRate",
+            }),
+            publicClient.readContract({
+              address: stakingInfo.contractAddress,
+              abi: stakingRewardsV2ABI,
+              functionName: "finishAt",
+            }),
+          ]);
 
         setTokenBalance(balance);
         setStakedBalance(staked);
@@ -125,33 +162,34 @@ export default function StakeProperty() {
         setMaxAmount(balance);
 
         // Calculate APR
-        const annualRewards = Number(rate) * 365 * 24 * 60 * 60;
+        const annualRewards = (Number(rate) * 365 * 24 * 60 * 60) / 10e6;
         const aprValue = (annualRewards / Number(total)) * 100;
-        setApr(aprValue || 8.5);
+        setApr(annualRewards || 8.5);
 
         // Get staking history
         const stakingEvents = await publicClient.getLogs({
           address: stakingInfo.contractAddress,
           event: {
-            type: 'event',
-            name: 'Staked',
+            type: "event",
+            name: "Staked",
             inputs: [
-              { type: 'address', name: 'user', indexed: true },
-              { type: 'uint256', name: 'amount' }
-            ]
+              { type: "address", name: "user", indexed: true },
+              { type: "uint256", name: "amount" },
+            ],
           },
           fromBlock: 0n,
-          toBlock: 'latest'
+          toBlock: "latest",
         });
 
-        const history = stakingEvents.map(event => ({
-          timestamp: new Date(Number(event.args.timestamp || 0) * 1000).toLocaleDateString(),
+        const history = stakingEvents.map((event) => ({
+          timestamp: new Date(
+            Number(event.args.timestamp || 0) * 1000
+          ).toLocaleDateString(),
           amount: formatUnits(event.args.amount || 0n, 18),
         }));
 
         setStakingHistory(history);
         setIsActive(true);
-
       } catch (error) {
         console.error("Error fetching data:", error);
         setError("Failed to fetch staking data");
@@ -203,16 +241,16 @@ export default function StakeProperty() {
 
     try {
       const parsedAmount = parseUnits(amountToStake, 18);
-      
+
       // First approve the staking contract
       const { request: approveRequest } = await publicClient.simulateContract({
         address: tokenAddress as `0x${string}`,
         abi: propertyTokenABI,
-        functionName: 'approve',
+        functionName: "approve",
         args: [stakingAddress, parsedAmount],
         account: address,
       });
-      
+
       const approveHash = await walletClient.writeContract(approveRequest);
       await publicClient.waitForTransactionReceipt({ hash: approveHash });
 
@@ -220,11 +258,11 @@ export default function StakeProperty() {
       const { request } = await publicClient.simulateContract({
         address: stakingAddress,
         abi: stakingRewardsV2ABI,
-        functionName: 'stake',
+        functionName: "stake",
         args: [parsedAmount],
         account: address,
       });
-      
+
       const hash = await walletClient.writeContract(request);
       await publicClient.waitForTransactionReceipt({ hash });
 
@@ -258,17 +296,19 @@ export default function StakeProperty() {
       const { request } = await publicClient.simulateContract({
         address: stakingAddress,
         abi: stakingRewardsV2ABI,
-        functionName: 'withdraw',
+        functionName: "withdraw",
         args: [stakedBalance],
         account: address,
       });
-      
+
       const hash = await walletClient.writeContract(request);
       await publicClient.waitForTransactionReceipt({ hash });
 
       toast({
         title: "Success",
-        description: `Successfully withdrawn ${formatNumber(stakedBalance)} tokens`,
+        description: `Successfully withdrawn ${formatNumber(
+          stakedBalance
+        )} tokens`,
       });
 
       window.location.reload();
@@ -293,17 +333,20 @@ export default function StakeProperty() {
       const { request } = await publicClient.simulateContract({
         address: stakingAddress,
         abi: stakingRewardsV2ABI,
-        functionName: 'getReward',
+        functionName: "getReward",
         args: [],
         account: address,
       });
-      
+
       const hash = await walletClient.writeContract(request);
       await publicClient.waitForTransactionReceipt({ hash });
 
       toast({
         title: "Success",
-        description: `Successfully claimed ${formatNumber(earnedRewards, 6)} EURC in rewards`,
+        description: `Successfully claimed ${formatNumber(
+          earnedRewards,
+          6
+        )} EURC in rewards`,
       });
 
       window.location.reload();
@@ -323,7 +366,7 @@ export default function StakeProperty() {
   const formatNumber = (value: bigint, decimals: number = 18) => {
     return Number(formatUnits(value, decimals)).toLocaleString(undefined, {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 6
+      maximumFractionDigits: 6,
     });
   };
 
@@ -351,7 +394,9 @@ export default function StakeProperty() {
         <Card>
           <CardHeader>
             <CardTitle>Staking Overview</CardTitle>
-            <CardDescription>Current staking metrics and rewards</CardDescription>
+            <CardDescription>
+              Current staking metrics and rewards
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -364,11 +409,15 @@ export default function StakeProperty() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">Total Staked</span>
-                <span className="font-medium">{formatNumber(totalStaked)} Tokens</span>
+                <span className="font-medium">
+                  {formatNumber(totalStaked)} Tokens
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">Reward Rate</span>
-                <span className="font-medium">{formatNumber(rewardRate, 6)} EURC/second</span>
+                <span className="font-medium">
+                  {formatNumber(rewardRate, 6)} EURC/second
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">End Date</span>
@@ -382,23 +431,37 @@ export default function StakeProperty() {
         <Card>
           <CardHeader>
             <CardTitle>Your Position</CardTitle>
-            <CardDescription>Your current staking position and rewards</CardDescription>
+            <CardDescription>
+              Your current staking position and rewards
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">Available Balance</span>
-                <span className="font-medium">{formatNumber(tokenBalance)} Tokens</span>
+                <span className="font-medium">
+                  {formatNumber(tokenBalance)} Tokens
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">Staked Balance</span>
-                <span className="font-medium">{formatNumber(stakedBalance)} Tokens</span>
+                <span className="font-medium">
+                  {formatNumber(stakedBalance)} Tokens
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-500">Earned Rewards</span>
-                <span className="font-medium text-green-600">{formatNumber(earnedRewards, 6)} EURC</span>
+                <span className="font-medium text-green-600">
+                  {formatNumber(earnedRewards, 6)} EURC
+                </span>
               </div>
-              <Progress value={(Number(stakedBalance) / (Number(stakedBalance) + Number(tokenBalance))) * 100} />
+              <Progress
+                value={
+                  (Number(stakedBalance) /
+                    (Number(stakedBalance) + Number(tokenBalance))) *
+                  100
+                }
+              />
             </div>
           </CardContent>
         </Card>
@@ -431,7 +494,7 @@ export default function StakeProperty() {
                   </Button>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500">0%</span>
@@ -497,7 +560,9 @@ export default function StakeProperty() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-center text-gray-500">No staking history available</p>
+              <p className="text-center text-gray-500">
+                No staking history available
+              </p>
             )}
           </CardContent>
         </Card>
