@@ -109,27 +109,14 @@ export async function getEURCContract(withSigner = false) {
   return contract;
 };
 
-export async function getPropertyFactoryContract(withSigner = false) {
-  const factoryAddress = PROPERTY_FACTORY_ADDRESS;
-  if (!factoryAddress) {
-    throw new Error('Property factory address not configured');
-  }
-  console.log('Getting property factory contract at address:', factoryAddress);
-
-  const provider = await getProvider();
-  const contract = new ethers.Contract(
-    factoryAddress,
+export async function getPropertyFactoryContract(
+  withSigner = false
+): Promise<PropertyFactory> {
+  return (await getContract(
+    PROPERTY_FACTORY_ADDRESS!,
     propertyFactoryABI,
-    provider
-  );
-
-  if (withSigner) {
-    const signer = await getSigner();
-    console.log('Using signer:', await signer.getAddress());
-    return contract.connect(signer);
-  }
-
-  return contract;
+    withSigner
+  )) as PropertyFactory;
 };
 
 export async function getPropertyTokenContract(address: string, withSigner = false): Promise<ethers.Contract> {

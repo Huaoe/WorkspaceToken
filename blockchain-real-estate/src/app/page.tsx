@@ -49,7 +49,7 @@ export default function Home() {
   }, [address, isConnected]);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div>Chargement...</div>;
   }
 
   if (!mounted) return null;
@@ -97,6 +97,7 @@ export default function Home() {
             src="/images/about/city-blocks.jpg"
             alt="Future of Real Estate"
             fill
+            sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover rounded-lg"
           />
         </div>
@@ -134,6 +135,7 @@ export default function Home() {
             src="/images/about/modern-building.jpg"
             alt="Modern Commercial Building"
             fill
+            sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover rounded-lg"
           />
         </div>
@@ -144,7 +146,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
-              Why Choose Work Space Token?
+              Pourquoi Choisir Work Space Token ?
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -154,10 +156,10 @@ export default function Home() {
                 <Building2 className="h-6 w-6 text-cyan-600 dark:text-cyan-300" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                Premium Properties
+                Propriétés Premium
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Access high-quality commercial real estate investments previously reserved for institutional investors.
+                Accédez à des investissements immobiliers commerciaux de haute qualité auparavant réservés aux investisseurs institutionnels.
               </p>
             </div>
 
@@ -167,10 +169,10 @@ export default function Home() {
                 <Coins className="h-6 w-6 text-cyan-600 dark:text-cyan-300" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                Fractional Investment
+                Investissement Fractionné
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Start investing with lower capital through fractional ownership of premium properties.
+                Commencez à investir avec un capital réduit grâce à la propriété fractionnée de biens immobiliers premium.
               </p>
             </div>
 
@@ -180,10 +182,10 @@ export default function Home() {
                 <TrendingUp className="h-6 w-6 text-cyan-600 dark:text-cyan-300" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                Regular Returns
+                Rendements Réguliers
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Earn consistent rental income and benefit from property value appreciation.
+                Percevez des revenus locatifs réguliers et bénéficiez de l'appréciation de la valeur des biens.
               </p>
             </div>
 
@@ -193,10 +195,10 @@ export default function Home() {
                 <Lock className="h-6 w-6 text-cyan-600 dark:text-cyan-300" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                Secure & Transparent
+                Sécurisé & Transparent
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Blockchain technology ensures transparent ownership and secure transactions.
+                La technologie blockchain garantit une propriété transparente et des transactions sécurisées.
               </p>
             </div>
           </div>
@@ -206,18 +208,18 @@ export default function Home() {
       {/* Featured Properties Section */}
       <div>
         <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
-          Featured Properties
+          Propriétés en Vedette
         </h2>
         {!isConnected ? (
           <div className="text-center py-8">
             <p className="text-gray-600 dark:text-gray-400">
-              Please connect your wallet to view properties
+              Veuillez connecter votre portefeuille pour afficher les propriétés
             </p>
           </div>
         ) : !isKYCVerified ? (
           <div className="text-center py-8">
             <p className="text-gray-600 dark:text-gray-400">
-              Please complete KYC verification to view properties
+              Veuillez compléter la vérification KYC pour afficher les propriétés
             </p>
           </div>
         ) : (

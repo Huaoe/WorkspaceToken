@@ -6,7 +6,7 @@ export default function HowItWorksPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-12 space-y-16">
       {/* Header */}
-      <div className="bg-cyan-400 text-white p-8 md:p-16 rounded-lg">
+      <div className="bg-[#93d2d9] text-white p-8 md:p-16 rounded-lg">
         <div className="flex flex-col md:flex-row items-center justify-between gap-8">
           <h1 className="text-4xl md:text-5xl font-bold">
             COMMENT ÇA MARCHE ?
@@ -65,7 +65,7 @@ export default function HowItWorksPage() {
                 <Coins className="w-6 h-6 text-cyan-600 dark:text-cyan-300" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                CONTRACTUALISATION & TOKENISATION
+                TOKENISATION
               </h3>
             </div>
             <p className="text-gray-600 dark:text-gray-300">

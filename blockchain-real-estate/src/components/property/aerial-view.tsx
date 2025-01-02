@@ -25,6 +25,7 @@ const AerialView: React.FC<AerialViewProps> = ({ location, className }) => {
       console.log('[AerialView] No location provided, showing default state');
       setError("No location provided");
       setLoading(false);
+      setShowMap(true);
       return;
     }
 
@@ -106,6 +107,7 @@ const AerialView: React.FC<AerialViewProps> = ({ location, className }) => {
               console.log('[AerialView] Parsed response data:', data);
               
               if (data.success) {
+               setError(null);
                 setVideoUrl(data.videoUrl);
                 setShowMap(false);
               } else {
@@ -221,7 +223,7 @@ const AerialView: React.FC<AerialViewProps> = ({ location, className }) => {
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>Property View</CardTitle>
+        <CardTitle>Vue</CardTitle>
         <CardDescription>
           {showMap ? '3D satellite view of the property location' : '360° aerial view of the property location'}
         </CardDescription>

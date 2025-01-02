@@ -79,7 +79,7 @@ const Navbar = () => {
                   pathname === "/property/list" ? "text-foreground" : "text-muted-foreground"
                 )}
               >
-                Properties
+                Bureaux
               </Link>
               <Link
                 href="/how-it-works"
@@ -97,7 +97,16 @@ const Navbar = () => {
                   pathname === "/project" ? "text-foreground" : "text-muted-foreground"
                 )}
               >
-                Le Projet
+                Le projet
+              </Link>
+              <Link
+                href="/kyc"
+                className={cn(
+                  "text-sm font-medium transition-colors hover:text-primary",
+                  pathname === "/kyc" ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                KYC
               </Link>
               {/* <Link
                 href="/about"
@@ -132,7 +141,7 @@ const Navbar = () => {
                         : "text-muted-foreground"
                     )}
                   >
-                    Submit Property
+                    New Property
                   </Link>
                   <Link
                     href="/admin/requests"

@@ -1043,3 +1043,18 @@ export interface StakingFactory extends Contract {
     isActive: boolean;
   }>;
 }
+
+export interface PropertyFactory extends BaseContract {
+  owner(): Promise<string>;
+  createProperty(
+    title: string,
+    description: string,
+    location: string,
+    imageUrl: string,
+    price: bigint,
+    supply: bigint
+  ): Promise<ContractTransaction>;
+  getProperties(): Promise<string[]>;
+  properties(index: number): Promise<string>;
+  propertyTokenImplementation(): Promise<string>;
+}

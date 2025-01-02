@@ -338,9 +338,6 @@ export default function PurchaseProperty() {
         throw new Error(`Insufficient EURC balance. You have ${formatUnits(balance, 6)} EURC but need ${formatUnits(totalCost, 6)} EURC. Please acquire more EURC tokens.`);
       }
 
-      // Try a test approval first
-      console.log("Testing EURC approval with small amount...");
-      const testAmount = parseUnits("1", 6); // 1 EURC
       
       try {
         // Get the current nonce
@@ -349,37 +346,6 @@ export default function PurchaseProperty() {
         });
         
         console.log("Current nonce:", nonce);
-
-        const { request: testApproveRequest } = await publicClient.simulateContract({
-          account: address,
-          address: EURC_TOKEN_ADDRESS as `0x${string}`,
-          abi: eurcABI,
-          functionName: "approve",
-          args: [tokenAddress as `0x${string}`, testAmount],
-          nonce: nonce // Explicitly set the nonce
-        });
-
-        const testApproveHash = await walletClient.writeContract({
-          ...testApproveRequest,
-          nonce: nonce // Explicitly set the nonce
-        });
-        console.log("Test approval transaction sent:", testApproveHash);
-
-        const testApproveReceipt = await publicClient.waitForTransactionReceipt({ 
-          hash: testApproveHash,
-          timeout: 30_000
-        });
-        console.log("Test approval confirmed:", testApproveReceipt);
-
-        // Verify test approval
-        const testAllowance = await publicClient.readContract({
-          address: EURC_TOKEN_ADDRESS as `0x${string}`,
-          abi: eurcABI,
-          functionName: "allowance",
-          args: [address, tokenAddress as `0x${string}`],
-        });
-        console.log("Test approval successful. New allowance:", formatUnits(testAllowance, 6));
-
         // Now proceed with full approval
         console.log("Proceeding with full approval...");
 
@@ -437,6 +403,57 @@ export default function PurchaseProperty() {
         });
         console.log("Purchase confirmed:", purchaseReceipt);
 
+        toast({
+          title: "Success",
+          description: `Successfully purchased ${tokenAmount} tokens!`,
+        });
+
+        // Refresh balances and details
+        await Promise.all([
+          // Refresh token balance
+          publicClient.readContract({
+            address: tokenAddress as `0x${string}`,
+            abi: propertyTokenABI,
+            functionName: "balanceOf",
+            args: [address],
+          }).then(balance => {
+            console.log("New token balance:", formatUnits(balance, 18));
+            setTokenBalance(balance);
+          }),
+
+          // Refresh EURC balance
+          publicClient.readContract({
+            address: EURC_TOKEN_ADDRESS as `0x${string}`,
+            abi: eurcABI,
+            functionName: "balanceOf",
+            args: [address],
+          }).then(balance => {
+            setEurcBalance(formatUnits(balance, 6));
+          }),
+
+          // Refresh holder balance
+          publicClient.readContract({
+            address: tokenAddress as `0x${string}`,
+            abi: propertyTokenABI,
+            functionName: "balanceOf",
+            args: [tokenHolder],
+          }).then(balance => {
+            setHolderBalance(formatUnits(balance, 18));
+          }),
+
+          // Refresh total supply
+          publicClient.readContract({
+            address: tokenAddress as `0x${string}`,
+            abi: propertyTokenABI,
+            functionName: "totalSupply",
+          }).then(supply => {
+            setTotalSupply(formatUnits(supply, 18));
+          })
+        ]);
+
+        // Clear input fields
+        setTokenAmount("");
+        setEurcAmount("");
       } catch (error) {
         console.error("Transaction failed:", error);
         if (error.message?.includes("nonce")) {
@@ -445,25 +462,6 @@ export default function PurchaseProperty() {
         throw error;
       }
 
-      // Verify the purchase
-      const newBalance = await publicClient.readContract({
-        address: tokenAddress as `0x${string}`,
-        abi: propertyTokenABI,
-        functionName: "balanceOf",
-        args: [address],
-      });
-
-      console.log("New token balance:", formatUnits(newBalance, 18));
-
-      if (newBalance < tokenAmountWei) {
-        throw new Error("Purchase verification failed - token balance not updated correctly");
-      }
-
-      toast({
-        title: "Success",
-        description: "Successfully purchased property tokens!"
-      });
-      router.refresh();
     } catch (error: any) {
       console.error("Error during purchase:", error);
       toast({
@@ -528,79 +526,113 @@ export default function PurchaseProperty() {
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Left Column - Property Image and Details */}
-          <div>
-            <div className="relative h-64 w-full mb-4">
+          <div className="space-y-6">
+            <div className="relative h-80 w-full">
               <Image
                 src={onChainDetails.imageUrl || "/placeholder.jpg"}
                 alt={onChainDetails.title}
                 fill
-                className="object-cover rounded-lg"
+                className="object-cover rounded-lg shadow-lg"
               />
             </div>
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold">Location</h3>
-                <p className="text-gray-600">{onChainDetails.location}</p>
+            
+            {/* Property Overview */}
+            <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-100">
+              <h2 className="text-2xl font-semibold mb-4">{onChainDetails.title}</h2>
+              
+              {/* Location with icon */}
+              <div className="flex items-center space-x-2 mb-4">
+                <MapPinIcon className="h-5 w-5 text-gray-500" />
+                <span className="text-gray-700">{onChainDetails.location}</span>
               </div>
-              <div>
-                <h3 className="font-semibold">Investment Details</h3>
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <div>
-                    <p className="text-sm text-gray-500">Price per Token</p>
-                    <p className="font-medium">
-                      {onChainDetails?.price
-                        ? `${Number(
-                            formatUnits(onChainDetails.price, 6)
-                          ).toLocaleString()} EURC`
-                        : "Loading..."}
-                    </p>
+              
+              {/* Description */}
+              <div className="mb-6">
+                <h3 className="text-lg font-medium mb-2">About this property</h3>
+                <p className="text-gray-600 whitespace-pre-wrap">{onChainDetails.description}</p>
+              </div>
+
+              {/* Property Stats */}
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-500">Sales Progress</p>
+                  <div className="mt-1">
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full"
+                        style={{ width: `${salesProgress}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-sm mt-1 text-gray-600">{salesProgress.toFixed(1)}% Sold</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Total Supply</p>
-                    <p className="font-medium">
-                      {Number(totalSupply).toLocaleString()} Tokens
-                    </p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-500">Available Tokens</p>
+                  <p className="text-lg font-semibold">{remainingTokens}</p>
+                </div>
+              </div>
+
+              {/* Investment Metrics */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-lg font-medium mb-3">Token Metrics</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-gray-500">Price per Token</p>
+                      <p className="font-medium">
+                        {onChainDetails?.price
+                          ? `${Number(formatUnits(onChainDetails.price, 6)).toLocaleString()} EURC`
+                          : "Loading..."}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Total Supply</p>
+                      <p className="font-medium">{Number(totalSupply).toLocaleString()} Tokens</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Market Cap</p>
+                      <p className="font-medium">
+                        {onChainDetails?.price
+                          ? `${(Number(formatUnits(onChainDetails.price, 6)) * Number(totalSupply)).toLocaleString()} EURC`
+                          : "Loading..."}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Your Balance</p>
-                    <p className="font-medium">{tokenBalance} Tokens</p>
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium mb-3">Your Position</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-gray-500">Your Token Balance</p>
+                      <p className="font-medium">{Number(formattedTokenBalance).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })} Tokens</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Your EURC Balance</p>
+                      <p className="font-medium">{formattedEURCBalance} EURC</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Max Purchasable</p>
+                      <p className="font-medium">{maxPurchasableAmount} Tokens</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">EURC Balance</p>
-                    <p className="font-medium">{formattedEURCBalance} EURC</p>
-                  </div>
+                </div>
+              </div>
+
+              {/* Contract Details */}
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <h3 className="text-lg font-medium mb-3">Contract Information</h3>
+                <div className="space-y-3">
                   <AddressDisplay
                     address={tokenAddress as string}
-                    label="Token Address"
+                    label="Token Contract"
                   />
                   <AddressDisplay
                     address={tokenHolder || ""}
                     label="Token Holder"
                   />
-                  <div>
-                    <p className="text-sm text-gray-500">Holder Balance</p>
-                    <p className="font-medium">
-                      {Number(holderBalance).toLocaleString()} Tokens
-                    </p>
-                  </div>
-                  <div className="bg-secondary/50 p-3 rounded-lg">
-                    <p className="text-sm text-gray-500">
-                      Available for Purchase
-                    </p>
-                    <p className="font-medium text-primary">
-                      {remainingTokens} Tokens
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Max you can buy with current EURC balance:{" "}
-                      {maxPurchasableAmount} Tokens
-                    </p>
-                  </div>
-                  <div className="progress-bar">
-                    <div
-                      className="progress-bar-fill"
-                      style={{ width: `${salesProgress}%` }}
-                    ></div>
-                  </div>
                 </div>
               </div>
             </div>

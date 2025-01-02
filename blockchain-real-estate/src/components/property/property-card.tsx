@@ -171,6 +171,7 @@ export function PropertyCard({ property, showAdminControls }: PropertyCardProps)
           src={property.image_url || '/placeholder.jpg'}
           alt={property.title}
           fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover"
         />
       </div>
