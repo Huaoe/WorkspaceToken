@@ -227,290 +227,141 @@ export function StakingInitButton({ propertyTokenAddress, requestId, form }: Sta
       console.log("- Per-second rate:", rewardRateHuman, "EURC/second");
 
       // Calculate total rewards needed (this is what we need to approve)
-      const totalRewards = totalRewardAmount;
-      console.log("\nTotal rewards needed:", formatUnits(totalRewards, eurcDecimals), "EURC");
+      const totalRewardsNeeded = rewardRate * BigInt(duration) * totalSupplyBase;
+      console.log("\nReward calculation check:");
+      console.log("- Reward rate (raw):", rewardRate.toString());
+      console.log("- Reward rate (formatted):", formatUnits(rewardRate, 6), "EURC/second");
+      console.log("- Duration:", duration, "seconds");
+      console.log("- Total rewards needed (raw):", totalRewardsNeeded.toString());
+      console.log("- Total rewards needed (formatted):", formatUnits(totalRewardsNeeded, 6), "EURC");
 
-      // Check EURC balance and allowance
-      const balance = await publicClient.readContract({
+      // Approve EURC spending
+      console.log("\nApproving EURC spending:");
+      console.log("- Amount (raw):", totalRewardsNeeded.toString());
+      console.log("- Amount (formatted):", formatUnits(totalRewardsNeeded, 6), "EURC");
+      console.log("- Spender:", STAKING_FACTORY_ADDRESS);
+
+      const approveTx = await walletClient.writeContract({
         address: EURC_TOKEN_ADDRESS as `0x${string}`,
         abi: eurcABI,
-        functionName: "balanceOf",
-        args: [address],
+        functionName: "approve",
+        args: [STAKING_FACTORY_ADDRESS, totalRewardsNeeded],
+        account: address,
       });
 
-      console.log("\nEURC Balance:", formatUnits(balance, eurcDecimals), "EURC");
+      console.log("Waiting for approval transaction...");
+      const approveReceipt = await publicClient.waitForTransactionReceipt({ 
+        hash: approveTx,
+        timeout: 30_000,
+      });
 
-      if (balance < totalRewards) {
-        throw new Error(`Insufficient EURC balance. You have ${formatUnits(balance, eurcDecimals)} EURC but need ${formatUnits(totalRewards, eurcDecimals)} EURC for rewards`);
+      console.log("EURC approval complete:", {
+        txHash: approveReceipt.transactionHash,
+        status: approveReceipt.status,
+      });
+
+      // Verify new allowance
+      const newAllowance = await publicClient.readContract({
+        address: EURC_TOKEN_ADDRESS as `0x${string}`,
+        abi: eurcABI,
+        functionName: "allowance",
+        args: [address, STAKING_FACTORY_ADDRESS],
+      });
+
+      console.log("New allowance (raw):", newAllowance.toString());
+      console.log("New allowance (formatted):", formatUnits(newAllowance, 6), "EURC");
+
+      if (newAllowance < totalRewardsNeeded) {
+        throw new Error("Approval failed - allowance is still too low");
       }
 
-      // Convert reward rate to proper units (6 decimals for EURC)
-      // We keep the raw reward rate as is since it's already in the correct decimals
-      const finalRewardRate = rewardRate;
+      // Create staking contract
+      console.log("\nCreating staking contract...");
+      const createTx = await walletClient.writeContract({
+        address: STAKING_FACTORY_ADDRESS as `0x${string}`,
+        abi: stakingFactoryABI,
+        functionName: "createStakingContract",
+        args: [propertyTokenAddress, rewardRate, duration],
+        account: address,
+      });
 
-      console.log("\nContract parameters:");
-      console.log("- Property token:", propertyTokenAddress);
-      console.log("- Reward rate:", formatUnits(finalRewardRate, 6), "EURC/second");
-      console.log("- Total rewards:", formatUnits(totalRewards, 6), "EURC");
-      console.log("- Duration:", duration.toString(), "seconds");
+      console.log("Transaction sent:", createTx);
 
-      try {
-        console.log("\nSimulating contract creation...");
-        
-        // Get current allowance
-        const currentAllowance = await publicClient.readContract({
-          address: EURC_TOKEN_ADDRESS as `0x${string}`,
-          abi: eurcABI,
-          functionName: "allowance",
-          args: [address, STAKING_FACTORY_ADDRESS],
-        });
+      // Wait for the transaction with a longer timeout and more retries
+      console.log("Waiting for transaction receipt...");
+      const receipt = await publicClient.waitForTransactionReceipt({ 
+        hash: createTx,
+        timeout: 60_000,
+        retryCount: 5,
+        pollingInterval: 1000,
+      });
 
-        // Calculate total rewards needed (rewardRate is already in EURC with 6 decimals)
-        // Since rewardRate has 6 decimals, we need to divide by 1e6 after multiplication
-        const totalRewardsNeeded = (finalRewardRate * duration) / BigInt(1000000);
-        console.log("\nReward calculation check:");
-        console.log("- Reward rate (raw):", finalRewardRate.toString());
-        console.log("- Reward rate (formatted):", formatUnits(finalRewardRate, 6), "EURC/second");
-        console.log("- Duration:", duration.toString(), "seconds");
-        console.log("- Total rewards (raw):", totalRewardsNeeded.toString());
-        console.log("- Total rewards (formatted):", formatUnits(totalRewardsNeeded, 6), "EURC");
-        console.log("- Current allowance (raw):", currentAllowance.toString());
-        console.log("- Current allowance (formatted):", formatUnits(currentAllowance, 6), "EURC");
+      console.log("Transaction mined! Receipt:", {
+        status: receipt.status,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed?.toString(),
+      });
 
-        // First approve EURC tokens if needed
-        if (currentAllowance < totalRewardsNeeded) {
-          console.log("\nApproving EURC tokens...");
-          const approveTx = await walletClient.writeContract({
-            address: EURC_TOKEN_ADDRESS as `0x${string}`,
-            abi: eurcABI,
-            functionName: "approve",
-            args: [STAKING_FACTORY_ADDRESS, totalRewardsNeeded],
-            account: address,
-          });
+      // Query the contract directly to get the staking contract address
+      const stakingContractInfo = await publicClient.readContract({
+        address: STAKING_FACTORY_ADDRESS as `0x${string}`,
+        abi: stakingFactoryABI,
+        functionName: "stakingContracts",
+        args: [propertyTokenAddress],
+      });
 
-          console.log("Waiting for approval transaction...");
-          const approveReceipt = await publicClient.waitForTransactionReceipt({ 
-            hash: approveTx,
-            timeout: 30_000,
-          });
+      console.log("Staking contract info:", stakingContractInfo);
+      const stakingContractAddress = stakingContractInfo.contractAddress;
 
-          console.log("EURC approval complete:", {
-            txHash: approveReceipt.transactionHash,
-            status: approveReceipt.status,
-          });
-
-          // Verify new allowance
-          const newAllowance = await publicClient.readContract({
-            address: EURC_TOKEN_ADDRESS as `0x${string}`,
-            abi: eurcABI,
-            functionName: "allowance",
-            args: [address, STAKING_FACTORY_ADDRESS],
-          });
-
-          console.log("New allowance (raw):", newAllowance.toString());
-          console.log("New allowance (formatted):", formatUnits(newAllowance, 6), "EURC");
-
-          if (newAllowance < totalRewardsNeeded) {
-            throw new Error("Approval failed - allowance is still too low");
-          }
-        } else {
-          console.log("Sufficient allowance already exists");
-        }
-
-        // Get current nonce
-        const nonce = await publicClient.getTransactionCount({
-          address: address as `0x${string}`,
-        });
-
-        console.log("Current nonce:", nonce);
-
-        // Estimate gas for contract creation
-        const gasEstimate = await publicClient.estimateContractGas({
-          address: STAKING_FACTORY_ADDRESS as `0x${string}`,
-          abi: stakingFactoryABI,
-          functionName: "createStakingContract",
-          args: [propertyTokenAddress, finalRewardRate, duration],
-          account: address,
-        }).catch((error: any) => {
-          console.error("Gas estimation error:", error);
-          return BigInt(2000000);
-        });
-
-        // Add 30% buffer to gas estimate
-        const gasLimit = gasEstimate + (gasEstimate * BigInt(30)) / BigInt(100);
-        console.log("Gas estimation:", {
-          estimate: gasEstimate.toString(),
-          withBuffer: gasLimit.toString(),
-        });
-
-        // Get current gas price with 20% buffer
-        const gasPrice = await publicClient.getGasPrice();
-        const gasPriceWithBuffer = gasPrice + (gasPrice * BigInt(20)) / BigInt(100);
-
-        // First simulate with our gas settings
-        const createContractRequest = await publicClient.simulateContract({
-          address: STAKING_FACTORY_ADDRESS as `0x${string}`,
-          abi: stakingFactoryABI,
-          functionName: "createStakingContract",
-          args: [propertyTokenAddress, finalRewardRate, duration],
-          account: address,
-          gas: gasLimit,
-          maxFeePerGas: gasPriceWithBuffer,
-        });
-
-        console.log("Contract creation simulation successful!");
-        console.log("Request details:", {
-          address: createContractRequest.request.address,
-          args: createContractRequest.request.args.map(arg => 
-            typeof arg === 'bigint' ? arg.toString() : arg
-          ),
-          account: createContractRequest.request.account,
-          gas: createContractRequest.request.gas?.toString(),
-          maxFeePerGas: createContractRequest.request.maxFeePerGas?.toString(),
-        });
-
-        // Execute the contract creation with explicit nonce
-        console.log("Creating staking contract...");
-        const createTx = await walletClient.writeContract({
-          ...createContractRequest.request,
-          gas: gasLimit,
-          maxFeePerGas: gasPriceWithBuffer,
-          nonce: nonce,
-        });
-
-        console.log("Transaction sent:", createTx);
-
-        // Wait for the transaction with a longer timeout and more retries
-        console.log("Waiting for transaction receipt...");
-        const receipt = await publicClient.waitForTransactionReceipt({ 
-          hash: createTx,
-          timeout: 60_000,
-          retryCount: 5,
-          pollingInterval: 1000,
-        });
-
-        console.log("Transaction mined! Receipt:", {
-          status: receipt.status,
-          blockNumber: receipt.blockNumber,
-          gasUsed: receipt.gasUsed?.toString(),
-          nonce: receipt.nonce,
-        });
-
-        // Log all events for debugging
-        console.log("Transaction logs:", receipt.logs.map(log => ({
-          address: log.address,
-          topics: log.topics,
-          data: log.data,
-        })));
-
-        // Try to find and decode the StakingContractCreated event
-        const stakingCreatedLog = receipt.logs.find(log => {
-          // The first topic is the event signature
-          const eventSignature = "StakingContractCreated(address,address,uint256,uint256)";
-          const eventTopic = keccak256(toBytes(eventSignature));
-          return log.topics[0] === eventTopic;
-        });
-
-        if (!stakingCreatedLog) {
-          console.log("Could not find StakingContractCreated event, querying contract directly");
-          
-          // Query the contract directly
-          const stakingContractInfo = await publicClient.readContract({
-            address: STAKING_FACTORY_ADDRESS as `0x${string}`,
-            abi: stakingFactoryABI,
-            functionName: "stakingContracts",
-            args: [propertyTokenAddress],
-          });
-
-          console.log("Staking contract info from query:", stakingContractInfo);
-
-          // Use the contract address from the query
-          const stakingContractAddress = stakingContractInfo.contractAddress;
-          
-          if (stakingContractAddress === "0x0000000000000000000000000000000000000000") {
-            throw new Error("Failed to create staking contract - address is zero");
-          }
-
-          // Verify reward rate was set correctly
-          const stakingContract = getContract({
-            address: stakingContractInfo.contractAddress as `0x${string}`,
-            abi: stakingRewardsABI,
-            publicClient,
-          });
-
-          const currentRewardRate = await stakingContract.read.rewardRate();
-          console.log("\nReward rate verification:");
-          console.log("- Current rate:", formatUnits(currentRewardRate, 6), "EURC/second");
-          console.log("- Expected rate:", formatUnits(finalRewardRate, 6), "EURC/second");
-
-          if (currentRewardRate !== finalRewardRate) {
-            throw new Error("Reward rate was not set correctly by factory");
-          }
-
-          return stakingContractInfo.contractAddress;
-        }
-
-        // Decode the event data
-        const decodedEvent = decodeEventLog({
-          abi: stakingFactoryABI,
-          data: stakingCreatedLog.data,
-          topics: stakingCreatedLog.topics,
-        });
-
-        console.log("Decoded event:", decodedEvent);
-
-        const stakingContractAddress = decodedEvent.args.stakingContract as `0x${string}`;
-        console.log("New staking contract address:", stakingContractAddress);
-
-        // Verify reward rate was set correctly
-        const stakingContract = getContract({
-          address: stakingContractAddress as `0x${string}`,
-          abi: stakingRewardsABI,
-          publicClient,
-        });
-
-        const currentRewardRate = await stakingContract.read.rewardRate();
-        console.log("\nReward rate verification:");
-        console.log("- Current rate:", formatUnits(currentRewardRate, 6), "EURC/second");
-        console.log("- Expected rate:", formatUnits(finalRewardRate, 6), "EURC/second");
-
-        if (currentRewardRate !== finalRewardRate) {
-          throw new Error("Reward rate was not set correctly by factory");
-        }
-
-        // Now fund the staking contract directly
-        console.log("\nFunding staking contract...");
-        const { request: fundRequest } = await publicClient.simulateContract({
-          address: EURC_TOKEN_ADDRESS as `0x${string}`,
-          abi: eurcABI,
-          functionName: "transfer",
-          args: [stakingContractAddress, totalRewards],
-          account: address,
-        });
-
-        const fundTx = await walletClient.writeContract(fundRequest);
-        await publicClient.waitForTransactionReceipt({ hash: fundTx });
-        console.log("Staking contract funded!");
-
-        setIsLoading(false);
-        toast({
-          title: "Success",
-          description: "Staking contract created and funded successfully!",
-        });
-      } catch (error: any) {
-        console.error("Error creating staking contract:", error);
-        if (error.cause?.data?.message) {
-          console.error("Error message:", error.cause.data.message);
-        }
-        throw error;
+      if (stakingContractAddress === "0x0000000000000000000000000000000000000000") {
+        throw new Error("Failed to create staking contract - address is zero");
       }
-    } catch (error) {
-      console.error("Error initializing staking contract:", error);
+
+      // Verify reward rate was set correctly
+      const currentRewardRate = await publicClient.readContract({
+        address: stakingContractAddress as `0x${string}`,
+        abi: stakingRewardsV2ABI,
+        functionName: "rewardRate",
+      });
+
+      console.log("\nReward rate verification:");
+      console.log("- Current rate:", formatUnits(currentRewardRate, 6), "EURC/second");
+      console.log("- Expected rate:", formatUnits(rewardRate, 6), "EURC/second");
+
+      if (currentRewardRate !== rewardRate) {
+        throw new Error("Reward rate was not set correctly by factory");
+      }
+
+      // Now fund the staking contract
+      console.log("\nFunding staking contract...");
+      const fundTx = await walletClient.writeContract({
+        address: EURC_TOKEN_ADDRESS as `0x${string}`,
+        abi: eurcABI,
+        functionName: "transfer",
+        args: [stakingContractAddress, totalRewardsNeeded],
+        account: address,
+      });
+
+      console.log("Waiting for funding transaction...");
+      await publicClient.waitForTransactionReceipt({ 
+        hash: fundTx,
+        timeout: 30_000,
+      });
+
+      console.log("Staking contract funded!");
+      setIsLoading(false);
       toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to initialize staking contract: " + (error as Error).message,
+        title: "Success",
+        description: "Staking contract created and funded successfully!",
       });
+
+      return stakingContractAddress;
+    } catch (error: any) {
+      console.error("Error creating staking contract:", error);
+      if (error.cause?.data?.message) {
+        console.error("Error message:", error.cause.data.message);
+      }
+      throw error;
     } finally {
       setIsLoading(false);
     }
