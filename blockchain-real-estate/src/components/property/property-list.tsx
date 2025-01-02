@@ -23,7 +23,11 @@ export function PropertyList() {
         const allProperties = await contract.getProperties();
         console.log('All properties:', allProperties);
         
-        setProperties(allProperties);
+        // Extract just the addresses from the property data
+        const propertyAddresses = allProperties.map((prop: [string, boolean]) => prop[0]);
+        console.log('Property addresses:', propertyAddresses);
+        
+        setProperties(propertyAddresses);
       } catch (error: any) {
         console.error('Error fetching properties:', error);
         toast({

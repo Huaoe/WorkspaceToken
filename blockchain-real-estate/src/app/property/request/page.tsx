@@ -376,7 +376,7 @@ export default function PropertyRequest() {
               name="roi"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Expected ROI (%)</FormLabel>
+                  <FormLabel>Expected APR (%)</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -385,7 +385,7 @@ export default function PropertyRequest() {
                     />
                   </FormControl>
                   <FormDescription>
-                    Enter the expected Return on Investment (0-100%)
+                    Enter the expected APR (0-100%)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

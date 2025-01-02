@@ -256,7 +256,7 @@ export default function PropertyDetailsPage() {
                 <h3 className="font-semibold mb-2">Returns</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500">Expected ROI</p>
+                    <p className="text-sm text-gray-500">Expected APR</p>
                     <p className="font-medium">{property.roi}%</p>
                   </div>
                   <div>

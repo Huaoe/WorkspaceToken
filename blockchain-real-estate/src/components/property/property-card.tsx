@@ -53,33 +53,27 @@ interface PropertyData {
 }
 
 interface PropertyCardProps {
-  property: PropertyRequest;
+  property?: PropertyRequest;
+  address?: string;
   showAdminControls?: boolean;
 }
 
-export function PropertyCard({ property, showAdminControls }: PropertyCardProps) {
-  const [onChainData, setOnChainData] = useState<PropertyData | null>(null);
+export function PropertyCard({ property, address, showAdminControls }: PropertyCardProps) {
+  const [propertyData, setPropertyData] = useState<PropertyData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { address } = useWalletEvents();
   const { toast } = useToast();
+  const { address: walletAddress } = useWalletEvents();
 
   useEffect(() => {
-    async function fetchPropertyData() {
-      if (!property.token_address) {
+    const fetchPropertyData = async () => {
+      if (!address) {
         setLoading(false);
         return;
       }
 
       try {
-        setLoading(true);
-        setError(null);
-
-        const contract = await getPropertyTokenContract(property.token_address);
-        console.log("Fetching property data for:", property.token_address);
-
-        // Get property details
+        const contract = await getPropertyTokenContract(address);
         const details = await contract.propertyDetails();
         const name = await contract.name();
         const symbol = await contract.symbol();
@@ -98,64 +92,32 @@ export function PropertyCard({ property, showAdminControls }: PropertyCardProps)
           soldTokens
         };
 
-        console.log("Property data:", {
-          ...data,
-          priceFormatted: formatUnits(data.price, 6),
-          totalSupplyFormatted: formatUnits(data.totalSupply, 18),
-          soldTokensFormatted: formatUnits(data.soldTokens, 18),
-          progressPercentage: (Number(formatUnits(data.soldTokens, 18)) / Number(formatUnits(data.totalSupply, 18))) * 100
+        setPropertyData(data);
+      } catch (error) {
+        console.error('Error fetching property data:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch property data',
+          variant: 'destructive',
         });
-        
-        setOnChainData(data);
-      } catch (error: any) {
-        console.error("Error fetching property data:", error);
-        setError(error.message || "Failed to fetch property data");
       } finally {
         setLoading(false);
       }
+    };
+
+    if (address) {
+      fetchPropertyData();
+    } else {
+      setLoading(false);
     }
-
-    fetchPropertyData();
-  }, [property.token_address]);
-
-  const calculateProgress = useCallback((soldTokens: bigint, totalSupply: bigint) => {
-    const soldTokensNum = Number(formatUnits(soldTokens, 18));
-    const totalSupplyNum = Number(formatUnits(totalSupply, 18));
-    const remainingTokens = totalSupplyNum - soldTokensNum;
-    const progress = (remainingTokens / totalSupplyNum) * 100;
-    return progress;
-  }, []);
-
-  const handlePurchaseClick = () => {
-    if (!property.token_address) {
-      toast({
-        title: "Error",
-        description: "Property token not yet created",
-        variant: "destructive",
-      });
-      return;
-    }
-    router.push(`/property/purchase/${property.token_address}`);
-  };
-
-  const handleStakeClick = () => {
-    if (!property.token_address) {
-      toast({
-        title: "Error",
-        description: "Property token not yet created",
-        variant: "destructive",
-      });
-      return;
-    }
-    router.push(`/property/stake/${property.token_address}`);
-  };
+  }, [address, toast]);
 
   if (loading) {
     return (
       <Card className="w-full">
         <CardContent className="p-6">
           <div className="animate-pulse space-y-4">
-            <div className="h-48 bg-gray-200 rounded-lg" />
+            <div className="h-48 bg-gray-200 rounded" />
             <div className="h-4 bg-gray-200 rounded w-3/4" />
             <div className="h-4 bg-gray-200 rounded w-1/2" />
           </div>
@@ -164,119 +126,100 @@ export function PropertyCard({ property, showAdminControls }: PropertyCardProps)
     );
   }
 
-  return (
-    <Card className="w-full overflow-hidden">
-      <div className="relative h-48">
-        <Image
-          src={property.image_url || '/placeholder.jpg'}
-          alt={property.title}
-          fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className="object-cover"
-        />
-      </div>
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle>{property.title}</CardTitle>
-            <CardDescription>{property.location}</CardDescription>
+  // If we have a property request, render that
+  if (property) {
+    return (
+      <Card className="w-full">
+        <CardHeader className="space-y-1">
+          <div className="relative h-48 w-full mb-4">
+            <Image
+              src={property.image_url || '/images/placeholder.png'}
+              alt={property.title}
+              fill
+              className="object-cover rounded-t-lg"
+            />
           </div>
-          <div className="px-2 py-1 text-xs font-semibold rounded bg-primary/10 text-primary">
-            {property.status}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            {property.description}
-          </p>
-          
-          {onChainData && (
-            <>
-              <div className="flex justify-between items-center text-sm">
-                <span>Token Price:</span>
-                <span className="font-medium">
-                  {formatUnits(onChainData.price, 6)} EURC
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span>Total Supply:</span>
-                <span className="font-medium">
-                  {formatUnits(onChainData.totalSupply, 18)} {onChainData.symbol}
-                </span>
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span>Funding Progress:</span>
-                  <span className="font-medium">
-                    {calculateProgress(onChainData.soldTokens, onChainData.totalSupply).toFixed(1)}%
-                  </span>
-                </div>
-                <Progress 
-                  value={calculateProgress(onChainData.soldTokens, onChainData.totalSupply)} 
-                />
-              </div>
-            </>
-          )}
-
-          {property.staking_contract_address && (
-            <div className="pt-2 space-y-2 border-t">
-              <div className="flex justify-between items-center text-sm">
-                <span>Staking Reward Rate:</span>
-                <span className="font-medium">
-                  {property.staking_reward_rate && formatUnits(BigInt(property.staking_reward_rate), 6)} EURC/sec
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span>Staking Duration:</span>
-                <span className="font-medium">
-                  {property.staking_duration && (Number(property.staking_duration) / (24 * 60 * 60)).toFixed(1)} days
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span>Staking Status:</span>
-                <span className={cn("px-2 py-1 rounded text-xs font-semibold", 
-                  property.staking_is_active 
-                    ? "bg-green-100 text-green-800" 
-                    : "bg-red-100 text-red-800"
-                )}>
-                  {property.staking_is_active ? "Active" : "Inactive"}
-                </span>
-              </div>
+          <CardTitle className="text-2xl">{property.title}</CardTitle>
+          <CardDescription>{property.location}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-gray-500">Expected Price</p>
+              <p className="font-medium">{property.expected_price} EURC</p>
             </div>
-          )}
-        </div>
+            <div>
+              <p className="text-sm text-gray-500">Expected APR</p>
+              <p className="font-medium">{property.roi}%</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Status</p>
+              <p className="font-medium capitalize">{property.status}</p>
+            </div>
+            {showAdminControls && (
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => router.push(`/property/request/${property.id}`)}
+                  variant="outline"
+                >
+                  View Details
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
-        <div className="flex gap-2">
-          {property.status === 'funding' && (
-            <Button 
-              className="flex-1" 
-              onClick={handlePurchaseClick}
-              disabled={!property.token_address}
-            >
-              Purchase Tokens
-            </Button>
-          )}
-          {property.status === 'staking' && (
-            <Button 
-              className="flex-1" 
-              onClick={handleStakeClick}
-              disabled={!property.staking_contract_address}
-            >
-              Stake Tokens
-            </Button>
-          )}
-          {showAdminControls && (
-            <Button 
-              variant="outline" 
-              onClick={() => router.push(`/admin/requests/${property.id}`)}
-            >
-              Manage
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+  // If we have property data from the contract, render that
+  if (propertyData) {
+    const progress = Number(propertyData.soldTokens) / Number(propertyData.totalSupply) * 100;
+    const formattedPrice = formatUnits(propertyData.price, 6);
+    const formattedTotalSupply = formatUnits(propertyData.totalSupply, 18);
+
+    return (
+      <Card className="w-full">
+        <CardHeader className="space-y-1">
+          <div className="relative h-48 w-full mb-4">
+            <Image
+              src={propertyData.imageUrl || '/images/placeholder.png'}
+              alt={propertyData.name}
+              fill
+              className="object-cover rounded-t-lg"
+            />
+          </div>
+          <CardTitle className="text-2xl">{propertyData.name}</CardTitle>
+          <CardDescription>{propertyData.description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-gray-500">Price per Token</p>
+              <p className="font-medium">{formattedPrice} EURC</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Total Supply</p>
+              <p className="font-medium">{Number(formattedTotalSupply).toLocaleString()} Tokens</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Progress</p>
+              <Progress value={progress} className="my-2" />
+              <p className="text-sm text-gray-500">{progress.toFixed(2)}% Sold</p>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                onClick={() => router.push(`/property/${address}`)}
+                variant="outline"
+              >
+                View Details
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return null;
 }

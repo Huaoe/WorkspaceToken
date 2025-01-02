@@ -18,6 +18,8 @@ import {
   PROPERTY_FACTORY_ADDRESS,
   EURC_TOKEN_ADDRESS,
   WHITELIST_ADDRESS,
+  STAKING_FACTORY_ADDRESS,
+  stakingFactoryABI,
 } from "@/lib/contracts";
 import {
   formatUnits,
@@ -65,6 +67,8 @@ export default function PurchaseProperty() {
   const [tokenHolder, setTokenHolder] = useState<string | null>(null);
   const [holderBalance, setHolderBalance] = useState<string>("0");
   const [owner, setOwner] = useState<string | null>(null);
+  const [stakingContract, setStakingContract] = useState<string | null>(null);
+  const [apr, setApr] = useState<number | null>(null);
 
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
@@ -191,6 +195,76 @@ export default function PurchaseProperty() {
       });
     }
   }, [tokenAddress, address, toast, publicClient]);
+
+  // Fetch staking contract and APR
+  useEffect(() => {
+    async function fetchStakingInfo() {
+      if (!tokenAddress || !publicClient) return;
+
+      try {
+        // Get staking contract address from factory
+        const stakingAddress = await publicClient.readContract({
+          address: STAKING_FACTORY_ADDRESS as `0x${string}`,
+          abi: stakingFactoryABI,
+          functionName: "getStakingContracts",
+          args: [tokenAddress as `0x${string}`],
+        });
+
+        setStakingContract(stakingAddress);
+
+        // Fetch APR from Supabase
+        const { data: propertyData, error } = await supabase
+          .from('property_requests')
+          .select('roi')
+          .eq('token_address', tokenAddress)
+          .single();
+
+        if (error) {
+          console.error('Error fetching APR from Supabase:', error);
+          // Try fetching from properties table as fallback
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('properties')
+            .select('roi')
+            .eq('token_address', tokenAddress)
+            .single();
+
+          if (fallbackError) {
+            console.error('Error fetching APR from fallback:', fallbackError);
+            return;
+          }
+
+          if (fallbackData?.roi) {
+            console.log('APR from properties table:', fallbackData.roi);
+            setApr(fallbackData.roi);
+          }
+          return;
+        }
+
+        if (propertyData?.roi) {
+          console.log('APR from property_requests:', propertyData.roi);
+          setApr(propertyData.roi);
+        } else {
+          console.log('No APR found for this property');
+          setApr(null);
+        }
+
+      } catch (error) {
+        console.error("Error fetching staking info:", error);
+      }
+    }
+
+    fetchStakingInfo();
+  }, [tokenAddress, publicClient]);
+
+  // Format APR with proper locale
+  const formattedApr = useMemo(() => {
+    if (apr === null) return 'Not available';
+    return new Intl.NumberFormat(undefined, {
+      style: 'percent',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(apr / 100);
+  }, [apr]);
 
   const handlePurchaseTokens = async () => {
     if (
@@ -596,6 +670,19 @@ export default function PurchaseProperty() {
                           ? `${(Number(formatUnits(onChainDetails.price, 6)) * Number(totalSupply)).toLocaleString()} EURC`
                           : "Loading..."}
                       </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Expected APR</p>
+                      <div className="flex items-center space-x-2">
+                        <p className="font-medium">
+                          {formattedApr}
+                        </p>
+                        {stakingContract && (
+                          <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
+                            Staking Active
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
