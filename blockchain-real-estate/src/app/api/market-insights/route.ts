@@ -20,21 +20,20 @@ interface MarketInsightsCache {
   created_at: string;
 }
 
-export async function GET(request: Request) {
+export async function GET(
+  request: Request,
+  { params }: { params: { location?: string } }
+) {
   try {
-    console.log('Starting market insights request...');
-    
+    // Get location from query parameters
+    const location = new URL(request.url).searchParams.get('location');
+
     if (!process.env.MISTRAL_API_KEY) {
-      console.error('MISTRAL_API_KEY not found in environment variables');
       return NextResponse.json(
         { error: 'Mistral API key not configured' },
         { status: 500 }
       );
     }
-
-    // Get location from searchParams
-    const { searchParams } = new URL(request.url);
-    const location = searchParams.get('location');
 
     if (!location) {
       return NextResponse.json(
@@ -83,13 +82,14 @@ export async function GET(request: Request) {
     const insights = data.choices[0].message.content;
 
     // Cache the new insights
-    await supabase
-      .from('market_insights_cache')
-      .upsert({
+    await supabase.from('market_insights_cache').upsert(
+      {
         location,
         insights,
         created_at: new Date().toISOString()
-      });
+      },
+      { onConflict: 'location' }
+    );
 
     return NextResponse.json({ insights });
   } catch (error) {
