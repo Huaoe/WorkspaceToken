@@ -32,100 +32,68 @@ export async function GET(request: Request) {
       );
     }
 
+    // Get location from searchParams
     const { searchParams } = new URL(request.url);
     const location = searchParams.get('location');
-    console.log('Location:', location);
 
     if (!location) {
-      console.log('No location provided');
       return NextResponse.json(
-        { error: 'Location is required' },
+        { error: 'Location parameter is required' },
         { status: 400 }
       );
     }
 
     // Check cache first
-    const { data: cachedData, error: cacheError } = await supabase
+    const { data: cachedInsights } = await supabase
       .from('market_insights_cache')
       .select('*')
       .eq('location', location)
       .single();
 
-    if (cacheError && cacheError.code !== 'PGRST116') { // PGRST116 is "not found" error
-      console.error('Cache lookup error:', cacheError);
-    }
-
-    // If we have valid cached data that's less than 24 hours old, return it
-    if (cachedData) {
-      const cacheAge = Date.now() - new Date(cachedData.created_at).getTime();
+    if (cachedInsights) {
+      const cacheAge = Date.now() - new Date(cachedInsights.created_at).getTime();
       if (cacheAge < CACHE_DURATION) {
-        console.log('Cache hit for location:', location);
-        return NextResponse.json({ insights: cachedData.insights });
+        return NextResponse.json({ insights: cachedInsights.insights });
       }
     }
 
-    // If no valid cache, proceed with Mistral API request
-    const systemPrompt = `You are a real estate market analyst. Provide a detailed market analysis for the location: ${location}.
-    Format your response with the following sections:
-    **Location Overview**
-    [Provide a brief overview of the area, including key characteristics and demographics]
-
-    **Market Trends**
-    [Analyze current market trends, including price trends, demand, and supply]
-
-    **Investment Potential**
-    [Evaluate the investment potential, including growth prospects and risk factors]
-
-    Use markdown formatting for better readability. Keep the total response under 1000 characters.`;
-
-    const userMessage = `Please provide a market analysis for ${location}.`;
-
+    // Generate new insights using Mistral API
     const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
+        'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`
       },
       body: JSON.stringify({
-        model: "open-mistral-nemo",
+        model: 'mistral-tiny',
         messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage }
-        ],
-      }),
+          {
+            role: 'user',
+            content: `Provide a brief market analysis for real estate in ${location}. Focus on current trends, average prices, and investment potential. Keep it concise and factual.`
+          }
+        ]
+      })
     });
 
-    console.log('Response status:', response.status);
-    const data = await response.json();
-    console.log('Response data:', data);
-
     if (!response.ok) {
-      if (response.status === 429) {
-        return NextResponse.json({ error: 'Rate limit exceeded. Please try again later.' }, { status: 429 });
-      }
-      throw new Error(`API request failed with status ${response.status}`);
+      throw new Error('Failed to fetch market insights');
     }
 
+    const data = await response.json();
     const insights = data.choices[0].message.content;
 
-    // Update cache with new data
-    const { error: upsertError } = await supabase
+    // Cache the new insights
+    await supabase
       .from('market_insights_cache')
       .upsert({
         location,
         insights,
-        created_at: new Date().toISOString(),
-      }, {
-        onConflict: 'location'
+        created_at: new Date().toISOString()
       });
-
-    if (upsertError) {
-      console.error('Cache update error:', upsertError);
-    }
 
     return NextResponse.json({ insights });
   } catch (error) {
-    console.error('Market insights error:', error);
+    console.error('Error in market insights:', error);
     return NextResponse.json(
       { error: 'Failed to fetch market insights' },
       { status: 500 }
