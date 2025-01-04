@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.21;
 
 import "./PropertyToken.sol";
 import "./interfaces/IWhitelist.sol";
@@ -39,8 +39,8 @@ contract PropertyFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         require(_validator != address(0), "Validator cannot be zero address");
         require(_whitelistContract != address(0), "Whitelist cannot be zero address");
         require(_eurcTokenAddress != address(0), "EURC token cannot be zero address");
-
-        __Ownable_init(msg.sender);
+        
+        __Ownable_init();
         __UUPSUpgradeable_init();
 
         validator = _validator;
@@ -77,7 +77,6 @@ contract PropertyFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             imageUrl: _imageUrl,
             price: _price,
             totalSupply: _totalSupply,
-            initialOwner: address(this), // Set PropertyFactory as initial owner
             eurcTokenAddress: eurcTokenAddress,
             whitelistContract: whitelistContract
         });

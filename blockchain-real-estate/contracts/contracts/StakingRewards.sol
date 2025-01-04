@@ -44,7 +44,7 @@ contract StakingRewards is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         require(_rewardToken != address(0), "StakingRewards: reward token is zero address");
         require(_duration > 0, "StakingRewards: duration must be greater than zero");
 
-        __Ownable_init(msg.sender);
+        __Ownable_init();
         __UUPSUpgradeable_init();
 
         stakingToken = IERC20(_stakingToken);

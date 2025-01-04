@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.21;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -40,7 +40,7 @@ contract PropertyToken is
     event PropertyStatusUpdated(bool status);
     event TokenHolderUpdated(address indexed previousHolder, address indexed newHolder);
     event PurchaseAttempted(address indexed buyer, uint256 amount, uint256 eurcAmount, bool whitelisted, bool active);
-    event SaleAttempted(address indexed seller, uint256 amount, uint256 eurcAmount, bool whitelisted, bool active);
+    event SaleAttempted(address indexed seller, uint256 amount, uint256 eurcAmount, bool whitelisted, bool active, bool sufficientBalance);
     event TransferAttempted(address indexed from, address indexed to, uint256 amount, uint256 eurcAmount);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -57,14 +57,13 @@ contract PropertyToken is
         string imageUrl;
         uint256 price;
         uint256 totalSupply;
-        address initialOwner;
         address eurcTokenAddress;
         address whitelistContract;
     }
 
     function initialize(InitParams calldata params) public initializer {
         __ERC20_init(params.name, params.symbol);
-        __Ownable_init(params.initialOwner);
+        __Ownable_init();
         __UUPSUpgradeable_init();
 
         propertyDetails = PropertyDetails({
@@ -137,7 +136,8 @@ contract PropertyToken is
             amount,
             (amount * propertyDetails.price) / (10 ** decimals()),
             IWhitelist(whitelistContract).isWhitelisted(msg.sender),
-            propertyDetails.isActive
+            propertyDetails.isActive,
+            balanceOf(msg.sender) >= amount
         );
 
         // Check if seller has enough tokens
@@ -187,20 +187,14 @@ contract PropertyToken is
         emit PropertyStatusUpdated(status);
     }
 
-    // Override approve to check whitelist
-    function approve(address spender, uint256 amount) public virtual override returns (bool) {
-        if (!IWhitelist(whitelistContract).isWhitelisted(msg.sender)) {
-            revert NotWhitelisted();
-        }
-        return super.approve(spender, amount);
-    }
-
-    // Override _update to check whitelist
-    function _update(
+    // Check whitelist before any transfer
+    function _beforeTokenTransfer(
         address from,
         address to,
         uint256 amount
     ) internal virtual override {
+        super._beforeTokenTransfer(from, to, amount);
+        
         if (from != address(0) && to != address(0)) { // Skip minting and burning
             if (!IWhitelist(whitelistContract).isWhitelisted(from)) {
                 revert NotWhitelisted();
@@ -208,10 +202,14 @@ contract PropertyToken is
             if (!IWhitelist(whitelistContract).isWhitelisted(to)) {
                 revert NotWhitelisted();
             }
-            if (!propertyDetails.isActive) {
-                revert PropertyInactive();
-            }
         }
-        super._update(from, to, amount);
+    }
+
+    // Override approve to check whitelist
+    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+        if (!IWhitelist(whitelistContract).isWhitelisted(msg.sender)) {
+            revert NotWhitelisted();
+        }
+        return super.approve(spender, amount);
     }
 }

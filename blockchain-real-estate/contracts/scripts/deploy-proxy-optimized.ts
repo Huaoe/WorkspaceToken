@@ -1,18 +1,31 @@
-import { ethers, upgrades } from "hardhat";
+import { ethers, upgrades, network } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
 import dotenv from "dotenv";
 import { Contract } from "ethers";
 
+// Load environment variables based on network
+const envPath = path.join(process.cwd(), '.env');
+const envLocalPath = path.join(process.cwd(), '.env.local');
+
 // Load environment variables
 dotenv.config();
 
+interface ContractConfig {
+  envKeyPrefix: string;
+  constructorArgs: (...args: any[]) => any[];
+  initialize: boolean;
+  verify: boolean;
+}
+
 async function getExistingAddresses() {
-  const envLocalPath = path.join(process.cwd(), '..', '.env.local');
+  // Choose env file based on network
+  const isLocal = network.name === 'localhost' || network.name === 'hardhat';
+  const targetEnvPath = isLocal ? envLocalPath : envPath;
   let addresses: { [key: string]: string } = {};
 
-  if (fs.existsSync(envLocalPath)) {
-    const content = fs.readFileSync(envLocalPath, 'utf8');
+  if (fs.existsSync(targetEnvPath)) {
+    const content = fs.readFileSync(targetEnvPath, 'utf8');
     const lines = content.split('\n');
     
     for (const line of lines) {
@@ -25,66 +38,96 @@ async function getExistingAddresses() {
     }
   }
 
+  const prefix = isLocal ? 'NEXT_PUBLIC_' : '';
   return {
-    WHITELIST_PROXY_ADDRESS: addresses.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS || '',
-    PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS: addresses.NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS || '',
-    PROPERTY_FACTORY_PROXY_ADDRESS: addresses.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS || '',
-    EURC_TOKEN_ADDRESS: addresses.NEXT_PUBLIC_EURC_TOKEN_ADDRESS || '',
-    STAKING_FACTORY_ADDRESS: addresses.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS || ''
+    WHITELIST_PROXY_ADDRESS: addresses[`${prefix}WHITELIST_PROXY_ADDRESS`] || '',
+    PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS: addresses[`${prefix}PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS`] || '',
+    PROPERTY_FACTORY_PROXY_ADDRESS: addresses[`${prefix}PROPERTY_FACTORY_PROXY_ADDRESS`] || '',
+    EURC_TOKEN_ADDRESS: addresses[`${prefix}EURC_TOKEN_ADDRESS`] || '',
+    STAKING_FACTORY_ADDRESS: addresses[`${prefix}STAKING_FACTORY_ADDRESS`] || ''
   };
 }
 
 function updateEnvFile(envPath: string, newValues: { [key: string]: string }) {
-  if (!fs.existsSync(envPath)) {
-    console.log(`Creating new ${envPath}`);
+  // Read existing content
+  let content = '';
+  if (fs.existsSync(envPath)) {
+    content = fs.readFileSync(envPath, 'utf8');
   }
 
-  let content = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
-  const lines = content.split('\n');
-  let newContent: string[] = [];
-  let hasContractSection = false;
-
-  // Keep non-contract related environment variables
-  for (const line of lines) {
-    if (!line.includes('_ADDRESS') && !line.includes('# Smart Contract')) {
-      newContent.push(line);
+  // Parse existing content
+  const envVars: { [key: string]: string } = {};
+  content.split('\n').forEach(line => {
+    if (line.includes('=')) {
+      const [key, value] = line.split('=').map(part => part.trim());
+      if (key && !key.startsWith('#')) {
+        envVars[key] = value;
+      }
     }
+  });
+
+  // Merge new values
+  Object.assign(envVars, newValues);
+
+  // Create sections
+  const sections = {
+    network: ['NETWORK'],
+    rpc: ['SEPOLIA_RPC_URL', 'PRIVATE_KEY', 'ETHERSCAN_API_KEY'],
+    whitelist: ['WHITELIST_PROXY_ADDRESS', 'WHITELIST_IMPLEMENTATION_ADDRESS', 'WHITELIST_ADMIN_ADDRESS'],
+    propertyToken: ['PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS'],
+    propertyFactory: ['PROPERTY_FACTORY_PROXY_ADDRESS', 'PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS', 'PROPERTY_FACTORY_ADMIN_ADDRESS'],
+    eurc: ['EURC_TOKEN_ADDRESS'],
+    stakingFactory: ['STAKING_FACTORY_ADDRESS', 'STAKING_FACTORY_IMPLEMENTATION_ADDRESS', 'STAKING_FACTORY_ADMIN_ADDRESS']
+  };
+
+  // Build new content
+  let newContent = '# Environment Variables\n\n';
+
+  // Add network-specific sections
+  const isLocal = network.name === 'localhost' || network.name === 'hardhat';
+  const prefix = isLocal ? 'NEXT_PUBLIC_' : '';
+
+  if (!isLocal) {
+    // Only include RPC section for non-local networks
+    newContent += '# Network Configuration\n';
+    sections.rpc.forEach(key => {
+      if (envVars[key]) {
+        newContent += `${key}=${envVars[key]}\n`;
+      }
+    });
+    newContent += '\n';
   }
 
-  // Add contract addresses section
-  if (!newContent[newContent.length - 1]?.trim()) {
-    newContent.push('');
-  }
+  // Add network info
+  newContent += '# Deployment Network\n';
+  sections.network.forEach(key => {
+    if (envVars[key]) {
+      newContent += `${key}=${envVars[key]}\n`;
+    }
+  });
+  newContent += '\n';
 
-  newContent.push('# Smart Contract Addresses\n');
-  
-  // Add Whitelist Contract section
-  newContent.push('# Whitelist Contract');
-  newContent.push(`NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS}`);
-  newContent.push(`NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS}`);
-  newContent.push(`NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS=${newValues.NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS}\n`);
-  
-  // Add Property Token Contract section
-  newContent.push('# Property Token Contract');
-  newContent.push(`NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS}\n`);
-  
-  // Add Property Factory Contract section
-  newContent.push('# Property Factory Contract');
-  newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS}`);
-  newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS}`);
-  newContent.push(`NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS=${newValues.NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS}\n`);
-  
-  // Add EURC Token Contract section
-  newContent.push('# EURC Token Contract');
-  newContent.push(`NEXT_PUBLIC_EURC_TOKEN_ADDRESS=${newValues.NEXT_PUBLIC_EURC_TOKEN_ADDRESS}\n`);
-  
-  // Add Staking Factory Contract section
-  newContent.push('# Staking Factory Contract');
-  newContent.push(`NEXT_PUBLIC_STAKING_FACTORY_ADDRESS=${newValues.NEXT_PUBLIC_STAKING_FACTORY_ADDRESS}`);
-  newContent.push(`NEXT_PUBLIC_STAKING_FACTORY_IMPLEMENTATION_ADDRESS=${newValues.NEXT_PUBLIC_STAKING_FACTORY_IMPLEMENTATION_ADDRESS}`);
-  newContent.push(`NEXT_PUBLIC_STAKING_FACTORY_ADMIN_ADDRESS=${newValues.NEXT_PUBLIC_STAKING_FACTORY_ADMIN_ADDRESS}\n`);
+  // Add contract sections
+  const sectionTitles = {
+    whitelist: 'Whitelist Contract',
+    propertyToken: 'Property Token Contract',
+    propertyFactory: 'Property Factory Contract',
+    eurc: 'EURC Token Contract',
+    stakingFactory: 'Staking Factory Contract'
+  };
 
-  fs.writeFileSync(envPath, newContent.join('\n'));
+  Object.entries(sectionTitles).forEach(([section, title]) => {
+    newContent += `# ${title}\n`;
+    sections[section].forEach(key => {
+      if (envVars[key]) {
+        newContent += `${prefix}${key}=${envVars[key]}\n`;
+      }
+    });
+    newContent += '\n';
+  });
+
+  // Write to file
+  fs.writeFileSync(envPath, newContent.trim() + '\n');
   console.log(`Updated ${envPath}`);
 }
 
@@ -112,16 +155,37 @@ async function deployOrGetWhitelist(deployer: any, existingAddress: string) {
 
   console.log("\nDeploying new Whitelist...");
   const Whitelist = await ethers.getContractFactory("Whitelist");
+
+  // Get current gas price and optimize it
+  const gasPrice = await ethers.provider.getFeeData();
+  console.log("Current gas price:", ethers.formatUnits(gasPrice.gasPrice || 0, "gwei"), "gwei");
+
+  // Calculate optimal gas price (slightly above base fee)
+  const maxFeePerGas = gasPrice.maxFeePerGas || gasPrice.gasPrice;
+  const maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas;
+  
+  // Deploy with optimized gas settings
   const whitelist = await upgrades.deployProxy(
     Whitelist,
     [deployer.address],
     {
       initializer: 'initialize',
       kind: 'transparent',
-      initialOwner: deployer.address
+      initialOwner: deployer.address,
+      timeout: 0,
+      pollingInterval: 5000,
+      txOverrides: {
+        gasLimit: 2000000,
+        gasPrice: 8000000000  // 8 gwei, matching network config
+      }
     }
   );
+
+  console.log("Waiting for deployment...");
   await whitelist.waitForDeployment();
+  const deployedAddress = await whitelist.getAddress();
+  console.log("Whitelist deployed to:", deployedAddress);
+  
   return whitelist;
 }
 
@@ -201,8 +265,72 @@ async function deployContract(contractName: string, ...args: any[]) {
 }
 
 async function main() {
-  const [deployer] = await ethers.getSigners();
-  console.log("Deploying/Updating contracts with account:", deployer.address);
+  // Get network information
+  const networkName = network.name;
+  const isLocal = networkName === 'localhost' || networkName === 'hardhat';
+  const targetEnvPath = isLocal ? envLocalPath : envPath;
+  
+  console.log(`Deploying to network: ${networkName}`);
+  console.log(`Using environment file: ${targetEnvPath}`);
+  console.log(`Environment variables loaded:`)
+  console.log(`- SEPOLIA_RPC_URL: ${process.env.SEPOLIA_RPC_URL ? '✓' : '✗'}`);
+  console.log(`- PRIVATE_KEY: ${process.env.PRIVATE_KEY ? '✓' : '✗'}`);
+  console.log(`- ETHERSCAN_API_KEY: ${process.env.ETHERSCAN_API_KEY ? '✓' : '✗'}`);
+
+  // Initialize provider and deployer first
+  const provider = ethers.provider;
+  const [defaultSigner] = await ethers.getSigners();
+  
+  // For Sepolia, ensure private key has 0x prefix
+  const privateKey = process.env.PRIVATE_KEY || '';
+  console.log(`Private key length: ${privateKey.length}`);
+  
+  const formattedPrivateKey = privateKey.startsWith('0x') ? privateKey : `0x${privateKey}`;
+  const deployer = networkName === 'sepolia'
+    ? new ethers.Wallet(formattedPrivateKey, provider)
+    : defaultSigner;
+
+  // Validate environment variables for Sepolia
+  if (networkName === 'sepolia') {
+    if (!process.env.SEPOLIA_RPC_URL) {
+      throw new Error("Missing SEPOLIA_RPC_URL in environment variables");
+    }
+    if (!process.env.PRIVATE_KEY) {
+      throw new Error("Missing PRIVATE_KEY in environment variables");
+    }
+    if (!process.env.ETHERSCAN_API_KEY) {
+      throw new Error("Missing ETHERSCAN_API_KEY in environment variables");
+    }
+
+    // Check balance before deployment
+    const balance = await provider.getBalance(deployer.address);
+    const balanceInEth = Number(ethers.formatEther(balance));
+    console.log(`\nDeployer address: ${deployer.address}`);
+    console.log(`Deployer balance: ${balanceInEth} ETH`);
+    console.log(`Deployer balance (wei): ${balance.toString()}`);
+
+    // Get gas price
+    const gasPrice = await provider.getFeeData();
+    console.log(`Current gas price: ${ethers.formatUnits(gasPrice.gasPrice || 0, "gwei")} gwei`);
+    console.log(`Max fee per gas: ${ethers.formatUnits(gasPrice.maxFeePerGas || 0, "gwei")} gwei`);
+    console.log(`Max priority fee: ${ethers.formatUnits(gasPrice.maxPriorityFeePerGas || 0, "gwei")} gwei`);
+
+    // Estimate deployment cost
+    const gasLimit = 2000000;
+    const estimatedCost = gasLimit * Number(gasPrice.gasPrice);
+    console.log(`Estimated deployment cost: ${ethers.formatEther(estimatedCost.toString())} ETH`);
+    console.log(`Available balance: ${balanceInEth} ETH`);
+
+    // Estimate minimum required balance (0.1 ETH should be safe for all deployments)
+    const MIN_BALANCE = 0.1;
+    if (balanceInEth < MIN_BALANCE) {
+      throw new Error(`Insufficient balance for deployment. You have ${balanceInEth} ETH but need at least ${MIN_BALANCE} ETH.\n` +
+        "Please get some Sepolia ETH from a faucet:\n" +
+        "1. Alchemy Sepolia Faucet: https://sepoliafaucet.com/\n" +
+        "2. Infura Sepolia Faucet: https://www.infura.io/faucet/sepolia\n" +
+        "3. QuickNode Sepolia Faucet: https://faucet.quicknode.com/ethereum/sepolia");
+    }
+  }
 
   // Get existing addresses
   const existingAddresses = await getExistingAddresses();
@@ -334,37 +462,36 @@ async function main() {
   console.log("- Implementation:", stakingFactoryImplAddress);
   console.log("- Admin:", stakingFactoryAdminAddress);
 
-  // Update only .env.local file
-  const frontendEnvPath = path.join(process.cwd(), '..', '.env.local');
-  
+  // Update environment file based on network
   const addresses = {
-    // Whitelist addresses
-    NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS: whitelistAddress,
-    NEXT_PUBLIC_WHITELIST_IMPLEMENTATION_ADDRESS: whitelistImplAddress,
-    NEXT_PUBLIC_WHITELIST_ADMIN_ADDRESS: whitelistAdminAddress,
+    // Network info
+    NETWORK: networkName,
     
-    // Property Token address
-    NEXT_PUBLIC_PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS: propertyTokenImplAddress,
+    // Contract addresses (prefix will be added in updateEnvFile)
+    WHITELIST_PROXY_ADDRESS: whitelistAddress,
+    WHITELIST_IMPLEMENTATION_ADDRESS: whitelistImplAddress,
+    WHITELIST_ADMIN_ADDRESS: whitelistAdminAddress,
     
-    // Property Factory addresses
-    NEXT_PUBLIC_PROPERTY_FACTORY_PROXY_ADDRESS: propertyFactoryAddress,
-    NEXT_PUBLIC_PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS: propertyFactoryImplAddress,
-    NEXT_PUBLIC_PROPERTY_FACTORY_ADMIN_ADDRESS: propertyFactoryAdminAddress,
+    PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS: propertyTokenImplAddress,
     
-    // EURC Token address
-    NEXT_PUBLIC_EURC_TOKEN_ADDRESS: eurcAddress,
+    PROPERTY_FACTORY_PROXY_ADDRESS: propertyFactoryAddress,
+    PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS: propertyFactoryImplAddress,
+    PROPERTY_FACTORY_ADMIN_ADDRESS: propertyFactoryAdminAddress,
     
-    // StakingFactory addresses
-    NEXT_PUBLIC_STAKING_FACTORY_ADDRESS: stakingFactoryAddress,
-    NEXT_PUBLIC_STAKING_FACTORY_IMPLEMENTATION_ADDRESS: stakingFactoryImplAddress,
-    NEXT_PUBLIC_STAKING_FACTORY_ADMIN_ADDRESS: stakingFactoryAdminAddress
+    EURC_TOKEN_ADDRESS: eurcAddress,
+    
+    STAKING_FACTORY_ADDRESS: stakingFactoryAddress,
+    STAKING_FACTORY_IMPLEMENTATION_ADDRESS: stakingFactoryImplAddress,
+    STAKING_FACTORY_ADMIN_ADDRESS: stakingFactoryAdminAddress
   };
 
-  // Update only .env.local
-  updateEnvFile(frontendEnvPath, addresses);
-  console.log("\nUpdated environment variables in .env.local");
+  // Update the appropriate env file
+  updateEnvFile(targetEnvPath, addresses);
+  console.log(`\nUpdated environment variables in ${targetEnvPath}`);
 
+  console.log(`\nDeployment completed on network: ${networkName}`);
   console.log("\nContract Addresses:");
+  console.log(`Network: ${networkName}`);
   console.log("\nWhitelist Addresses:");
   console.log("- Proxy:", whitelistAddress);
   console.log("- Implementation:", whitelistImplAddress);
@@ -377,11 +504,24 @@ async function main() {
   console.log("- Proxy:", stakingFactoryAddress);
   console.log("- Implementation:", stakingFactoryImplAddress);
   console.log("- Admin:", stakingFactoryAdminAddress);
+
+  // If on Sepolia, wait for deployment confirmation
+  if (networkName === 'sepolia') {
+    console.log("\nWaiting for deployments to be confirmed on Sepolia...");
+    // Wait for additional block confirmations on Sepolia
+    await Promise.all([
+      whitelist.deployTransaction?.wait(3),
+      propertyFactory.deployTransaction?.wait(3),
+      stakingFactory.deployTransaction?.wait(3)
+    ]);
+    console.log("All deployments confirmed!");
+  }
 }
 
 main()
   .then(() => process.exit(0))
   .catch((error) => {
+    console.error("Error in deployment:");
     console.error(error);
     process.exit(1);
   });

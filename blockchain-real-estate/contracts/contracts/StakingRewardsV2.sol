@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.21;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -54,7 +54,7 @@ contract StakingRewardsV2 is Initializable, OwnableUpgradeable, UUPSUpgradeable 
         require(_rewardToken != address(0), "Reward token address cannot be 0");
         require(_duration > 0, "Duration must be > 0");
         
-        __Ownable_init(msg.sender);
+        __Ownable_init();
         __UUPSUpgradeable_init();
 
         stakingToken = IERC20(_stakingToken);

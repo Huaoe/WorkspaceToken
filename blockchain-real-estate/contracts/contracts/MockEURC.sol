@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.21;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -14,7 +14,8 @@ contract MockEURC is ERC20, Ownable {
     /// @notice Creates a new MockEURC token
     /// @param initialOwner Address of the initial owner who receives the initial supply
     /// @dev Mints 1 million EURC to the initial owner
-    constructor(address initialOwner) ERC20("Mock EURC", "EURC") Ownable(initialOwner) {
+    constructor(address initialOwner) ERC20("Mock EURC", "EURC") Ownable() {
+        _transferOwnership(initialOwner);
         // Mint 1 million EURC to the deployer
         _mint(initialOwner, 1_000_000_000_000 * 10**_decimals);
     }

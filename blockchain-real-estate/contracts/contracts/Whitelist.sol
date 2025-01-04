@@ -29,7 +29,7 @@ contract Whitelist is IWhitelist, Initializable, OwnableUpgradeable {
     /// @notice Initializes the Whitelist contract
     /// @param initialOwner The address that will own and manage the whitelist
     function initialize(address initialOwner) public initializer {
-        __Ownable_init(initialOwner);
+        __Ownable_init();
         console.log("Initializing Whitelist contract with owner:", initialOwner);
     }
 

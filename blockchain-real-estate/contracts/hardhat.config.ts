@@ -6,9 +6,17 @@ import "@typechain/hardhat";
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
-// Load environment variables from .env.local
-const envPath = path.resolve(__dirname, '../.env.local');
+// Load environment variables based on network
+const envPath = path.resolve(__dirname, '../.env');
+const envLocalPath = path.resolve(__dirname, '../.env.local');
+
+// Load .env for Sepolia
 dotenv.config({ path: envPath });
+// Load .env.local for local development (will override .env if both exist)
+if (process.argv.includes('--network') && 
+    (process.argv.includes('localhost') || process.argv.includes('hardhat'))) {
+  dotenv.config({ path: envLocalPath });
+}
 
 // Task to whitelist an address
 task("whitelist-address", "Whitelist an address")
@@ -205,7 +213,7 @@ task("start-staking", "Start a staking period for a property token")
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.26",
+    version: "0.8.21",
     settings: {
       optimizer: {
         enabled: true,
@@ -235,9 +243,23 @@ const config: HardhatUserConfig = {
       chainId: 31337,
       url: "http://127.0.0.1:8545",
     },
+    sepolia: {
+      url: process.env.SEPOLIA_RPC_URL || "",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 11155111,
+      gas: 2000000,
+      gasPrice: 8000000000,  // 8 gwei
+      verify: {
+        etherscan: {
+          apiKey: process.env.ETHERSCAN_API_KEY || ""
+        }
+      }
+    }
+  },
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY || ""
   },
   paths: {
-    // deploy: 'scripts',
     deployments: 'deployments',
     sources: "./contracts",
     tests: "./test",

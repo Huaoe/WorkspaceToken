@@ -3,8 +3,6 @@ node_modules/
 jspm_packages/
 
 # Hardhat files
-cache/
-artifacts/
 typechain-types/
 coverage/
 coverage.json

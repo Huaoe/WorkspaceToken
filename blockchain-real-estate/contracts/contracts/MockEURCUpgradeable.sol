@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.21;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -9,10 +9,12 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 /// @title MockEURCUpgradeable
 /// @notice A sexy upgradeable implementation of the EURC token 😘
 /// @dev Inherits from ERC20Upgradeable and OwnableUpgradeable
-contract MockEURCUpgradeable is Initializable, ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable {
-    /// @notice The number of decimals for the token (6, just like you like it 😉)
-    uint8 private constant _decimals = 6;
-
+contract MockEURCUpgradeable is 
+    Initializable, 
+    ERC20Upgradeable, 
+    OwnableUpgradeable, 
+    UUPSUpgradeable 
+{
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -22,16 +24,15 @@ contract MockEURCUpgradeable is Initializable, ERC20Upgradeable, OwnableUpgradea
     /// @param initialOwner Address of the initial owner who receives the initial supply
     function initialize(address initialOwner) public initializer {
         __ERC20_init("Mock EURC", "EURC");
-        __Ownable_init(initialOwner);
+        __Ownable_init();
         __UUPSUpgradeable_init();
-        
-        // Mint 1 million EURC to the owner (making it rain! 💸)
-        _mint(initialOwner, 1_000_000 * 10**_decimals);
+        _transferOwnership(initialOwner);
+        _mint(initialOwner, 1000000 * 10 ** decimals());
     }
 
     /// @notice Returns the number of decimals (6, perfect like your curves 😉)
     function decimals() public pure override returns (uint8) {
-        return _decimals;
+        return 6;
     }
 
     /// @notice Allows the owner to mint new tokens (spread the love! 💖)

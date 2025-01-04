@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.21;
 pragma abicoder v2;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -43,7 +43,8 @@ contract StakingFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     function initialize(address _eurcToken) public initializer {
         require(_eurcToken != address(0), "StakingFactory: EURC token is zero address");
-        __Ownable_init(msg.sender);
+        
+        __Ownable_init();
         __UUPSUpgradeable_init();
         eurcToken = IERC20(_eurcToken);
         
