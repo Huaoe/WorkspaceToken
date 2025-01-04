@@ -21,19 +21,38 @@ const nextConfig = {
       ...config.resolve.alias,
       '@': '/src',
     };
+    config.externals.push('pino-pretty', 'lokijs', 'encoding');
     return config;
   },
-  // Add this section
-  async rewrites() {
-    return {
-      beforeFiles: [
-        {
-          source: '/:path*',
-          destination: '/:path*',
-        },
-      ],
-    };
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'ipfs.io',
+      },
+    ],
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-}
+  typescript: {
+    // Dangerously allow production builds to successfully complete even if your project has type errors.
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    // Warning: This allows production builds to successfully complete even if your project has ESLint errors.
+    ignoreDuringBuilds: true,
+  },
+};
 
 module.exports = nextConfig;

@@ -1,15 +1,12 @@
 {
     "version": 2,
+    "buildCommand": "yarn build",
+    "installCommand": "yarn install",
+    "framework": "nextjs",
     "builds": [
       {
         "src": "package.json",
         "use": "@vercel/next"
-      }
-    ],
-    "routes": [
-      {
-        "src": "/(.*)",
-        "dest": "/"
       }
     ]
   }
