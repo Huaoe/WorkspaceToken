@@ -48,21 +48,37 @@ module.exports = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      keyframes: {
+        blob: {
+          "0%": {
+            transform: "translate(0px, 0px) scale(1)",
+          },
+          "33%": {
+            transform: "translate(30px, -50px) scale(1.1)",
+          },
+          "66%": {
+            transform: "translate(-20px, 20px) scale(0.9)",
+          },
+          "100%": {
+            transform: "translate(0px, 0px) scale(1)",
+          },
+        },
+        fadeIn: {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        gradient: {
+          "0%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+          "100%": { backgroundPosition: "0% 50%" },
+        },
+      },
+      animation: {
+        blob: "blob 7s infinite",
+        fadeIn: "fadeIn 0.5s ease-out forwards",
+        gradient: "gradient 3s ease infinite",
+      },
     },
   },
-  plugins: [
-    function({ addUtilities }) {
-      const newUtilities = {
-        '.range-slider::-webkit-slider-thumb': {
-          '-webkit-appearance': 'none',
-          'appearance': 'none',
-          '@apply h-5 w-5 rounded-full border-2 border-primary bg-background transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2': {}
-        },
-        '.range-slider::-moz-range-thumb': {
-          '@apply h-5 w-5 rounded-full border-2 border-primary bg-background transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2': {}
-        },
-      }
-      addUtilities(newUtilities)
-    }
-  ]
+  plugins: [],
 }

@@ -60,29 +60,39 @@ export default function Home() {
   return (
     <div className="space-y-12">
       {/* Hero Section */}
-      <div className="bg-[#93d2d9] text-white p-8 md:p-16 rounded-lg">
-        <div className="flex flex-col md:flex-row gap-8 items-center">
-          <div className="flex-shrink-0 order-2 md:order-1">
+      <div className="relative overflow-hidden bg-gradient-to-br from-cyan-400 via-[#93d2d9] to-blue-500 text-white p-8 md:p-16 rounded-2xl shadow-2xl transform hover:scale-[1.02] transition-all duration-300">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute w-72 h-72 rounded-full bg-white/30 -top-12 -right-12 animate-blob"></div>
+          <div className="absolute w-72 h-72 rounded-full bg-white/30 -bottom-12 -left-12 animate-blob animation-delay-2000"></div>
+          <div className="absolute w-72 h-72 rounded-full bg-white/30 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-blob animation-delay-4000"></div>
+        </div>
+        
+        <div className="relative flex flex-col md:flex-row gap-8 items-center">
+          <div className="flex-shrink-0 order-2 md:order-1 transform hover:scale-110 transition-transform duration-300">
             <Image
               src="/images/OIG4.jpeg"
               alt="Work Space Token Logo"
               width={200}
               height={200}
-              className="object-contain"
+              className="object-contain rounded-2xl shadow-xl"
             />
           </div>
           <div className="max-w-3xl order-1 md:order-2">
-            <h1 className="text-4xl md:text-5xl font-bold mb-6">
+            <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-100 animate-gradient">
               L&apos;immobilier de bureaux à portée de clic
             </h1>
             <div className="space-y-4 text-lg md:text-xl">
-              <p>
+              <p className="opacity-0 animate-fadeIn animation-delay-500 flex items-center gap-3">
+                <span className="inline-block w-2 h-2 bg-white rounded-full"></span>
                 Investissez simplement, rapidement et bénéficiez de parts des revenus locatifs.
               </p>
-              <p>
+              <p className="opacity-0 animate-fadeIn animation-delay-1000 flex items-center gap-3">
+                <span className="inline-block w-2 h-2 bg-white rounded-full"></span>
                 Diversifiez votre patrimoine avec une faible mise de départ.
               </p>
-              <p>
+              <p className="opacity-0 animate-fadeIn animation-delay-1500 flex items-center gap-3">
+                <span className="inline-block w-2 h-2 bg-white rounded-full"></span>
                 Votre investissement est sécurisé par la meilleure garantie du marché.
               </p>
             </div>
