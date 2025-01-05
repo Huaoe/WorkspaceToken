@@ -98,36 +98,7 @@ export default function ConceptionJuridiquePage() {
           </div>
         </section>
 
-        {/* Cost Structure Section */}
-        <section className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-lg">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-            Postes de dépenses
-          </h2>
-          <div className="space-y-6">
-            <div className="border-l-4 border-cyan-500 pl-4">
-              <h3 className="text-lg font-semibold mb-2">Poste de dépense n°1</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                Variable selon l&apos;étendue, la durée (forfaits mensuels ou annuels)
-                l&apos;automatisation, l&apos;accompagnement
-                (base 500€-1500€ HT mensuel)
-              </p>
-            </div>
-            <div className="border-l-4 border-cyan-500 pl-4">
-              <h3 className="text-lg font-semibold mb-2">Poste de dépense n°2</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                Avis sur la qualification du token 2K-6K€ HT
-                Analyse de la situation du projet 4K-10K HT
-                Rédaction de contrats : 4K HT
-              </p>
-            </div>
-            <div className="border-l-4 border-cyan-500 pl-4">
-              <h3 className="text-lg font-semibold mb-2">Total des dépenses estimées</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                35K€ HT (hors licences et autorisations)
-              </p>
-            </div>
-          </div>
-        </section>
+
       </div>
     </div>
   );
