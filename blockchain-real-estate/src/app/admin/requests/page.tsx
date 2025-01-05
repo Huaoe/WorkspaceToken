@@ -3,12 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
-import { getPropertyFactoryContract, getSigner } from '@/lib/ethereum';
+import { getWhitelistContract, getSigner } from '@/lib/ethereum';
 import { supabase } from '@/lib/supabase/client';
 import { PropertyRequestCard } from './components/PropertyRequestCard';
 import { KYCSubmissionCard } from './components/KYCSubmissionCard';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from 'date-fns';
 import { MapPin, Calendar, Percent, Clock, User, ExternalLink } from 'lucide-react';
@@ -49,7 +48,7 @@ export default function AdminRequests() {
 
       console.log('Checking admin status for address:', address);
       try {
-        const contract = await getPropertyFactoryContract();
+        const contract = await getWhitelistContract();
         const owner = await contract.owner();
         console.log('Contract owner:', owner);
         console.log('Current address:', address);
@@ -103,10 +102,25 @@ export default function AdminRequests() {
       // If approving, whitelist the address
       if (status === 'approved') {
         try {
-          const contract = await getPropertyFactoryContract();
-          const tx = await contract.whitelistAddress(submission.wallet_address);
-          await tx.wait();
-          whitelistTxHash = tx.hash;
+          console.log('Getting whitelist contract...');
+          const contract = await getWhitelistContract(true); // Get contract with signer
+          console.log('Contract retrieved. Whitelisting address:', submission.wallet_address);
+          
+          // First check if the address is already whitelisted
+          const isAlreadyWhitelisted = await contract.isWhitelisted(submission.wallet_address);
+          if (isAlreadyWhitelisted) {
+            console.log('Address already whitelisted');
+            whitelistTxHash = 'already_whitelisted';
+          } else {
+            console.log('Sending whitelist transaction...');
+            const tx = await contract.addToWhitelist(submission.wallet_address);
+            console.log('Transaction sent:', tx.hash);
+            
+            console.log('Waiting for transaction confirmation...');
+            await tx.wait();
+            console.log('Transaction confirmed');
+            whitelistTxHash = tx.hash;
+          }
           
           toast({
             title: "Address Whitelisted",
@@ -114,9 +128,16 @@ export default function AdminRequests() {
           });
         } catch (error: any) {
           console.error('Error whitelisting address:', error);
+          
+          // Log detailed error information
+          if (error.code) console.error('Error code:', error.code);
+          if (error.message) console.error('Error message:', error.message);
+          if (error.transaction) console.error('Failed transaction:', error.transaction);
+          if (error.receipt) console.error('Transaction receipt:', error.receipt);
+          
           toast({
             title: "Error",
-            description: "Failed to whitelist address on-chain. Please try again.",
+            description: `Failed to whitelist address: ${error.message || 'Unknown error'}`,
             variant: "destructive",
           });
           throw new Error('Failed to whitelist address');
@@ -150,7 +171,7 @@ export default function AdminRequests() {
         description: error.message || "Failed to process KYC validation",
         variant: "destructive",
       });
-      throw error; // Re-throw to be caught by the component
+      throw error;
     }
   };
 
@@ -250,7 +271,11 @@ export default function AdminRequests() {
               ) : (
                 <div className="grid gap-4">
                   {kycSubmissions.map((submission) => (
-                    <KYCSubmissionCard key={submission.id} submission={submission} handleKYCValidation={handleKYCValidation} />
+                    <KYCSubmissionCard 
+                      key={submission.id} 
+                      submission={submission} 
+                      handleKYCValidation={handleKYCValidation} 
+                    />
                   ))}
                 </div>
               )}

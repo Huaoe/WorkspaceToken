@@ -21,18 +21,16 @@ interface KYCSubmissionCardProps {
     created_at: string;
     whitelist_tx_hash?: string;
   };
-  onStatusChange: () => void;
-  onValidate: (id: string, status: 'approved' | 'rejected') => Promise<void>;
+  handleKYCValidation: (id: string, status: 'approved' | 'rejected') => Promise<void>;
 }
 
-export function KYCSubmissionCard({ submission, onStatusChange, onValidate }: KYCSubmissionCardProps) {
+export function KYCSubmissionCard({ submission, handleKYCValidation }: KYCSubmissionCardProps) {
   const [isValidating, setIsValidating] = useState(false);
 
   const handleValidation = async (status: 'approved' | 'rejected') => {
     setIsValidating(true);
     try {
-      await onValidate(submission.id, status);
-      onStatusChange();
+      await handleKYCValidation(submission.id, status);
     } catch (error) {
       console.error('Error validating KYC:', error);
     } finally {
@@ -48,85 +46,57 @@ export function KYCSubmissionCard({ submission, onStatusChange, onValidate }: KY
           <div>
             <p className="font-medium">
               {submission.wallet_address.substring(0, 6)}...
-              {submission.wallet_address.substring(
-                submission.wallet_address.length - 4
-              )}
+              {submission.wallet_address.substring(submission.wallet_address.length - 4)}
             </p>
-            <p className="text-sm text-gray-500">
-              Submitted{' '}
-              {formatDistanceToNow(new Date(submission.created_at), {
-                addSuffix: true,
-              })}
+            <p className="text-sm text-muted-foreground">
+              Submitted {formatDistanceToNow(new Date(submission.created_at))} ago
             </p>
           </div>
         </div>
-        <div className="flex space-x-2">
-          {submission.status === 'pending' ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleValidation('rejected')}
-                disabled={isValidating}
-              >
-                {isValidating ? (
-                  <div className="flex items-center">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </div>
-                ) : (
-                  'Reject'
-                )}
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => handleValidation('approved')}
-                disabled={isValidating}
-              >
-                {isValidating ? (
-                  <div className="flex items-center">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Whitelisting...
-                  </div>
-                ) : (
-                  'Approve'
-                )}
-              </Button>
-            </>
-          ) : (
-            <Badge
-              className={
-                submission.status === 'approved'
-                  ? 'bg-green-500'
-                  : 'bg-red-500'
-              }
-            >
-              {submission.status}
-            </Badge>
-          )}
+        
+        <div className="flex items-center space-x-2">
           {submission.whitelist_tx_hash && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="px-2"
-                    onClick={() =>
-                      window.open(
-                        `https://sepolia.etherscan.io/tx/${submission.whitelist_tx_hash}`,
-                        '_blank'
-                      )
-                    }
+                  <a
+                    href={`https://sepolia.etherscan.io/tx/${submission.whitelist_tx_hash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 hover:bg-accent rounded-full transition-colors"
                   >
                     <ExternalLink className="h-4 w-4" />
-                  </Button>
+                  </a>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>View transaction on Etherscan</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          )}
+          
+          {isValidating ? (
+            <Button disabled>
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Processing...
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => handleValidation('rejected')}
+              >
+                Reject
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => handleValidation('approved')}
+              >
+                Approve
+              </Button>
+            </>
           )}
         </div>
       </CardContent>

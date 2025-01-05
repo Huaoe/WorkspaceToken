@@ -1,14 +1,32 @@
 import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
 
 const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
+const TIMEOUT_DURATION = 30000; // 30 seconds timeout
 
 // CORS headers configuration
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// Helper function to handle timeouts
+const fetchWithTimeout = async (url: string, options: RequestInit, timeout: number) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
 };
 
 // Handle OPTIONS request for CORS preflight
@@ -19,7 +37,10 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   try {
     if (!MISTRAL_API_KEY) {
-      throw new Error('MISTRAL_API_KEY is not configured');
+      return NextResponse.json(
+        { error: 'MISTRAL_API_KEY is not configured' },
+        { status: 500, headers: corsHeaders }
+      );
     }
 
     const { location } = await request.json();
@@ -27,10 +48,7 @@ export async function POST(request: Request) {
     if (!location) {
       return NextResponse.json(
         { error: 'Location is required' },
-        { 
-          status: 400,
-          headers: corsHeaders
-        }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -40,24 +58,28 @@ export async function POST(request: Request) {
 3. Risk Assessment: Key risks and opportunities for real estate investment in this area.
 Keep each section under 200 words.`;
 
-    const response = await fetch(MISTRAL_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${MISTRAL_API_KEY}`,
+    const response = await fetchWithTimeout(
+      MISTRAL_API_URL,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${MISTRAL_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: "mistral-medium",
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 1024,
+        }),
       },
-      body: JSON.stringify({
-        model: "mistral-medium",
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 1024,
-      }),
-    });
+      TIMEOUT_DURATION
+    );
 
     if (!response.ok) {
       const error = await response.json();
@@ -72,12 +94,26 @@ Keep each section under 200 words.`;
 
   } catch (error: any) {
     console.error('Mistral API Error:', error);
+    
+    // Handle specific error types
+    if (error.name === 'AbortError') {
+      return NextResponse.json(
+        { error: 'Request timed out. Please try again.' },
+        { status: 504, headers: corsHeaders }
+      );
+    }
+
+    // Handle network errors
+    if (error.message === 'Failed to fetch') {
+      return NextResponse.json(
+        { error: 'Network error. Please check your connection and try again.' },
+        { status: 503, headers: corsHeaders }
+      );
+    }
+
     return NextResponse.json(
       { error: error.message || 'Internal server error' },
-      { 
-        status: error.status || 500,
-        headers: corsHeaders
-      }
+      { status: error.status || 500, headers: corsHeaders }
     );
   }
 }
