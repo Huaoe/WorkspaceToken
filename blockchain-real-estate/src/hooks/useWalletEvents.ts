@@ -57,15 +57,37 @@ export function useWalletEvents() {
     }
   }, [toast]);
 
-  const disconnect = useCallback(() => {
-    setAddress(null);
-    setIsConnected(false);
-    setSigner(null);
-    setChainId(null);
-    toast({
-      title: 'Wallet Disconnected',
-      description: 'Your wallet has been disconnected.',
-    });
+  const disconnect = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.ethereum) return;
+
+    try {
+      // Request to connect with empty accounts to force disconnect
+      await window.ethereum.request({
+        method: "eth_accounts",
+        params: []
+      });
+
+      // Clear local state
+      setAddress(null);
+      setIsConnected(false);
+      setSigner(null);
+      setChainId(null);
+      
+      // Force page reload to clear any cached connections
+      window.location.reload();
+
+      toast({
+        title: 'Wallet Disconnected',
+        description: 'Your wallet has been disconnected.',
+      });
+    } catch (error) {
+      console.error('Error disconnecting wallet:', error);
+      toast({
+        title: 'Disconnection Failed',
+        description: 'Failed to disconnect wallet.',
+        variant: 'destructive',
+      });
+    }
   }, [toast]);
 
   useEffect(() => {
@@ -125,6 +147,6 @@ export function useWalletEvents() {
     signer,
     chainId,
     connect,
-    disconnect,
+    disconnect
   };
 }
