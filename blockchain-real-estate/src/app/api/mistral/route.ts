@@ -1,7 +1,20 @@
 import { NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 
 const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
+
+// CORS headers configuration
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +27,10 @@ export async function POST(request: Request) {
     if (!location) {
       return NextResponse.json(
         { error: 'Location is required' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -49,24 +65,19 @@ Keep each section under 200 words.`;
     }
 
     const data = await response.json();
-    const content = data.choices[0].message.content;
-
-    // Parse the content into sections
-    const sections = content.split(/\d\.\s+/).filter(Boolean);
-    const [marketAnalysis, pricePrediction, riskAssessment] = sections.map(
-      section => section.trim()
-    );
-
-    return NextResponse.json({
-      market_analysis: marketAnalysis || 'Market analysis not available',
-      price_prediction: pricePrediction || 'Price prediction not available',
-      risk_assessment: riskAssessment || 'Risk assessment not available',
+    
+    return NextResponse.json(data, { 
+      headers: corsHeaders
     });
-  } catch (error) {
-    console.error('Mistral API error:', error);
+
+  } catch (error: any) {
+    console.error('Mistral API Error:', error);
     return NextResponse.json(
-      { error: 'Failed to get market insights' },
-      { status: 500 }
+      { error: error.message || 'Internal server error' },
+      { 
+        status: error.status || 500,
+        headers: corsHeaders
+      }
     );
   }
 }
