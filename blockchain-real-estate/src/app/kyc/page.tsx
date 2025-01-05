@@ -297,7 +297,7 @@ export default function KYCForm() {
                   name="salutation"
                   value={formData.salutation}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground"
                   required
                 >
                   <option value="">Select...</option>
@@ -314,7 +314,7 @@ export default function KYCForm() {
                   name="first_name"
                   value={formData.first_name}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground"
                   required
                 />
               </div>
@@ -327,7 +327,7 @@ export default function KYCForm() {
                   name="middle_name"
                   value={formData.middle_name}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground"
                 />
               </div>
               <div>
@@ -337,7 +337,7 @@ export default function KYCForm() {
                   name="last_name"
                   value={formData.last_name}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground"
                   required
                 />
               </div>
@@ -349,7 +349,7 @@ export default function KYCForm() {
                 name="date_of_birth"
                 value={formData.date_of_birth}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded bg-background text-foreground"
                 required
               />
             </div>
@@ -361,7 +361,7 @@ export default function KYCForm() {
                   name="nationality"
                   value={formData.nationality}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground dark:bg-dark-background dark:text-dark-foreground"
                   required
                 />
               </div>
@@ -372,7 +372,7 @@ export default function KYCForm() {
                   name="country_of_residence"
                   value={formData.country_of_residence}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground dark:bg-dark-background dark:text-dark-foreground"
                   required
                 />
               </div>
@@ -389,7 +389,7 @@ export default function KYCForm() {
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded bg-background text-foreground dark:bg-dark-background dark:text-dark-foreground"
                 required
               />
             </div>
@@ -402,7 +402,7 @@ export default function KYCForm() {
                   value={formData.phone_country_code}
                   onChange={handleInputChange}
                   placeholder="+1"
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground"
                   required
                 />
               </div>
@@ -413,7 +413,7 @@ export default function KYCForm() {
                   name="phone_number"
                   value={formData.phone_number}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground"
                   required
                 />
               </div>
@@ -430,7 +430,7 @@ export default function KYCForm() {
                 name="street_address"
                 value={formData.street_address}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded bg-background text-foreground"
                 required
               />
             </div>
@@ -442,7 +442,7 @@ export default function KYCForm() {
                   name="city"
                   value={formData.city}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground"
                   required
                 />
               </div>
@@ -453,7 +453,7 @@ export default function KYCForm() {
                   name="state"
                   value={formData.state}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground"
                   required
                 />
               </div>
@@ -466,7 +466,7 @@ export default function KYCForm() {
                   name="postal_code"
                   value={formData.postal_code}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground"
                   required
                 />
               </div>
@@ -477,7 +477,7 @@ export default function KYCForm() {
                   name="country"
                   value={formData.country}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground"
                   required
                 />
               </div>
@@ -493,7 +493,7 @@ export default function KYCForm() {
                 name="identification_type"
                 value={formData.identification_type}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded bg-background text-foreground"
                 required
               >
                 <option value="">Select...</option>
@@ -509,7 +509,7 @@ export default function KYCForm() {
                 name="identification_number"
                 value={formData.identification_number}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded bg-background text-foreground"
                 required
               />
             </div>
@@ -521,7 +521,7 @@ export default function KYCForm() {
                   name="identification_issue_date"
                   value={formData.identification_issue_date}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground"
                   required
                 />
               </div>
@@ -532,7 +532,7 @@ export default function KYCForm() {
                   name="identification_expiry_date"
                   value={formData.identification_expiry_date}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded bg-background text-foreground"
                   required
                 />
               </div>
@@ -548,7 +548,7 @@ export default function KYCForm() {
                 name="employment_status"
                 value={formData.employment_status}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded bg-background text-foreground"
                 required
               >
                 <option value="employed">Employed</option>
@@ -565,7 +565,7 @@ export default function KYCForm() {
                 name="source_of_funds"
                 value={formData.source_of_funds}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded bg-background text-foreground"
                 required
               />
             </div>
@@ -576,7 +576,7 @@ export default function KYCForm() {
                 name="annual_income"
                 value={formData.annual_income}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded bg-background text-foreground"
                 required
               />
             </div>
@@ -591,7 +591,7 @@ export default function KYCForm() {
                 name="primary_blockchain_network"
                 value={formData.primary_blockchain_network}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded bg-background text-foreground"
                 required
               >
                 <option value="ethereum">Ethereum</option>
@@ -606,7 +606,7 @@ export default function KYCForm() {
                 name="trading_experience"
                 value={formData.trading_experience}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded bg-background text-foreground"
                 required
               >
                 <option value="none">None</option>
@@ -622,7 +622,7 @@ export default function KYCForm() {
                 name="purpose_of_trading"
                 value={formData.purpose_of_trading}
                 onChange={handleInputChange}
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border rounded bg-background text-foreground"
                 required
               />
             </div>
