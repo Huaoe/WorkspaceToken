@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { User, ExternalLink } from 'lucide-react';
+import { User, ExternalLink, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Tooltip,
@@ -12,7 +12,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useState } from 'react';
-import { Loader2 } from "@/components/ui/loader";
 
 interface KYCSubmissionCardProps {
   submission: {
