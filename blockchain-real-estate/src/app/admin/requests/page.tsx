@@ -79,11 +79,16 @@ export default function AdminRequests() {
 
   // Handle KYC validation
   const handleKYCValidation = async (kycId: string, status: 'approved' | 'rejected') => {
-    if (!isAdmin || !isConnected) return;
+    if (!isAdmin || !isConnected) {
+      toast({
+        title: "Error",
+        description: "You must be connected and have admin privileges",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
-      const signer = getSigner();
-
       // Get the KYC submission
       const { data: submission, error: kycError } = await supabase
         .from('kyc_submissions')
@@ -93,31 +98,59 @@ export default function AdminRequests() {
 
       if (kycError) throw kycError;
 
+      let whitelistTxHash = null;
+
+      // If approving, whitelist the address
+      if (status === 'approved') {
+        try {
+          const contract = await getPropertyFactoryContract();
+          const tx = await contract.whitelistAddress(submission.wallet_address);
+          await tx.wait();
+          whitelistTxHash = tx.hash;
+          
+          toast({
+            title: "Address Whitelisted",
+            description: "Successfully whitelisted the address on-chain",
+          });
+        } catch (error: any) {
+          console.error('Error whitelisting address:', error);
+          toast({
+            title: "Error",
+            description: "Failed to whitelist address on-chain. Please try again.",
+            variant: "destructive",
+          });
+          throw new Error('Failed to whitelist address');
+        }
+      }
+
       // Update the submission status
       const { error: updateError } = await supabase
         .from('kyc_submissions')
         .update({ 
           status,
           validated_at: new Date().toISOString(),
+          validator_address: address,
+          whitelist_tx_hash: whitelistTxHash
         })
         .eq('id', kycId);
 
       if (updateError) throw updateError;
 
       // Refresh the submissions list
-      fetchKYCSubmissions();
+      await fetchKYCSubmissions();
 
       toast({
         title: "Success",
         description: `KYC submission ${status} successfully`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error handling KYC validation:', error);
       toast({
         title: "Error",
-        description: "Failed to process KYC validation",
+        description: error.message || "Failed to process KYC validation",
         variant: "destructive",
       });
+      throw error; // Re-throw to be caught by the component
     }
   };
 

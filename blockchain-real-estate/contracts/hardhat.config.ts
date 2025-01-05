@@ -5,6 +5,7 @@ import "hardhat-deploy";
 import "@typechain/hardhat";
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import { JsonRpcProvider } from 'ethers';
 
 // Load environment variables based on network
 const envPath = path.resolve(__dirname, '../.env');
@@ -211,6 +212,9 @@ task("start-staking", "Start a staking period for a property token")
     });
   });
 
+// Import tasks
+import "./tasks/distribute-mock-eurc";
+
 const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.21",
@@ -223,7 +227,7 @@ const config: HardhatUserConfig = {
   },
   namedAccounts: {
     deployer: {
-      default: 0, // here this will by default take the first account as deployer
+      default: 0,
     },
   },
   networks: {
@@ -244,11 +248,22 @@ const config: HardhatUserConfig = {
       url: "http://127.0.0.1:8545",
     },
     sepolia: {
-      url: process.env.SEPOLIA_RPC_URL || "",
+      url: process.env.SEPOLIA_RPC_URL || "https://1rpc.io/sepolia",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 11155111,
-      gas: 2000000,
-      gasPrice: 8000000000  // 8 gwei
+      gas: "auto",
+      gasPrice: "auto",
+      timeout: 60000,
+      httpHeaders: {
+        'Accept': '*/*',
+        'User-Agent': 'hardhat',
+        'Connection': 'keep-alive'
+      },
+      verify: {
+        etherscan: {
+          apiKey: process.env.ETHERSCAN_API_KEY
+        }
+      }
     }
   },
   etherscan: {

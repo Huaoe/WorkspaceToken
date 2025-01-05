@@ -55,8 +55,8 @@ export const LocationPicker = forwardRef<
   { updateMapLocation: (lat: number, lng: number) => void },
   LocationPickerProps
 >(({ onLocationSelect, defaultCenter, currentValue }, ref) => {
-  const [marker, setMarker] = useState(defaultCenter || defaultLocation);
-  const [center, setCenter] = useState(defaultCenter || defaultLocation);
+  const [marker, setMarker] = useState<{ lat: number; lng: number }>(defaultCenter || defaultLocation);
+  const [center, setCenter] = useState<{ lat: number; lng: number }>(defaultCenter || defaultLocation);
 
   // Validate coordinates
   const validatedCenter = {
@@ -69,19 +69,31 @@ export const LocationPicker = forwardRef<
     lng: isNaN(marker.lng) ? defaultLocation.lng : marker.lng
   };
 
+  // Expose update method via ref
+  useImperativeHandle(ref, () => ({
+    updateMapLocation: (lat: number, lng: number) => {
+      setMarker({ lat, lng });
+      setCenter({ lat, lng });
+    }
+  }));
+
   // Update marker and center when defaultCenter changes
   useEffect(() => {
-    if (defaultCenter && defaultCenter.lat && defaultCenter.lng) {
+    if (defaultCenter && !isNaN(defaultCenter.lat) && !isNaN(defaultCenter.lng)) {
       setMarker(defaultCenter);
       setCenter(defaultCenter);
     }
   }, [defaultCenter]);
 
   const handleMapClick = useCallback(async (lat: number, lng: number) => {
+    if (typeof onLocationSelect !== 'function') {
+      console.error('onLocationSelect is not a function');
+      return;
+    }
+
     setMarker({ lat, lng });
     setCenter({ lat, lng });
 
-    // Get address from coordinates using Nominatim (OpenStreetMap's geocoding service)
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
@@ -102,17 +114,6 @@ export const LocationPicker = forwardRef<
       });
     }
   }, [onLocationSelect]);
-
-  // Function to update map location
-  const updateMapLocation = useCallback((lat: number, lng: number) => {
-    setMarker({ lat, lng });
-    setCenter({ lat, lng });
-  }, []);
-
-  // Expose updateMapLocation function
-  useImperativeHandle(ref, () => ({
-    updateMapLocation
-  }));
 
   return (
     <MapWithNoSSR

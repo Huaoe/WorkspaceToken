@@ -11,14 +11,36 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useState } from 'react';
+import { Loader2 } from "@/components/ui/loader";
 
 interface KYCSubmissionCardProps {
-  submission: any;
+  submission: {
+    id: string;
+    wallet_address: string;
+    status: string;
+    created_at: string;
+    whitelist_tx_hash?: string;
+  };
   onStatusChange: () => void;
-  onValidate: (id: string, status: 'approved' | 'rejected') => void;
+  onValidate: (id: string, status: 'approved' | 'rejected') => Promise<void>;
 }
 
 export function KYCSubmissionCard({ submission, onStatusChange, onValidate }: KYCSubmissionCardProps) {
+  const [isValidating, setIsValidating] = useState(false);
+
+  const handleValidation = async (status: 'approved' | 'rejected') => {
+    setIsValidating(true);
+    try {
+      await onValidate(submission.id, status);
+      onStatusChange();
+    } catch (error) {
+      console.error('Error validating KYC:', error);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
   return (
     <Card key={submission.id}>
       <CardContent className="flex justify-between items-center py-4">
@@ -45,15 +67,31 @@ export function KYCSubmissionCard({ submission, onStatusChange, onValidate }: KY
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onValidate(submission.id, 'rejected')}
+                onClick={() => handleValidation('rejected')}
+                disabled={isValidating}
               >
-                Reject
+                {isValidating ? (
+                  <div className="flex items-center">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </div>
+                ) : (
+                  'Reject'
+                )}
               </Button>
               <Button
                 size="sm"
-                onClick={() => onValidate(submission.id, 'approved')}
+                onClick={() => handleValidation('approved')}
+                disabled={isValidating}
               >
-                Approve
+                {isValidating ? (
+                  <div className="flex items-center">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Whitelisting...
+                  </div>
+                ) : (
+                  'Approve'
+                )}
               </Button>
             </>
           ) : (
