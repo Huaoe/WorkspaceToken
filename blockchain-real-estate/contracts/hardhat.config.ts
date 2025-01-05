@@ -8,16 +8,15 @@ import * as path from 'path';
 import { JsonRpcProvider } from 'ethers';
 
 // Load environment variables based on network
-const envPath = path.resolve(__dirname, '../.env');
-const envLocalPath = path.resolve(__dirname, '../.env.local');
+const network = process.argv.find((arg) => arg.startsWith('--network='))?.split('=')[1] || 
+                process.argv[process.argv.indexOf('--network') + 1] || 
+                'hardhat';
 
-// Load .env for Sepolia
+const isLocalNetwork = network === 'localhost' || network === 'hardhat';
+const envPath = path.resolve(__dirname, '../', isLocalNetwork ? '.env.local' : '.env');
+
+console.log(`Loading environment from: ${envPath} (Network: ${network})`);
 dotenv.config({ path: envPath });
-// Load .env.local for local development (will override .env if both exist)
-if (process.argv.includes('--network') && 
-    (process.argv.includes('localhost') || process.argv.includes('hardhat'))) {
-  dotenv.config({ path: envLocalPath });
-}
 
 // Task to whitelist an address
 task("whitelist-address", "Whitelist an address")

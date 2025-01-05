@@ -16,22 +16,13 @@ dotenv.config({ path: envPath });
 
 // Get environment variables
 const WHITELIST_ADDRESS = process.env.NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS;
-const SEPOLIA_RPC = process.env.SEPOLIA_RPC_URL;
 
 // Validate environment variables
 console.log('Environment variables loaded:');
 console.log('- WHITELIST_ADDRESS:', WHITELIST_ADDRESS ? ' Set' : ' Not set');
-if (!isLocalNetwork) {
-  console.log('- SEPOLIA_RPC_URL:', SEPOLIA_RPC ? ' Set' : ' Not set');
-  console.log('- PRIVATE_KEY:', process.env.PRIVATE_KEY ? ' Set' : ' Not set');
-}
 
 if (!WHITELIST_ADDRESS) {
   throw new Error(`NEXT_PUBLIC_WHITELIST_PROXY_ADDRESS not found in ${isLocalNetwork ? '.env.local' : '.env'}`);
-}
-
-if (!isLocalNetwork && !SEPOLIA_RPC) {
-  throw new Error("SEPOLIA_RPC_URL not found in .env (required for Sepolia network)");
 }
 
 export async function main(address: string) {
@@ -46,34 +37,16 @@ export async function main(address: string) {
 
     // Test network connection
     console.log('\nTesting network connection...');
-    let provider;
-    
-    if (isLocalNetwork) {
-      provider = new JsonRpcProvider("http://127.0.0.1:8545");
-    } else {
-      provider = new JsonRpcProvider(SEPOLIA_RPC, {
-        chainId: 11155111,
-        name: 'sepolia'
-      });
-    }
-
-    try {
-      const network = await provider.getNetwork();
-      console.log('Network connection successful:');
-      console.log('- Chain ID:', network.chainId);
-      console.log('- Network name:', network.name);
-    } catch (error) {
-      console.error('Failed to connect to network:');
-      if (!isLocalNetwork) {
-        console.error('- URL:', SEPOLIA_RPC.substring(0, SEPOLIA_RPC.indexOf('?') !== -1 ? SEPOLIA_RPC.indexOf('?') : SEPOLIA_RPC.length));
-      }
-      console.error('- Error:', error.message);
-      throw new Error('Network connection failed');
-    }
-
     const [deployer] = await ethers.getSigners();
     console.log('\nDeployer information:');
     console.log('- Address:', deployer.address);
+    
+    const provider = await ethers.provider;
+    const network = await provider.getNetwork();
+    console.log('Network connection successful:');
+    console.log('- Chain ID:', network.chainId);
+    console.log('- Network name:', network.name);
+    
     const balance = await provider.getBalance(deployer.address);
     console.log('- ETH Balance:', ethers.formatEther(balance));
 
@@ -84,32 +57,56 @@ export async function main(address: string) {
     console.log('\nConnecting to Whitelist contract...');
     const whitelist = await ethers.getContractAt("IWhitelist", WHITELIST_ADDRESS);
 
+    // Verify contract code exists at address
+    const code = await provider.getCode(WHITELIST_ADDRESS);
+    if (code === '0x') {
+      throw new Error(`No contract found at address ${WHITELIST_ADDRESS}. Please deploy the contract first using:\nyarn hardhat deploy --tags Whitelist --network ${network}`);
+    }
+
     // Check if address is already whitelisted
     console.log('\nChecking current whitelist status...');
-    const currentStatus = await whitelist.isWhitelisted(address);
-    if (currentStatus) {
-      console.log('Address is already whitelisted');
-      return;
+    try {
+      const currentStatus = await whitelist.isWhitelisted(address);
+      if (currentStatus) {
+        console.log('Address is already whitelisted');
+        return;
+      }
+    } catch (error) {
+      console.error('\nError checking whitelist status:');
+      console.error('This could mean the contract is not properly initialized or the ABI does not match.');
+      console.error('Make sure you have deployed the Whitelist contract and the proxy is properly initialized.');
+      throw error;
     }
 
     // Whitelist the address
     console.log('\nWhitelisting address:', address);
-    const tx = await whitelist.addToWhitelist(address);
-    console.log('- Transaction hash:', tx.hash);
+    try {
+      const tx = await whitelist.addToWhitelist(address);
+      console.log('- Transaction hash:', tx.hash);
 
-    console.log('Waiting for confirmation...');
-    const receipt = await tx.wait();
-    console.log('Transaction confirmed!');
-    console.log('- Block number:', receipt.blockNumber);
-    console.log('- Gas used:', receipt.gasUsed.toString());
+      console.log('Waiting for confirmation...');
+      const receipt = await tx.wait();
+      console.log('Transaction confirmed!');
+      console.log('- Block number:', receipt.blockNumber);
+      console.log('- Gas used:', receipt.gasUsed.toString());
 
-    // Verify whitelist status
-    console.log('\nVerifying final whitelist status...');
-    const isWhitelisted = await whitelist.isWhitelisted(address);
-    console.log('- Whitelist status:', isWhitelisted ? ' Whitelisted' : ' Not whitelisted');
+      // Verify whitelist status
+      console.log('\nVerifying final whitelist status...');
+      const isWhitelisted = await whitelist.isWhitelisted(address);
+      console.log('- Whitelist status:', isWhitelisted ? ' Whitelisted' : ' Not whitelisted');
 
-    if (!isWhitelisted) {
-      throw new Error('Whitelist operation failed: Address is not whitelisted after transaction');
+      if (!isWhitelisted) {
+        throw new Error('Whitelist operation failed: Address is not whitelisted after transaction');
+      }
+    } catch (error) {
+      console.error('\nError during whitelist operation:');
+      if (error.message.includes('execution reverted')) {
+        console.error('Transaction reverted. Possible reasons:');
+        console.error('1. Caller does not have the required role');
+        console.error('2. Contract is paused');
+        console.error('3. Address is already whitelisted');
+      }
+      throw error;
     }
 
   } catch (error) {

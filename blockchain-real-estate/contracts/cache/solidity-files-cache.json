@@ -799,8 +799,8 @@
       ]
     },
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\contracts\\StakingRewardsV2.sol": {
-      "lastModificationDate": 1735924045123,
-      "contentHash": "af5253ffb678dfb81c01dda0fd911d44",
+      "lastModificationDate": 1736018250628,
+      "contentHash": "88c5acc82a324fb5d101e5e7d4fead45",
       "sourceName": "contracts/StakingRewardsV2.sol",
       "solcConfig": {
         "version": "0.8.21",
@@ -1334,8 +1334,8 @@
       ]
     },
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\contracts\\StakingFactory.sol": {
-      "lastModificationDate": 1735926498196,
-      "contentHash": "3d12c15a4f111fd39be1e2f4e3b2d811",
+      "lastModificationDate": 1736018250625,
+      "contentHash": "be8003a55e6973e82afd6b13cb4e9bfa",
       "sourceName": "contracts/StakingFactory.sol",
       "solcConfig": {
         "version": "0.8.21",
@@ -1566,8 +1566,8 @@
       ]
     },
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\contracts\\MockEURC.sol": {
-      "lastModificationDate": 1735924298350,
-      "contentHash": "8108c8896fb372025e2d380ad0df2e2a",
+      "lastModificationDate": 1736018250619,
+      "contentHash": "c8060da21339f2702a824a9f8b9f70cf",
       "sourceName": "contracts/MockEURC.sol",
       "solcConfig": {
         "version": "0.8.21",
@@ -1842,8 +1842,8 @@
       ]
     },
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\contracts\\PropertyToken.sol": {
-      "lastModificationDate": 1735926491485,
-      "contentHash": "b3c694c970a2c3f7ca5eacbd917d011f",
+      "lastModificationDate": 1736018250623,
+      "contentHash": "8d584c54863ae05479edb2c849c654ff",
       "sourceName": "contracts/PropertyToken.sol",
       "solcConfig": {
         "version": "0.8.21",
@@ -1893,8 +1893,8 @@
       ]
     },
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\contracts\\PropertyFactory.sol": {
-      "lastModificationDate": 1735926617694,
-      "contentHash": "5f0c0f6a605eef330a7f3623d7e4028c",
+      "lastModificationDate": 1736018250622,
+      "contentHash": "1f22952a6e1b3e5d5e9d608d5be7e2ca",
       "sourceName": "contracts/PropertyFactory.sol",
       "solcConfig": {
         "version": "0.8.21",
@@ -1943,8 +1943,8 @@
       ]
     },
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\contracts\\MockEURCUpgradeable.sol": {
-      "lastModificationDate": 1735923575275,
-      "contentHash": "de9e67877dcfacef4e3be0dc326f8e2a",
+      "lastModificationDate": 1736018250620,
+      "contentHash": "e765370d0c01ca3cbf4eb6cfc4bd4264",
       "sourceName": "contracts/MockEURCUpgradeable.sol",
       "solcConfig": {
         "version": "0.8.21",
