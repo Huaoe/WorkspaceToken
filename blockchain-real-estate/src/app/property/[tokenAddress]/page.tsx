@@ -57,13 +57,10 @@ export default function PropertyDetailsPage() {
 
       // Get contract owner and token holder
       try {
-        const contractOwner = await tokenContract.owner();
-        const factory = await getPropertyFactoryContract();
-        const currentTokenHolder = await factory.owner();
-        console.log('Contract owner:', contractOwner);
+        const currentTokenHolder = await tokenContract.tokenHolder();
         console.log('Token holder:', currentTokenHolder);
-        setOwner(contractOwner);
         setTokenHolder(currentTokenHolder);
+        setOwner(currentTokenHolder); // Token holder is effectively the owner
 
         // Get token holder's balance
         const holderBal = await tokenContract.balanceOf(currentTokenHolder);
