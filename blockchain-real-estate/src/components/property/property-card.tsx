@@ -67,7 +67,7 @@ export function PropertyCard({ property, showAdminControls }: PropertyCardProps)
 
   useEffect(() => {
     async function fetchPropertyData() {
-      if (!property.token_address) {
+      if (!property?.token_address) {
         setLoading(false);
         return;
       }
@@ -115,8 +115,10 @@ export function PropertyCard({ property, showAdminControls }: PropertyCardProps)
       }
     }
 
-    fetchPropertyData();
-  }, [property.token_address]);
+    if (property) {
+      fetchPropertyData();
+    }
+  }, [property]);
 
   const calculateProgress = useCallback((soldTokens: bigint, totalSupply: bigint) => {
     const soldTokensNum = Number(formatUnits(soldTokens, 18));
@@ -127,7 +129,7 @@ export function PropertyCard({ property, showAdminControls }: PropertyCardProps)
   }, []);
 
   const handlePurchaseClick = () => {
-    if (!property.token_address) {
+    if (!property?.token_address) {
       toast({
         title: "Error",
         description: "Property token not yet created",
@@ -139,7 +141,7 @@ export function PropertyCard({ property, showAdminControls }: PropertyCardProps)
   };
 
   const handleStakeClick = () => {
-    if (!property.token_address) {
+    if (!property?.token_address) {
       toast({
         title: "Error",
         description: "Property token not yet created",
@@ -168,8 +170,8 @@ export function PropertyCard({ property, showAdminControls }: PropertyCardProps)
     <Card className="w-full overflow-hidden">
       <div className="relative h-48">
         <Image
-          src={property.image_url || '/placeholder.jpg'}
-          alt={property.title}
+          src={property?.image_url || '/placeholder.jpg'}
+          alt={property?.title}
           fill
           className="object-cover"
         />
@@ -177,18 +179,18 @@ export function PropertyCard({ property, showAdminControls }: PropertyCardProps)
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle>{property.title}</CardTitle>
-            <CardDescription>{property.location}</CardDescription>
+            <CardTitle>{property?.title}</CardTitle>
+            <CardDescription>{property?.location}</CardDescription>
           </div>
           <div className="px-2 py-1 text-xs font-semibold rounded bg-primary/10 text-primary">
-            {property.status}
+            {property?.status}
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground line-clamp-2">
-            {property.description}
+            {property?.description}
           </p>
           
           {onChainData && (
@@ -219,7 +221,7 @@ export function PropertyCard({ property, showAdminControls }: PropertyCardProps)
             </>
           )}
 
-          {property.staking_contract_address && (
+          {property?.staking_contract_address && (
             <div className="pt-2 space-y-2 border-t">
               <div className="flex justify-between items-center text-sm">
                 <span>Staking Reward Rate:</span>
@@ -248,20 +250,20 @@ export function PropertyCard({ property, showAdminControls }: PropertyCardProps)
         </div>
 
         <div className="flex gap-2">
-          {property.status === 'funding' && (
+          {property?.status === 'funding' && (
             <Button 
               className="flex-1" 
               onClick={handlePurchaseClick}
-              disabled={!property.token_address}
+              disabled={!property?.token_address}
             >
               Purchase Tokens
             </Button>
           )}
-          {property.status === 'staking' && (
+          {property?.status === 'staking' && (
             <Button 
               className="flex-1" 
               onClick={handleStakeClick}
-              disabled={!property.staking_contract_address}
+              disabled={!property?.staking_contract_address}
             >
               Stake Tokens
             </Button>
@@ -269,7 +271,7 @@ export function PropertyCard({ property, showAdminControls }: PropertyCardProps)
           {showAdminControls && (
             <Button 
               variant="outline" 
-              onClick={() => router.push(`/admin/requests/${property.id}`)}
+              onClick={() => router.push(`/admin/requests/${property?.id}`)}
             >
               Manage
             </Button>
