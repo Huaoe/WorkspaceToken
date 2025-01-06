@@ -2,11 +2,15 @@ import { ethers, upgrades, network } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
 import dotenv from "dotenv";
-import { Contract } from "ethers";
 
 // Load environment variables based on network
-const envPath = path.join(process.cwd(), '.env');
-const envLocalPath = path.join(process.cwd(), '.env.local');
+const rootDir = path.resolve(__dirname, '../../');
+const envPath = path.join(rootDir, '.env');
+const envLocalPath = path.join(rootDir, '.env.local');
+
+console.log('Root directory:', rootDir);
+console.log('Env path:', envPath);
+console.log('Env local path:', envLocalPath);
 
 // Load environment variables
 dotenv.config();
@@ -49,19 +53,26 @@ async function getExistingAddresses() {
 }
 
 function updateEnvFile(envPath: string, newValues: { [key: string]: string }) {
+  console.log(`\nUpdating environment file: ${envPath}`);
+  
   // Read existing content
   let content = '';
   if (fs.existsSync(envPath)) {
     content = fs.readFileSync(envPath, 'utf8');
+    console.log('Existing file found');
+  } else {
+    console.log('Creating new file');
   }
 
   // Parse existing content
   const envVars: { [key: string]: string } = {};
   content.split('\n').forEach(line => {
-    if (line.includes('=')) {
-      const [key, value] = line.split('=').map(part => part.trim());
-      if (key && !key.startsWith('#')) {
-        envVars[key] = value;
+    const trimmedLine = line.trim();
+    if (trimmedLine && !trimmedLine.startsWith('#') && trimmedLine.includes('=')) {
+      const [key, ...valueParts] = trimmedLine.split('=');
+      const value = valueParts.join('='); // Handle values that might contain '='
+      if (key) {
+        envVars[key.trim()] = value.trim();
       }
     }
   });
@@ -69,66 +80,28 @@ function updateEnvFile(envPath: string, newValues: { [key: string]: string }) {
   // Merge new values
   Object.assign(envVars, newValues);
 
-  // Create sections
-  const sections = {
-    network: ['NETWORK'],
-    rpc: ['SEPOLIA_RPC_URL', 'PRIVATE_KEY', 'ETHERSCAN_API_KEY'],
-    whitelist: ['WHITELIST_PROXY_ADDRESS', 'WHITELIST_IMPLEMENTATION_ADDRESS', 'WHITELIST_ADMIN_ADDRESS'],
-    propertyToken: ['PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS'],
-    propertyFactory: ['PROPERTY_FACTORY_PROXY_ADDRESS', 'PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS', 'PROPERTY_FACTORY_ADMIN_ADDRESS'],
-    eurc: ['EURC_TOKEN_ADDRESS'],
-    stakingFactory: ['STAKING_FACTORY_ADDRESS', 'STAKING_FACTORY_IMPLEMENTATION_ADDRESS', 'STAKING_FACTORY_ADMIN_ADDRESS']
-  };
-
-  // Build new content
+  // Create new content
   let newContent = '# Environment Variables\n\n';
 
-  // Add network-specific sections
-  const isLocal = network.name === 'localhost' || network.name === 'hardhat';
-  const prefix = isLocal ? 'NEXT_PUBLIC_' : '';
+  // Add all variables
+  Object.entries(envVars).forEach(([key, value]) => {
+    newContent += `${key}=${value}\n`;
+  });
 
-  if (!isLocal) {
-    // Only include RPC section for non-local networks
-    newContent += '# Network Configuration\n';
-    sections.rpc.forEach(key => {
-      if (envVars[key]) {
-        newContent += `${key}=${envVars[key]}\n`;
-      }
-    });
-    newContent += '\n';
+  // Ensure directory exists
+  const dir = path.dirname(envPath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
 
-  // Add network info
-  newContent += '# Deployment Network\n';
-  sections.network.forEach(key => {
-    if (envVars[key]) {
-      newContent += `${key}=${envVars[key]}\n`;
-    }
-  });
-  newContent += '\n';
-
-  // Add contract sections
-  const sectionTitles = {
-    whitelist: 'Whitelist Contract',
-    propertyToken: 'Property Token Contract',
-    propertyFactory: 'Property Factory Contract',
-    eurc: 'EURC Token Contract',
-    stakingFactory: 'Staking Factory Contract'
-  };
-
-  Object.entries(sectionTitles).forEach(([section, title]) => {
-    newContent += `# ${title}\n`;
-    sections[section].forEach(key => {
-      if (envVars[key]) {
-        newContent += `${prefix}${key}=${envVars[key]}\n`;
-      }
-    });
-    newContent += '\n';
-  });
-
   // Write to file
-  fs.writeFileSync(envPath, newContent.trim() + '\n');
-  console.log(`Updated ${envPath}`);
+  try {
+    fs.writeFileSync(envPath, newContent);
+    console.log(`Successfully updated ${envPath}`);
+  } catch (error) {
+    console.error(`Error writing to ${envPath}:`, error);
+    throw error;
+  }
 }
 
 async function hasCodeChanged(contractName: string, existingAddress: string) {
@@ -136,132 +109,55 @@ async function hasCodeChanged(contractName: string, existingAddress: string) {
   
   try {
     const provider = ethers.provider;
-    const deployedBytecode = await provider.getCode(existingAddress);
-    const factory = await ethers.getContractFactory(contractName);
-    const newBytecode = factory.bytecode;
-    
-    return deployedBytecode !== newBytecode;
+    const code = await provider.getCode(existingAddress);
+    return code === '0x' || code === '0x0';
   } catch (error) {
-    console.log(`Error checking bytecode for ${contractName}:`, error);
+    console.error(`Error checking code for ${contractName}:`, error);
     return true;
   }
 }
 
 async function deployOrGetWhitelist(deployer: any, existingAddress: string) {
-  if (existingAddress && !(await hasCodeChanged("Whitelist", existingAddress))) {
-    console.log("Whitelist contract hasn't changed, using existing deployment at:", existingAddress);
-    return ethers.getContractAt("Whitelist", existingAddress);
-  }
+  if (!existingAddress || await hasCodeChanged("Whitelist", existingAddress)) {
+    console.log("\nDeploying new Whitelist...");
+    
+    // Get current gas prices
+    const feeData = await ethers.provider.getFeeData();
+    console.log("Gas settings:");
+    console.log(`- Max fee per gas: ${ethers.formatUnits(feeData.maxFeePerGas || 0, "gwei")} gwei`);
+    console.log(`- Max priority fee: ${ethers.formatUnits(feeData.maxPriorityFeePerGas || 0, "gwei")} gwei`);
 
-  console.log("\nDeploying new Whitelist...");
-  const Whitelist = await ethers.getContractFactory("Whitelist");
-
-  // Get current gas price and optimize it
-  const feeData = await ethers.provider.getFeeData();
-  const maxFeePerGas = feeData.maxFeePerGas || BigInt(50_000_000_000); // 50 gwei default
-  const maxPriorityFeePerGas = BigInt(2_000_000_000); // 2 gwei
-
-  console.log("Gas settings:");
-  console.log("- Max fee per gas:", ethers.formatUnits(maxFeePerGas, "gwei"), "gwei");
-  console.log("- Max priority fee:", ethers.formatUnits(maxPriorityFeePerGas, "gwei"), "gwei");
-
-  // Deploy with EIP-1559 gas settings
-  const whitelist = await upgrades.deployProxy(
-    Whitelist,
-    [deployer.address],
-    {
-      initializer: 'initialize',
-      kind: 'transparent',
-      initialOwner: deployer.address,
-      timeout: 0,
-      pollingInterval: 5000,
-      txOverrides: {
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-        gasLimit: 2000000
-      }
-    }
-  );
-
-  console.log("Waiting for deployment...");
-  await whitelist.waitForDeployment();
-  const deployedAddress = await whitelist.getAddress();
-  console.log("Whitelist deployed to:", deployedAddress);
-  
-  return whitelist;
-}
-
-async function deployContract(contractName: string, ...args: any[]) {
-  const contractConfigs: { [key: string]: ContractConfig } = {
-    Whitelist: {
-      envKeyPrefix: "WHITELIST",
-      constructorArgs: () => [args[0]],
-      initialize: true,
-      verify: true
-    },
-    PropertyToken: {
-      envKeyPrefix: "PROPERTY_TOKEN",
-      constructorArgs: () => [],
-      initialize: false,
-      verify: true
-    },
-    PropertyFactory: {
-      envKeyPrefix: "PROPERTY_FACTORY",
-      constructorArgs: (propertyTokenImplAddress: string, eurcTokenAddress: string, deployerAddress: string, treasuryAddress: string, whitelistAddress: string) => [
-        propertyTokenImplAddress,
-        "PT",
-        eurcTokenAddress,
-        deployerAddress,
-        treasuryAddress,
-        whitelistAddress,
-      ],
-      initialize: true,
-      verify: true
-    },
-    StakingFactory: {
-      envKeyPrefix: "STAKING_FACTORY",
-      constructorArgs: (eurcTokenAddress: string, propertyFactoryAddress: string) => [eurcTokenAddress, propertyFactoryAddress],
-      initialize: true,
-      verify: true
-    },
-  };
-
-  const contractConfig = contractConfigs[contractName];
-  if (!contractConfig) {
-    throw new Error(`Unknown contract: ${contractName}`);
-  }
-
-  let constructorArgs = contractConfig.constructorArgs(...args);
-
-  // Special handling for StakingFactory
-  if (contractName === "StakingFactory") {
-    const eurcTokenAddress = args[0];
-    const propertyFactoryAddress = args[1];
-    if (!eurcTokenAddress || !ethers.isAddress(eurcTokenAddress)) {
-      throw new Error("Invalid or missing EURC token address for StakingFactory deployment");
-    }
-    if (!propertyFactoryAddress || !ethers.isAddress(propertyFactoryAddress)) {
-      throw new Error("Invalid or missing PropertyFactory address for StakingFactory deployment");
-    }
-    constructorArgs = contractConfig.constructorArgs(eurcTokenAddress, propertyFactoryAddress);
-  }
-
-  console.log(`\nDeploying ${contractName}...`);
-  const Contract = await ethers.getContractFactory(contractName);
-  let contract;
-  if (contractConfig.initialize) {
-    contract = await upgrades.deployProxy(
-      Contract,
-      constructorArgs,
+    // Deploy with proper gas settings
+    const Whitelist = await ethers.getContractFactory("Whitelist");
+    const whitelist = await upgrades.deployProxy(
+      Whitelist,
+      [deployer.address], // Pass deployer address as the initial owner
       {
         initializer: 'initialize',
         kind: 'transparent',
-        initialOwner: args[0]
+        initialOwner: deployer.address,
+        timeout: 0,
+        pollingInterval: 5000,
+        useDeployedImplementation: false,
+        txOverrides: {
+          maxFeePerGas: feeData.maxFeePerGas,
+          maxPriorityFeePerGas: feeData.maxPriorityFeePerGas
+        }
       }
     );
+
+    await whitelist.waitForDeployment();
+    console.log("Whitelist deployed to:", await whitelist.getAddress());
+    return whitelist;
   } else {
-    contract = await Contract.deploy(...constructorArgs);
+    console.log("\nUsing existing Whitelist at:", existingAddress);
+    return await ethers.getContractAt("Whitelist", existingAddress);
   }
+}
+
+async function deployContract(contractName: string, ...args: any[]) {
+  const Contract = await ethers.getContractFactory(contractName);
+  const contract = await Contract.deploy(...args);
   await contract.waitForDeployment();
   return contract;
 }
@@ -292,6 +188,20 @@ async function main() {
     ? new ethers.Wallet(formattedPrivateKey, provider)
     : defaultSigner;
 
+  // Get current gas prices
+  const feeData = await provider.getFeeData();
+  const maxFeePerGas = feeData.maxFeePerGas || ethers.parseUnits("30", "gwei");
+  const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas || ethers.parseUnits("1.5", "gwei");
+
+  // Ensure maxPriorityFeePerGas is not greater than maxFeePerGas
+  const adjustedMaxPriorityFeePerGas = BigInt(maxPriorityFeePerGas) > BigInt(maxFeePerGas)
+    ? BigInt(maxFeePerGas) - BigInt(ethers.parseUnits("0.1", "gwei"))
+    : BigInt(maxPriorityFeePerGas);
+
+  console.log("\nGas settings:");
+  console.log(`- Max fee per gas: ${ethers.formatUnits(maxFeePerGas, "gwei")} gwei`);
+  console.log(`- Max priority fee: ${ethers.formatUnits(adjustedMaxPriorityFeePerGas, "gwei")} gwei`);
+
   // Validate environment variables for Sepolia
   if (networkName === 'sepolia') {
     if (!process.env.SEPOLIA_RPC_URL) {
@@ -311,15 +221,9 @@ async function main() {
     console.log(`Deployer balance: ${balanceInEth} ETH`);
     console.log(`Deployer balance (wei): ${balance.toString()}`);
 
-    // Get gas price
-    const gasPrice = await provider.getFeeData();
-    console.log(`Current gas price: ${ethers.formatUnits(gasPrice.gasPrice || 0, "gwei")} gwei`);
-    console.log(`Max fee per gas: ${ethers.formatUnits(gasPrice.maxFeePerGas || 0, "gwei")} gwei`);
-    console.log(`Max priority fee: ${ethers.formatUnits(gasPrice.maxPriorityFeePerGas || 0, "gwei")} gwei`);
-
     // Estimate deployment cost
     const gasLimit = 2000000;
-    const estimatedCost = gasLimit * Number(gasPrice.gasPrice);
+    const estimatedCost = gasLimit * Number(maxFeePerGas);
     console.log(`Estimated deployment cost: ${ethers.formatEther(estimatedCost.toString())} ETH`);
     console.log(`Available balance: ${balanceInEth} ETH`);
 
@@ -337,7 +241,7 @@ async function main() {
   // Get existing addresses
   const existingAddresses = await getExistingAddresses();
 
-  // Deploy or get Whitelist
+  // Deploy or get Whitelist with proper gas settings
   const whitelist = await deployOrGetWhitelist(
     deployer, 
     existingAddresses.WHITELIST_PROXY_ADDRESS
@@ -357,7 +261,11 @@ async function main() {
   const isWhitelisted = await whitelist.isWhitelisted(deployer.address);
   if (!isWhitelisted) {
     console.log("\nAdding deployer to whitelist...");
-    await whitelist.addToWhitelist(deployer.address);
+    const tx = await whitelist.addToWhitelist(deployer.address, {
+      maxFeePerGas,
+      maxPriorityFeePerGas: adjustedMaxPriorityFeePerGas
+    });
+    await tx.wait();
     console.log("Deployer added to whitelist");
   } else {
     console.log("\nDeployer is already whitelisted");
@@ -368,7 +276,13 @@ async function main() {
   if (!eurcAddress || await hasCodeChanged("MockEURC", eurcAddress)) {
     console.log("\nDeploying new MockEURC...");
     const MockEURC = await ethers.getContractFactory("MockEURC");
-    const mockEURC = await MockEURC.deploy(deployer.address);
+    const mockEURC = await MockEURC.deploy(
+      deployer.address,
+      {
+        maxFeePerGas,
+        maxPriorityFeePerGas: adjustedMaxPriorityFeePerGas
+      }
+    );
     await mockEURC.waitForDeployment();
     eurcAddress = await mockEURC.getAddress();
     console.log("MockEURC deployed to:", eurcAddress);
@@ -381,7 +295,10 @@ async function main() {
   if (!propertyTokenImplAddress || await hasCodeChanged("PropertyToken", propertyTokenImplAddress)) {
     console.log("\nDeploying new PropertyToken implementation...");
     const PropertyToken = await ethers.getContractFactory("PropertyToken");
-    const propertyTokenImpl = await PropertyToken.deploy();
+    const propertyTokenImpl = await PropertyToken.deploy({
+      maxFeePerGas,
+      maxPriorityFeePerGas: adjustedMaxPriorityFeePerGas
+    });
     await propertyTokenImpl.waitForDeployment();
     propertyTokenImplAddress = await propertyTokenImpl.getAddress();
     console.log("PropertyToken implementation deployed to:", propertyTokenImplAddress);
@@ -406,7 +323,11 @@ async function main() {
       {
         initializer: 'initialize',
         kind: 'transparent',
-        initialOwner: deployer.address
+        initialOwner: deployer.address,
+        txOverrides: {
+          maxFeePerGas,
+          maxPriorityFeePerGas: adjustedMaxPriorityFeePerGas
+        }
       }
     );
   } else {
@@ -417,14 +338,22 @@ async function main() {
     const currentWhitelist = await propertyFactory.whitelistContract();
     if (currentWhitelist.toLowerCase() !== whitelistAddress.toLowerCase()) {
       console.log("Updating whitelist address in PropertyFactory...");
-      await propertyFactory.setWhitelistContract(whitelistAddress);
+      const tx = await propertyFactory.setWhitelistContract(whitelistAddress, {
+        maxFeePerGas,
+        maxPriorityFeePerGas: adjustedMaxPriorityFeePerGas
+      });
+      await tx.wait();
     }
 
     // Update validator if needed
     const currentValidator = await propertyFactory.validator();
     if (currentValidator.toLowerCase() !== deployer.address.toLowerCase()) {
       console.log("Updating validator address in PropertyFactory...");
-      await propertyFactory.setValidator(deployer.address);
+      const tx = await propertyFactory.setValidator(deployer.address, {
+        maxFeePerGas,
+        maxPriorityFeePerGas: adjustedMaxPriorityFeePerGas
+      });
+      await tx.wait();
     }
   }
 
@@ -439,9 +368,8 @@ async function main() {
   console.log("- Proxy:", propertyFactoryAddress);
   console.log("- Implementation:", propertyFactoryImplAddress);
   console.log("- Admin:", propertyFactoryAdminAddress);
-  console.log("- Admin:", propertyFactoryAdminAddress);
 
-  // Deploy StakingFactory
+  // Deploy StakingFactory with proper gas settings
   console.log("\nDeploying StakingFactory...");
   const StakingFactory = await ethers.getContractFactory("StakingFactory");
   const stakingFactory = await upgrades.deployProxy(
@@ -450,7 +378,11 @@ async function main() {
     {
       initializer: 'initialize',
       kind: 'transparent',
-      initialOwner: deployer.address
+      initialOwner: deployer.address,
+      txOverrides: {
+        maxFeePerGas,
+        maxPriorityFeePerGas: adjustedMaxPriorityFeePerGas
+      }
     }
   );
 
@@ -464,60 +396,24 @@ async function main() {
   console.log("- Implementation:", stakingFactoryImplAddress);
   console.log("- Admin:", stakingFactoryAdminAddress);
 
-  // Update environment file based on network
+  // Update environment file
+  const prefix = isLocal ? 'NEXT_PUBLIC_' : '';
   const addresses = {
-    // Network info
-    NETWORK: networkName,
-    
-    // Contract addresses (prefix will be added in updateEnvFile)
-    WHITELIST_PROXY_ADDRESS: whitelistAddress,
-    WHITELIST_IMPLEMENTATION_ADDRESS: whitelistImplAddress,
-    WHITELIST_ADMIN_ADDRESS: whitelistAdminAddress,
-    
-    PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS: propertyTokenImplAddress,
-    
-    PROPERTY_FACTORY_PROXY_ADDRESS: propertyFactoryAddress,
-    PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS: propertyFactoryImplAddress,
-    PROPERTY_FACTORY_ADMIN_ADDRESS: propertyFactoryAdminAddress,
-    
-    EURC_TOKEN_ADDRESS: eurcAddress,
-    
-    STAKING_FACTORY_ADDRESS: stakingFactoryAddress,
-    STAKING_FACTORY_IMPLEMENTATION_ADDRESS: stakingFactoryImplAddress,
-    STAKING_FACTORY_ADMIN_ADDRESS: stakingFactoryAdminAddress
+    [`${prefix}WHITELIST_PROXY_ADDRESS`]: whitelistAddress,
+    [`${prefix}WHITELIST_IMPLEMENTATION_ADDRESS`]: whitelistImplAddress,
+    [`${prefix}WHITELIST_ADMIN_ADDRESS`]: whitelistAdminAddress,
+    [`${prefix}PROPERTY_TOKEN_IMPLEMENTATION_ADDRESS`]: propertyTokenImplAddress,
+    [`${prefix}PROPERTY_FACTORY_PROXY_ADDRESS`]: propertyFactoryAddress,
+    [`${prefix}PROPERTY_FACTORY_IMPLEMENTATION_ADDRESS`]: propertyFactoryImplAddress,
+    [`${prefix}PROPERTY_FACTORY_ADMIN_ADDRESS`]: propertyFactoryAdminAddress,
+    [`${prefix}EURC_TOKEN_ADDRESS`]: eurcAddress,
+    [`${prefix}STAKING_FACTORY_ADDRESS`]: stakingFactoryAddress,
+    [`${prefix}STAKING_FACTORY_IMPLEMENTATION_ADDRESS`]: stakingFactoryImplAddress,
+    [`${prefix}STAKING_FACTORY_ADMIN_ADDRESS`]: stakingFactoryAdminAddress
   };
 
-  // Update the appropriate env file
   updateEnvFile(targetEnvPath, addresses);
-  console.log(`\nUpdated environment variables in ${targetEnvPath}`);
-
-  console.log(`\nDeployment completed on network: ${networkName}`);
-  console.log("\nContract Addresses:");
-  console.log(`Network: ${networkName}`);
-  console.log("\nWhitelist Addresses:");
-  console.log("- Proxy:", whitelistAddress);
-  console.log("- Implementation:", whitelistImplAddress);
-  console.log("- Admin:", whitelistAdminAddress);
-  console.log("\nPropertyFactory Addresses:");
-  console.log("- Proxy:", propertyFactoryAddress);
-  console.log("- Implementation:", propertyFactoryImplAddress);
-  console.log("- Admin:", propertyFactoryAdminAddress);
-  console.log("\nStakingFactory Addresses:");
-  console.log("- Proxy:", stakingFactoryAddress);
-  console.log("- Implementation:", stakingFactoryImplAddress);
-  console.log("- Admin:", stakingFactoryAdminAddress);
-
-  // If on Sepolia, wait for deployment confirmation
-  if (networkName === 'sepolia') {
-    console.log("\nWaiting for deployments to be confirmed on Sepolia...");
-    // Wait for additional block confirmations on Sepolia
-    await Promise.all([
-      whitelist.deployTransaction?.wait(3),
-      propertyFactory.deployTransaction?.wait(3),
-      stakingFactory.deployTransaction?.wait(3)
-    ]);
-    console.log("All deployments confirmed!");
-  }
+  console.log("\nEnvironment file updated successfully!");
 }
 
 main()
@@ -526,8 +422,4 @@ main()
     console.error("Error in deployment:");
     console.error(error);
     process.exit(1);
-  });
-
-  });
-
   });
