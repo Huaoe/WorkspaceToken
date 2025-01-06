@@ -247,11 +247,9 @@ const config: HardhatUserConfig = {
       url: "http://127.0.0.1:8545",
     },
     sepolia: {
-      url: process.env.SEPOLIA_RPC_URL || "https://1rpc.io/sepolia",
+      url: process.env.SEPOLIA_RPC_URL || "https://eth-sepolia.g.alchemy.com/v2/demo",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 11155111,
-      maxFeePerGas: "auto",
-      maxPriorityFeePerGas: 2_000_000_000, // 2 gwei
       timeout: 60000,
       httpHeaders: {
         'Accept': '*/*',
@@ -264,6 +262,9 @@ const config: HardhatUserConfig = {
         }
       }
     }
+  },
+  sourcify: {
+    enabled: true
   },
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY || "",
@@ -284,7 +285,6 @@ const config: HardhatUserConfig = {
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts",
-    typechain: './typechain-types'
   },
   typechain: {
     outDir: 'typechain-types',
