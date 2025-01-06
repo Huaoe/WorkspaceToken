@@ -85,13 +85,12 @@ describe("MockEURC Distribution", function () {
 
   describe("Permissions", function () {
     it("Should not allow transfers exceeding balance", async function () {
-      const { mockEURC, addr1, addr2 } = await loadFixture(deployMockEURCFixture);
-
-      // Try to transfer without any balance
-      const transferAmount = ethers.parseUnits("100", 6);
-      await expect(
-        mockEURC.connect(addr1).transfer(addr2.address, transferAmount)
-      ).to.be.revertedWithCustomError(mockEURC, "ERC20InsufficientBalance");
+      const { mockEURC, owner, addr1, addr2 } = await loadFixture(deployMockEURCFixture);
+      
+      // Try to transfer from addr1 who has 0 balance
+      const amount = ethers.parseUnits("1000", 6);
+      await expect(mockEURC.connect(addr1).transfer(addr2.address, amount))
+        .to.be.revertedWith("ERC20: transfer amount exceeds balance");
     });
 
     it("Should allow approved transfers", async function () {

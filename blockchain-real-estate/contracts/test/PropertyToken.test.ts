@@ -165,9 +165,8 @@ describe("PropertyToken", function () {
 
     it("Should not allow non-owner to update property status", async function () {
       const { propertyToken, buyer1 } = await loadFixture(deployTokenFixture);
-      await expect(propertyToken.connect(buyer1).updatePropertyStatus(false))
-        .to.be.revertedWithCustomError(propertyToken, "OwnableUnauthorizedAccount")
-        .withArgs(buyer1.address);
+      await expect(propertyToken.connect(buyer1).updatePropertyStatus(true))
+        .to.be.revertedWith("Ownable: caller is not the owner");
     });
   });
 });

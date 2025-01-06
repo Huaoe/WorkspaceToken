@@ -9,7 +9,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -32,7 +32,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -52,7 +52,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -75,7 +75,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -95,7 +95,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -118,7 +118,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -138,7 +138,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -161,7 +161,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -181,7 +181,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -204,7 +204,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -217,14 +217,14 @@
       ]
     },
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\contracts\\interfaces\\IWhitelist.sol": {
-      "lastModificationDate": 1735835708543,
+      "lastModificationDate": 1736018250631,
       "contentHash": "ec07e3001b520fa11bbee281966067a7",
       "sourceName": "contracts/interfaces/IWhitelist.sol",
       "solcConfig": {
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -247,7 +247,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -260,14 +260,14 @@
       ]
     },
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\contracts\\Whitelist.sol": {
-      "lastModificationDate": 1735926544242,
+      "lastModificationDate": 1736018250630,
       "contentHash": "08b29972779676096e6204230ea5c738",
       "sourceName": "contracts/Whitelist.sol",
       "solcConfig": {
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -290,7 +290,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -315,7 +315,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -338,7 +338,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -358,7 +358,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -381,7 +381,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -404,7 +404,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -427,7 +427,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -449,7 +449,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -472,7 +472,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -494,7 +494,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -517,7 +517,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -537,7 +537,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -560,7 +560,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -587,7 +587,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -610,7 +610,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -630,7 +630,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -653,7 +653,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -673,7 +673,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -696,7 +696,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -716,7 +716,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -739,7 +739,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -759,7 +759,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -782,7 +782,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -806,7 +806,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -829,7 +829,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -855,7 +855,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -878,7 +878,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -898,7 +898,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -921,7 +921,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -945,7 +945,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -968,7 +968,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -988,7 +988,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1011,7 +1011,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1031,7 +1031,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1054,7 +1054,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1080,7 +1080,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1103,7 +1103,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1123,7 +1123,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1146,7 +1146,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1166,7 +1166,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1189,7 +1189,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1209,7 +1209,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1232,7 +1232,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1252,7 +1252,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1275,7 +1275,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1298,7 +1298,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1321,7 +1321,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1341,7 +1341,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1364,7 +1364,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1393,7 +1393,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1416,7 +1416,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1438,7 +1438,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1461,7 +1461,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1485,7 +1485,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1508,7 +1508,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1528,7 +1528,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1551,7 +1551,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1573,7 +1573,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1596,7 +1596,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1612,14 +1612,14 @@
       ]
     },
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\contracts\\test\\MockERC20.sol": {
-      "lastModificationDate": 1735835708544,
+      "lastModificationDate": 1736018250633,
       "contentHash": "207020d06efb81278abb1328abb98514",
       "sourceName": "contracts/test/MockERC20.sol",
       "solcConfig": {
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1642,7 +1642,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1657,14 +1657,14 @@
       ]
     },
     "C:\\Users\\thoma\\Desktop\\WorkspacesToken\\blockchain-real-estate\\contracts\\contracts\\StakingRewards.sol": {
-      "lastModificationDate": 1735926556299,
+      "lastModificationDate": 1736018250626,
       "contentHash": "d5130077cd2996b20387ba618d6e3b0a",
       "sourceName": "contracts/StakingRewards.sol",
       "solcConfig": {
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1687,7 +1687,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1713,7 +1713,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1736,7 +1736,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1761,7 +1761,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1784,7 +1784,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1804,7 +1804,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1827,7 +1827,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1849,7 +1849,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1872,7 +1872,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1900,7 +1900,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1923,7 +1923,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },
@@ -1950,7 +1950,7 @@
         "version": "0.8.21",
         "settings": {
           "optimizer": {
-            "enabled": true,
+            "enabled": false,
             "runs": 200
           },
           "evmVersion": "paris",
@@ -1973,7 +1973,7 @@
             }
           },
           "metadata": {
-            "useLiteralContent": true
+            "useLiteralContent": false
           }
         }
       },

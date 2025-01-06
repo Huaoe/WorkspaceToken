@@ -133,3 +133,29 @@ if (require.main === module) {
       process.exit(1);
     });
 }
+if (require.main === module) {
+  if (!process.argv[2]) {
+    console.error('Please provide an address as an argument');
+    process.exit(1);
+  }
+  
+  main(process.argv[2])
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}
+if (require.main === module) {
+  if (!process.argv[2]) {
+    console.error('Please provide an address as an argument');
+    process.exit(1);
+  }
+  
+  main(process.argv[2])
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}

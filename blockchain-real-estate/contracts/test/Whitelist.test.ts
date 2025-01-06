@@ -32,15 +32,13 @@ describe("Whitelist", function () {
     it("Should only allow owner to add addresses", async function () {
       const { whitelist, addr1, addr2 } = await loadFixture(deployWhitelistFixture);
       await expect(whitelist.connect(addr1).addToWhitelist(addr2.address))
-        .to.be.revertedWithCustomError(whitelist, "OwnableUnauthorizedAccount")
-        .withArgs(addr1.address);
+        .to.be.revertedWith("Ownable: caller is not the owner");
     });
 
     it("Should only allow owner to remove addresses", async function () {
       const { whitelist, addr1, addr2 } = await loadFixture(deployWhitelistFixture);
       await expect(whitelist.connect(addr1).removeFromWhitelist(addr2.address))
-        .to.be.revertedWithCustomError(whitelist, "OwnableUnauthorizedAccount")
-        .withArgs(addr1.address);
+        .to.be.revertedWith("Ownable: caller is not the owner");
     });
   });
 
