@@ -157,14 +157,15 @@ async function deployOrGetWhitelist(deployer: any, existingAddress: string) {
   const Whitelist = await ethers.getContractFactory("Whitelist");
 
   // Get current gas price and optimize it
-  const gasPrice = await ethers.provider.getFeeData();
-  console.log("Current gas price:", ethers.formatUnits(gasPrice.gasPrice || 0, "gwei"), "gwei");
+  const feeData = await ethers.provider.getFeeData();
+  const maxFeePerGas = feeData.maxFeePerGas || BigInt(50_000_000_000); // 50 gwei default
+  const maxPriorityFeePerGas = BigInt(2_000_000_000); // 2 gwei
 
-  // Calculate optimal gas price (slightly above base fee)
-  const maxFeePerGas = gasPrice.maxFeePerGas || gasPrice.gasPrice;
-  const maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas;
-  
-  // Deploy with optimized gas settings
+  console.log("Gas settings:");
+  console.log("- Max fee per gas:", ethers.formatUnits(maxFeePerGas, "gwei"), "gwei");
+  console.log("- Max priority fee:", ethers.formatUnits(maxPriorityFeePerGas, "gwei"), "gwei");
+
+  // Deploy with EIP-1559 gas settings
   const whitelist = await upgrades.deployProxy(
     Whitelist,
     [deployer.address],
@@ -175,8 +176,9 @@ async function deployOrGetWhitelist(deployer: any, existingAddress: string) {
       timeout: 0,
       pollingInterval: 5000,
       txOverrides: {
-        gasLimit: 2000000,
-        gasPrice: 8000000000  // 8 gwei, matching network config
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+        gasLimit: 2000000
       }
     }
   );

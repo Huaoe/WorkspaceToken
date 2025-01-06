@@ -250,8 +250,8 @@ const config: HardhatUserConfig = {
       url: process.env.SEPOLIA_RPC_URL || "https://1rpc.io/sepolia",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 11155111,
-      gas: "auto",
-      gasPrice: "auto",
+      maxFeePerGas: "auto",
+      maxPriorityFeePerGas: 2_000_000_000, // 2 gwei
       timeout: 60000,
       httpHeaders: {
         'Accept': '*/*',
