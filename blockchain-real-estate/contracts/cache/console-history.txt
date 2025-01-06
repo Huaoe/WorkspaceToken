@@ -1,0 +1,13 @@
+const owner = await factory.owner();
+const factory = await ethers.getContractAt("PropertyFactory", "0x0Cb09357C43acD369C71589CD86024D2aA9CF06D");
+const eurcTokenAddress = await factory.eurcTokenAddress();
+console.log("Whitelist contract:", whitelistContract);
+const whitelistContract = await factory.whitelistContract();
+console.
+const validator = await factory.validator();
+// Check other important state variables
+console.log("Contract owner:", owner);
+const owner = await factory.owner();
+// Check if the contract is initialized
+const factory = await ethers.getContractAt("PropertyFactory", "0x0Cb09357C43acD369C71589CD86024D2aA9CF06D");
+// Get the contract instance

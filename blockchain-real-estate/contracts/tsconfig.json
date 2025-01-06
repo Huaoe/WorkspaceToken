@@ -25,6 +25,6 @@
     "./tasks",
     "./deploy",
     "./contracts"
-  ],
+, "proxy-args.js"  ],
   "files": ["hardhat.config.ts"]
 }
